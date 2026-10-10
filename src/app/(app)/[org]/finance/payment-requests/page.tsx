@@ -1,23 +1,28 @@
 import { Suspense } from "react";
 import Loading from "@/app/(app)/loading";
-import { PageHeading } from "@/components/page-heading";
-import { Card, CardContent } from "@/components/ui/card";
-import { requireOrgContext } from "@/server/context";
+import { FinanceList } from "@/components/finance/pages";
 
-async function Content({ params }: { params: Promise<{ org: string }> }) {
+type Props = {
+  params: Promise<{ org: string }>;
+  searchParams: Promise<{
+    projectId?: string;
+    requestId?: string;
+    type?: string;
+    currency?: string;
+  }>;
+};
+async function Content({ params, searchParams }: Props) {
   const { org } = await params;
-  await requireOrgContext(org);
+  const search = await searchParams;
   return (
-    <>
-      <PageHeading title="Payment requests" description="Coming soon" />
-      <Card>
-        <CardContent className="py-6">Coming soon</CardContent>
-      </Card>
-    </>
+    <FinanceList
+      org={org}
+      kind="payment-requests"
+      projectId={search.projectId}
+    />
   );
 }
-
-export default function Page(props: Parameters<typeof Content>[0]) {
+export default function Page(props: Props) {
   return (
     <Suspense fallback={<Loading />}>
       <Content {...props} />
