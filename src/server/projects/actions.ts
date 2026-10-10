@@ -19,7 +19,9 @@ import {
   requireProjectContext,
 } from "../context";
 import { db } from "../db";
+import { lockStockProjects } from "../inventory/service";
 import { nextDocumentNumber } from "../numbering";
+import { validateProjectCostRecognitionChange } from "../procurement/cost-recognition";
 import { storage } from "../storage";
 import { checkAvailability } from "./availability";
 import { attendanceCost } from "./costing";
@@ -168,7 +170,34 @@ export async function saveProjectAction(
         clientPartyId = customer.id;
         await audit(ctx, tx, "Party", customer.id, "CREATE");
       }
-      const fields = { ...input, clientPartyId, startDate, endDate };
+      const materialCostRecognition = z
+        .enum(["ON_RECEIPT", "ON_CONSUMPTION"])
+        .optional()
+        .parse(optional(data, "materialCostRecognition") ?? undefined);
+      let oldMode: "ON_RECEIPT" | "ON_CONSUMPTION" | undefined;
+      if (projectId && materialCostRecognition) {
+        if (
+          !ctx.isAdmin &&
+          !ctx.permissions.has("project.edit") &&
+          !ctx.permissions.has("project.manage")
+        )
+          assertPermission(ctx, "project.settings.manage");
+        await lockStockProjects(tx, ctx.org.id, [projectId]);
+        oldMode = await validateProjectCostRecognitionChange(
+          tx,
+          ctx.org.id,
+          projectId,
+          materialCostRecognition,
+          data.get("confirmCostRecognitionChange") === "on",
+        );
+      }
+      const fields = {
+        ...input,
+        clientPartyId,
+        startDate,
+        endDate,
+        ...(materialCostRecognition ? { materialCostRecognition } : {}),
+      };
       const row = projectId
         ? await tx.project.update({ where: { id: projectId }, data: fields })
         : await tx.project.create({
@@ -179,9 +208,65 @@ export async function saveProjectAction(
             },
           });
       await audit(ctx, tx, "Project", row.id, projectId ? "UPDATE" : "CREATE");
+      if (oldMode && oldMode !== row.materialCostRecognition)
+        await audit(
+          ctx,
+          tx,
+          "Project",
+          row.id,
+          "MATERIAL_COST_RECOGNITION_CHANGED",
+          {
+            oldValue: oldMode,
+            newValue: row.materialCostRecognition,
+            futureTransactionsOnly: true,
+          },
+        );
       return row;
     });
     return projectId ? undefined : `/${org}/projects/${saved.id}`;
+  });
+}
+export async function saveProjectCostRecognitionAction(
+  org: string,
+  projectId: string,
+  _: ActionState,
+  data: FormData,
+) {
+  return runAction(async () => {
+    const ctx = await requireProjectContext(org, projectId);
+    if (
+      !ctx.isAdmin &&
+      !ctx.permissions.has("project.edit") &&
+      !ctx.permissions.has("project.manage")
+    )
+      assertPermission(ctx, "project.settings.manage");
+    const newMode = z
+      .enum(["ON_RECEIPT", "ON_CONSUMPTION"])
+      .parse(data.get("materialCostRecognition"));
+    await db.$transaction(async (tx) => {
+      await lockStockProjects(tx, ctx.org.id, [projectId]);
+      const oldMode = await validateProjectCostRecognitionChange(
+        tx,
+        ctx.org.id,
+        projectId,
+        newMode,
+        data.get("confirmCostRecognitionChange") === "on",
+      );
+      if (oldMode === newMode) return;
+      await tx.project.update({
+        where: { id: projectId },
+        data: { materialCostRecognition: newMode },
+      });
+      await audit(
+        ctx,
+        tx,
+        "Project",
+        projectId,
+        "MATERIAL_COST_RECOGNITION_CHANGED",
+        { oldValue: oldMode, newValue: newMode, futureTransactionsOnly: true },
+      );
+    });
+    return undefined;
   });
 }
 export async function saveStageAction(

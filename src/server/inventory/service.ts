@@ -7,10 +7,10 @@ import { nextDocumentNumber } from "../numbering";
 import {
   convertUom,
   Decimal,
-  MATERIAL_COST_RECOGNITION,
-  money,
+  materialCostEffects,
   movingAverage,
 } from "../procurement/calculations";
+import { getProjectCostRecognition } from "../procurement/cost-recognition";
 import {
   domainAudit,
   lockDocument,
@@ -72,6 +72,7 @@ export async function recordConsumption(
 ) {
   await projectScope(tx, ctx, input.projectId, input.stageId, input.taskId);
   await lockStockProjects(tx, ctx.org.id, [input.projectId]);
+  const costRecognition = await getProjectCostRecognition(tx, input.projectId);
   const row = await tx.materialConsumption.create({
     data: {
       organizationId: ctx.org.id,
@@ -127,23 +128,29 @@ export async function recordConsumption(
         taskId: input.taskId,
       },
     });
-    const cost = await tx.costEntry.create({
-      data: {
-        organizationId: ctx.org.id,
-        projectId: input.projectId,
-        stageId: input.stageId,
-        taskId: input.taskId,
-        date: input.date,
-        costType: "MATERIAL",
-        amount: money(posting.totalCost.neg()),
-        description: `${row.code} · ${variant.name}`,
-        sourceType: "CONSUMPTION",
-        sourceId: saved.id,
-        createdById: ctx.user.id,
-      },
-    });
+    for (const effect of materialCostEffects({
+      event: "CONSUMPTION",
+      sourceMode: costRecognition,
+      value: posting.totalCost.neg(),
+    })) {
+      const cost = await tx.costEntry.create({
+        data: {
+          organizationId: ctx.org.id,
+          projectId: input.projectId,
+          stageId: input.stageId,
+          taskId: input.taskId,
+          date: input.date,
+          costType: "MATERIAL",
+          amount: effect.amount,
+          description: `${row.code} · ${variant.name}`,
+          sourceType: "CONSUMPTION",
+          sourceId: saved.id,
+          createdById: ctx.user.id,
+        },
+      });
+      await domainAudit(ctx, tx, "CostEntry", cost.id, "CREATE");
+    }
     await domainAudit(ctx, tx, "StockMovement", movement.id, "CREATE");
-    await domainAudit(ctx, tx, "CostEntry", cost.id, "CREATE");
   }
   await writeAudit(
     {
@@ -153,7 +160,7 @@ export async function recordConsumption(
       entityType: "MaterialConsumption",
       entityId: row.id,
       action: "CREATE",
-      changes: { costRecognition: MATERIAL_COST_RECOGNITION },
+      changes: { costRecognition },
     },
     tx,
   );

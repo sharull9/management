@@ -7,7 +7,13 @@ import {
   lockStockProjects,
   stockBalance,
 } from "../inventory/service";
-import { assertReceiptQuantity, Decimal, movingAverage } from "./calculations";
+import {
+  assertReceiptQuantity,
+  Decimal,
+  materialCostEffects,
+  movingAverage,
+} from "./calculations";
+import { getProjectCostRecognition } from "./cost-recognition";
 import { lockDocument } from "./service";
 
 export const documentKinds = {
@@ -159,6 +165,7 @@ async function approveReceipt(
     },
   });
   await lockStockProjects(tx, request.organizationId, [receipt.projectId]);
+  const sourceMode = await getProjectCostRecognition(tx, receipt.projectId);
   for (const line of receipt.lines) {
     const poLine = await tx.purchaseOrderLine.findFirstOrThrow({
       where: { id: line.poLineId, orderId: po.id },
@@ -214,6 +221,26 @@ async function approveReceipt(
         movement.id,
         "CREATE",
       );
+      for (const effect of materialCostEffects({
+        event: "GRN",
+        sourceMode,
+        value: posting.totalCost,
+      })) {
+        const cost = await tx.costEntry.create({
+          data: {
+            organizationId: request.organizationId,
+            projectId: receipt.projectId,
+            date: receipt.receivedDate,
+            costType: "MATERIAL",
+            amount: effect.amount,
+            description: `${receipt.code}: accepted materials`,
+            sourceType: "GRN",
+            sourceId: line.id,
+            createdById: actorId,
+          },
+        });
+        await auditEffect(tx, request, actorId, "CostEntry", cost.id, "CREATE");
+      }
     }
     await tx.purchaseOrderLine.update({
       where: { id: poLine.id },
@@ -259,6 +286,8 @@ async function approveTransfer(
     transfer.projectId,
     transfer.toProjectId,
   ]);
+  const sourceMode = await getProjectCostRecognition(tx, transfer.projectId);
+  const destMode = await getProjectCostRecognition(tx, transfer.toProjectId);
   for (const line of transfer.lines) {
     for (const projectId of [transfer.projectId, transfer.toProjectId])
       await assertStockDate(
@@ -300,6 +329,29 @@ async function approveTransfer(
         movement.id,
         "CREATE",
       );
+      const side = incoming ? "destination" : "source";
+      const effect = materialCostEffects({
+        event: "TRANSFER",
+        sourceMode,
+        destMode,
+        value: posting.totalCost.neg(),
+      }).find((effect) => effect.projectSide === side);
+      if (effect) {
+        const cost = await tx.costEntry.create({
+          data: {
+            organizationId: request.organizationId,
+            projectId: movement.projectId,
+            date: transfer.date,
+            costType: "MATERIAL",
+            amount: effect.amount,
+            description: `${transfer.code}: ${incoming ? "received" : "transferred"} materials`,
+            sourceType: "TRANSFER",
+            sourceId: movement.id,
+            createdById: actorId,
+          },
+        });
+        await auditEffect(tx, request, actorId, "CostEntry", cost.id, "CREATE");
+      }
     }
   }
 }

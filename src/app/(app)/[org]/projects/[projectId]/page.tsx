@@ -2,7 +2,11 @@ import Link from "next/link";
 import { Suspense } from "react";
 import Loading from "@/app/(app)/loading";
 import { FormCard } from "@/components/form-card";
-import { ProjectForm } from "@/components/project-forms";
+import {
+  MaterialCostRecognitionBadge,
+  ProjectCostRecognitionForm,
+  ProjectForm,
+} from "@/components/project-forms";
 import { DataTable } from "@/components/project-table";
 import { Progress } from "@/components/ui/progress";
 import { requireProjectContext } from "@/server/context";
@@ -67,6 +71,17 @@ async function Overview({
   const usage = budgetUsage(ctx.project.budgetAmount, spent);
   return (
     <>
+      <MaterialCostRecognitionBadge
+        mode={ctx.project.materialCostRecognition}
+      />
+      {ctx.permissions.has("project.settings.manage") &&
+        !ctx.isAdmin &&
+        !ctx.permissions.has("project.edit") &&
+        !ctx.permissions.has("project.manage") && (
+          <FormCard title="Material cost setting">
+            <ProjectCostRecognitionForm org={org} project={ctx.project} />
+          </FormCard>
+        )}
       {canCost && (
         <>
           <div className="grid gap-4 sm:grid-cols-3">

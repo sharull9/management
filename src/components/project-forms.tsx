@@ -7,12 +7,19 @@ import {
 } from "@/generated/prisma/enums";
 import {
   saveProjectAction,
+  saveProjectCostRecognitionAction,
   saveStageAction,
   saveTaskAction,
   saveWorkerAction,
 } from "@/server/projects/actions";
 import { ActionForm } from "./action-form";
 import { Field, SelectField } from "./fields";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
 
 export const dateValue = (date?: Date | null) =>
   date?.toISOString().slice(0, 10) ?? "";
@@ -127,6 +134,10 @@ export function ProjectForm({
           defaultValue={dateValue(project?.endDate)}
         />
       </div>
+      <MaterialCostRecognitionFields
+        mode={project?.materialCostRecognition}
+        existingProject={!!project}
+      />
       <details className="rounded-md border p-3">
         <summary className="cursor-pointer text-sm">Create a customer</summary>
         <a className="text-sm underline" href={`/${org}/masters/parties`}>
@@ -137,6 +148,84 @@ export function ProjectForm({
           <Field label="Customer legal name" name="customerLegalName" />
         </div>
       </details>
+    </ActionForm>
+  );
+}
+export function MaterialCostRecognitionBadge({
+  mode,
+}: {
+  mode: Project["materialCostRecognition"];
+}) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger className="inline-flex rounded-full border px-2.5 py-1 text-xs">
+          Material costs:{" "}
+          {mode === "ON_RECEIPT" ? "on receipt" : "on consumption"}
+        </TooltipTrigger>
+        <TooltipContent>
+          {mode === "ON_RECEIPT"
+            ? "Accepted GRNs recognize material costs. Transfers adjust costs; consumption only withdraws stock."
+            : "Material consumption recognizes costs at moving average. GRNs and transfers only move stock."}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+export function MaterialCostRecognitionFields({
+  mode = "ON_CONSUMPTION",
+  existingProject = false,
+}: {
+  mode?: Project["materialCostRecognition"];
+  existingProject?: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <SelectField
+        label="Material cost recognition"
+        name="materialCostRecognition"
+        defaultValue={mode}
+      >
+        <option value="ON_CONSUMPTION">On consumption</option>
+        <option value="ON_RECEIPT">On receipt</option>
+      </SelectField>
+      <p className="text-sm text-muted-foreground">
+        On receipt recognizes accepted GRNs and adjusts costs on transfers. On
+        consumption recognizes materials when used.
+      </p>
+      {existingProject && (
+        <>
+          <p className="text-sm text-amber-700">
+            Changes apply only to future transactions. Past cost entries are not
+            restated. Projects with any stock movement history require
+            confirmation, even if stock on hand is zero.
+          </p>
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" name="confirmCostRecognitionChange" />I
+            confirm this change applies only to future transactions and past
+            cost entries will not be restated.
+          </label>
+        </>
+      )}
+    </div>
+  );
+}
+export function ProjectCostRecognitionForm({
+  org,
+  project,
+}: {
+  org: string;
+  project: Project;
+}) {
+  return (
+    <ActionForm
+      action={saveProjectCostRecognitionAction.bind(null, org, project.id)}
+      submit="Save material cost setting"
+    >
+      <MaterialCostRecognitionFields
+        mode={project.materialCostRecognition}
+        existingProject
+      />
     </ActionForm>
   );
 }

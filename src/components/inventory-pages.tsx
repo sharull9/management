@@ -8,6 +8,7 @@ import { FormCard } from "./form-card";
 import { PageHeading } from "./page-heading";
 import { ProcurementForm } from "./procurement-form";
 import { formData } from "./procurement-pages";
+import { MaterialCostRecognitionBadge } from "./project-forms";
 export async function InventoryPage({
   org,
   kind,
@@ -39,8 +40,17 @@ export async function InventoryPage({
               ? "Stock on hand"
               : "Material consumption"
         }
-        description="Materials are costed when consumed. GRNs add inventory value; transfers preserve value."
+        description="Material cost recognition follows each project's setting. Stock uses moving average valuation."
       />
+      {kind === "materials" &&
+        d.projects
+          .filter((p) => p.id === projectId)
+          .map((p) => (
+            <MaterialCostRecognitionBadge
+              key={p.id}
+              mode={p.materialCostRecognition}
+            />
+          ))}
       {kind === "materials" && (
         <FormCard title="Procurement">
           <div className="flex flex-wrap gap-4 text-sm">
@@ -134,7 +144,7 @@ export async function InventoryPage({
                     {c.lines.map((l) => (
                       <li key={l.id}>
                         {l.variant.name} · {l.qty.toString()} {l.uom.code} ·
-                        Cost {l.totalCost.toFixed(2)}
+                        Stock value {l.totalCost.toFixed(2)}
                       </li>
                     ))}
                   </ul>
