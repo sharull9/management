@@ -19,13 +19,15 @@ export const dateValue = (date?: Date | null) =>
 export function Options({
   rows,
   empty = "None",
+  blank = true,
 }: {
   rows: { id: string; name: string }[];
   empty?: string;
+  blank?: boolean;
 }) {
   return (
     <>
-      <option value="">{empty}</option>
+      {blank && <option value="">{empty}</option>}
       {rows.map((r) => (
         <option key={r.id} value={r.id}>
           {r.name}
@@ -127,6 +129,9 @@ export function ProjectForm({
       </div>
       <details className="rounded-md border p-3">
         <summary className="cursor-pointer text-sm">Create a customer</summary>
+        <a className="text-sm underline" href={`/${org}/masters/parties`}>
+          Manage customers and vendor details in Parties
+        </a>
         <div className="grid gap-4 pt-4 sm:grid-cols-2">
           <Field label="Customer display name" name="customerName" />
           <Field label="Customer legal name" name="customerLegalName" />
