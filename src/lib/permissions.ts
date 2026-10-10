@@ -25,6 +25,9 @@ export const permissionGroups = {
     "approval.policy.manage": "Manage approval policies",
   },
   Procurement: {
+    "purchase.request.create": "Create and submit purchase requests",
+    "purchase.order.create": "Create and submit purchase orders",
+    "grn.create": "Create and submit goods receipts",
     "purchase.view": "View purchases",
     "purchase.request": "Create purchase requests",
     "purchase.manage": "Manage orders and receipts",
@@ -32,6 +35,9 @@ export const permissionGroups = {
     "payment.manage": "Manage payments",
   },
   Inventory: {
+    "inventory.view": "View project inventory",
+    "inventory.consume": "Record material consumption",
+    "inventory.transfer": "Transfer stock between projects",
     "stock.view": "View stock",
     "stock.manage": "Manage consumption and transfers",
   },

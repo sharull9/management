@@ -1,6 +1,7 @@
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
 import { writeAudit } from "../audit";
+import { registerProcurementHandlers } from "../procurement/approvals";
 import { registerManagerResolver } from "./authorization";
 import { registerApprovalHandler } from "./handlers";
 import { managerApprovers, submissionTaskEffect } from "./project-effects";
@@ -155,3 +156,5 @@ registerManagerResolver(async (request, type, tx) => {
     project.members.map((m) => m.userId),
   );
 });
+
+registerProcurementHandlers();

@@ -97,6 +97,13 @@ export const requireProjectContext = cache(
         "attendance.record",
         "cost.view",
         "expense.create",
+        "purchase.view",
+        "purchase.request.create",
+        "purchase.order.create",
+        "grn.create",
+        "inventory.view",
+        "inventory.consume",
+        "inventory.transfer",
       ])
         permissions.add(key);
     const scoped = {

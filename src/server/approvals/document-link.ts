@@ -10,6 +10,17 @@ export async function approvalDocumentLinks(
 ) {
   const links = await Promise.all(
     requests.map(async (r) => {
+      const paths: Partial<Record<ApprovalRequest["documentType"], string>> = {
+        PURCHASE_REQUEST: "procurement/requests",
+        PURCHASE_ORDER: "procurement/orders",
+        GRN: "procurement/receipts",
+        STOCK_TRANSFER: "inventory/transfers",
+      };
+      if (paths[r.documentType])
+        return [
+          r.id,
+          `/${org}/${paths[r.documentType]}/${r.documentId}`,
+        ] as const;
       if (!r.projectId) return [r.id, `/${org}/approvals`] as const;
       let taskId: string | null = null;
       if (r.documentType === "TASK_SUBMISSION")

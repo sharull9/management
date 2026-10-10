@@ -12,7 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
-    "test": "node --import tsx --test src/server/approvals/logic.test.ts src/server/approvals/project-effects.test.ts src/server/projects/costing.test.ts src/server/projects/availability.test.ts",
+    "test": "node --import tsx --test src/server/approvals/logic.test.ts src/server/approvals/project-effects.test.ts src/server/projects/costing.test.ts src/server/projects/availability.test.ts src/server/procurement/calculations.test.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
