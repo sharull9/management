@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import type { LevelConfig } from "@/server/masters/variant";
+import type { LevelConfig } from "@/modules/item-variant";
 import { SelectField } from "./fields";
 export type PickerItem = {
   id: string;

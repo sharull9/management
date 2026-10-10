@@ -1,21 +1,10 @@
 import { Suspense } from "react";
-import { LevelMasters } from "@/components/master-forms";
-import { PageHeading } from "@/components/shared/page-heading";
 import Loading from "@/components/shared/page-loading";
-import { masterData } from "@/server/masters/queries";
+import { LevelsView } from "@/modules/masters/ui/views/levels-view";
 
 async function Content({ params }: { params: Promise<{ org: string }> }) {
   const { org } = await params;
-  const data = await masterData(org);
-  return (
-    <>
-      <PageHeading
-        title="Item levels"
-        description="Shared across organizations in this tenant."
-      />
-      <LevelMasters org={org} data={data} />
-    </>
-  );
+  return <LevelsView org={org} />;
 }
 export default function Page(props: Parameters<typeof Content>[0]) {
   return (

@@ -6,7 +6,7 @@ import type {
   Organization,
   State,
 } from "@/generated/prisma/client";
-import { saveOrganizationAction } from "@/server/actions";
+import { saveOrganizationAction } from "../../server/actions";
 export function OrganizationForm({
   tenantId,
   orgSlug = null,

@@ -3,7 +3,7 @@ import { Field, SelectField } from "@/components/shared/fields";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
 import { DocumentType } from "@/generated/prisma/enums";
-import { savePolicyAction } from "@/server/actions";
+import { savePolicyAction } from "../../server/actions";
 import { approvalPolicyData } from "../../server/queries";
 import { PolicyEditor } from "../components/policy-editor";
 

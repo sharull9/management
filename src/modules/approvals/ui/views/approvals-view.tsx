@@ -4,7 +4,10 @@ import { Field, SelectField } from "@/components/shared/fields";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
 import { Badge } from "@/components/ui/badge";
-import { approvalDecisionAction, cancelApprovalAction } from "@/server/actions";
+import {
+  approvalDecisionAction,
+  cancelApprovalAction,
+} from "../../server/actions";
 import { approvalInbox } from "../../server/queries";
 
 export async function ApprovalsView({ org }: { org: string }) {

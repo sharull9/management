@@ -1,21 +1,10 @@
 import { Suspense } from "react";
-import { TaxMasters } from "@/components/master-forms";
-import { PageHeading } from "@/components/shared/page-heading";
 import Loading from "@/components/shared/page-loading";
-import { masterData } from "@/server/masters/queries";
+import { TaxView } from "@/modules/masters/ui/views/tax-view";
 
 async function Content({ params }: { params: Promise<{ org: string }> }) {
   const { org } = await params;
-  const data = await masterData(org);
-  return (
-    <>
-      <PageHeading
-        title="Tax components and groups"
-        description="Shared across organizations in this tenant."
-      />
-      <TaxMasters org={org} data={data} />
-    </>
-  );
+  return <TaxView org={org} />;
 }
 export default function Page(props: Parameters<typeof Content>[0]) {
   return (
