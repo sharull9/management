@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "biome check",
     "check:boundaries": "tsx scripts/check-module-boundaries.ts",
+    "smoke:phase3b": "tsx scripts/phase3b-smoke.ts",
     "format": "biome format --write",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

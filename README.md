@@ -6,6 +6,8 @@ and a document approval engine. Phase 2 adds projects, stages, tasks, worker ass
 attendance costing, approved expenses, budgets, sites and organization dashboards.
 Phase 3a adds shared master screens, purchase requests and orders, approved goods receipts,
 project stock, material consumption costing and approved inter-project transfers.
+Phase 3b adds vendor bills, payment requests, partial settlements, advances, voids,
+customer invoices, stock sales and per-project material cost recognition.
 
 ## Run locally
 
@@ -56,7 +58,9 @@ pnpm prisma validate
 pnpm exec tsc --noEmit
 pnpm lint
 pnpm format
-pnpm test              # Approvals, costing, variants, UOM, taxes, stock and receipt guards
+pnpm check:boundaries  # Enforce public module imports
+pnpm test              # Approvals, costing, procurement, sales and settlement guards
+pnpm smoke:phase3b     # Authenticated local DB workflow; environment below
 pnpm build
 pnpm start
 ```
@@ -69,6 +73,37 @@ Restart the dev server after regenerating Prisma for a schema change so all rout
 the new client. `PRISMA_SHADOW_DATABASE_URL` optionally selects a separate shadow database,
 which is useful with Prisma dev's separate TCP shadow endpoint.
 
+## Phase 3b local smoke
+
+Use an isolated localhost PostgreSQL database. The harness creates tenants and documents
+and retains them for inspection. It updates the password of `phase3b@example.test`.
+Do not run it against a database containing an account you need to preserve.
+
+Set these variables in both the dev-server shell and smoke shell, without editing `.env`:
+
+```powershell
+$env:DATABASE_URL = '<localhost PostgreSQL TCP URL>'
+$env:BETTER_AUTH_URL = 'http://localhost:3000'
+pnpm prisma migrate deploy
+pnpm db:seed
+pnpm dev
+```
+
+In the smoke shell, also set:
+
+```powershell
+$env:PHASE3B_SMOKE_CONFIRM = 'local-only'
+$env:PHASE3B_SMOKE_PASSWORD = '<throwaway password of at least 12 characters>'
+pnpm smoke:phase3b
+$env:PAYMENTS_DB_TEST = 'local-only'
+pnpm exec node --import tsx --test src/modules/payment/server/service.test.ts
+```
+
+The harness signs in over HTTP, runs real services with the session cookie, checks
+all ten approval document links in the inbox/history, and verifies rendered document
+content. Node-only hooks replace `next/headers` and the `server-only` sentinel in this
+process. The settlement test rolls back its fixtures. Neither command changes `.env`.
+
 ## Access model
 
 - Platform administrators have `User.role = admin`. They create/suspend tenants in `/admin`.
@@ -77,7 +112,7 @@ which is useful with Prisma dev's separate TCP shadow endpoint.
 - Organizations own approvals, numbering and attachments. Members have a Better Auth base
   role and an optional tenant custom role. Org owner/admin and tenant OWNER/ADMIN bypass
   permission checks. Other members receive the custom role's permission keys.
-- `src/server/context.ts` verifies sessions, tenant membership, org access, suspension and
+- `src/core/context.ts` verifies sessions, tenant membership, org access, suspension and
   permissions. Each server action authorizes independently; the proxy only checks cookie presence.
 - Organization writes use application actions. Better Auth's equivalent mutation endpoints are
   disabled so they cannot bypass tenant boundaries or last-owner protection.
@@ -93,6 +128,9 @@ which is useful with Prisma dev's separate TCP shadow endpoint.
 - `/[org]/masters/{uoms,categories,levels,items,parties,tax}` shared master CRUD, configs and variants.
 - `/[org]/procurement/{requests,orders,receipts}` organization lists and draft forms; each has
   `/[documentId]` detail, draft editing, submission and approval timelines. `?projectId=` scopes lists.
+- `/[org]/procurement/bills` and `/[billId]` vendor bill drafts, approval and attachments.
+- `/[org]/finance/{payment-requests,payments,balances}` settlements, advances, voids and statements.
+- `/[org]/sales/{invoices,receipts}` customer invoice approval and incoming payment flows.
 - `/[org]/inventory/{stock,consumption,transfers}` stock balances, consumption history/forms and
   transfers; transfers have `/[documentId]` detail and approval. `?projectId=` scopes these pages.
 - `/[org]/projects` filtered list and project creation, including quick customer creation.
@@ -105,7 +143,7 @@ which is useful with Prisma dev's separate TCP shadow endpoint.
 
 ## Approval integration for later phases
 
-`src/server/approvals/service.ts` exports `resolvePolicy`, `submitForApproval`,
+`@/modules/approvals` exports `resolvePolicy`, `submitForApproval`,
 `actOnApproval`, `cancelApproval`, `listPendingForUser`, and `registerManagerResolver`.
 
 After a document action validates and authorizes its domain operation, call
@@ -120,7 +158,7 @@ No applicable steps produce a PROJECT_MANAGER step, falling back to an organizat
 administrator when no manager resolves.
 
 Register `registerApprovalHandler(documentType, { onApproved, onRejected, onCanceled })` in
-`src/server/approvals/register.ts`, imported by the approval service. Callbacks receive the
+`src/modules/approvals/server/register.ts`, imported by the approval service. Callbacks receive the
 request, current Prisma transaction and actor ID. Write document status and cost entries using
 that transaction. Do not make external
 network calls inside it. Unregistered document types remain generic approvals with no domain
@@ -203,14 +241,14 @@ uses `inventory.view`, with separate request/order/GRN/consume/transfer permissi
 permission keys remain in the catalog; new screens use the explicit Phase 3a keys.
 
 PO detail supports printing through the browser and private PDF/PNG/JPEG proforma attachments up to
-900 KB, within Next's existing 1 MB action body limit. Larger upload flows, bills, payments, advances,
-vendor balances and sales remain for Phase 3b. See [the Phase 3a report](docs/PHASE3A_REPORT.md).
+900 KB, within Next's existing 1 MB action body limit. Vendor bill copies use the same limit.
+See [the Phase 3a report](docs/PHASE3A_REPORT.md) and [the Phase 3b report](docs/PHASE3B_REPORT.md).
 
 ## Structure
 
 ```text
 prisma/
-  schema.prisma           Auth, masters, projects, procurement, stock and cost models
+  schema.prisma           Auth, masters, projects, procurement, finance, stock and cost models
   migrations/             Initial schema plus SQL integrity constraints
   seed.ts                 Global locations and system units
 src/app/
@@ -220,19 +258,9 @@ src/app/
   setup/, sign-in/         First-run setup and login
 src/components/           Forms, fields, shell and ordered policy editor
   ui/                     shadcn components
-src/lib/                  Auth/client config, permission catalog and utilities
-src/server/
-  db.ts                   PrismaPg singleton
-  context.ts              Session and tenancy DAL
-  actions.ts              Zod-validated server mutations
-  approvals/              Policy lookup, authorization, logic, handlers and service
-  projects/               Project actions, costing, availability and queries
-  masters/                Shared master actions, queries and variant resolution
-  procurement/            Document actions, validation, services, approvals and calculations
-  inventory/              Stock locking, balances, consumption and transfer posting
-  audit.ts                Transaction-aware audit writer
-  numbering.ts            Atomic document number allocation
-  storage.ts              Private local file storage abstraction
+src/lib/                  shadcn class-name utility
+src/core/                 Auth, Prisma, context, permissions, decimal math, audit, numbering, storage
+src/modules/              Feature server code, schemas, types, UI and public indexes
 src/generated/prisma/     Generated and ignored
 storage/                  Runtime files, ignored
 ```
