@@ -78,6 +78,16 @@ enum ApprovalStepStatus {
 }
 
 model User {
+  managedProjects Project[]          @relation("ProjectManager")
+  managedStages   Stage[]            @relation("StageManager")
+  projectMembers  ProjectMember[]
+  assignedTasks   TaskAssignment[]
+  submissions     TaskSubmission[]
+  delayRequests   TaskDelayRequest[]
+  attendance      Attendance[]
+  expenses        Expense[]
+  costEntries     CostEntry[]
+
   id            String                @id @default(cuid())
   name          String
   email         String                @unique
@@ -196,6 +206,11 @@ model TenantMember {
 }
 
 model Organization {
+  projects    Project[]
+  workers     Worker[]
+  attendance  Attendance[]
+  costEntries CostEntry[]
+
   id             String            @id @default(cuid())
   name           String
   slug           String            @unique
@@ -265,6 +280,8 @@ model Invitation {
 }
 
 model Role {
+  projectMembers ProjectMember[]
+
   id           String                @id @default(cuid())
   tenantId     String
   name         String
@@ -282,6 +299,8 @@ model Role {
 }
 
 model Country {
+  projectSites ProjectSite[]
+
   id            String         @id @default(cuid())
   code          String         @unique
   name          String
@@ -296,6 +315,8 @@ model Country {
 }
 
 model State {
+  projectSites ProjectSite[]
+
   id            String         @id @default(cuid())
   countryId     String
   code          String
@@ -312,6 +333,8 @@ model State {
 }
 
 model City {
+  projectSites ProjectSite[]
+
   id            String         @id @default(cuid())
   tenantId      String
   stateId       String
@@ -492,6 +515,9 @@ model ItemVariant {
 }
 
 model Party {
+  projects Project[]
+  expenses Expense[]
+
   id             String          @id @default(cuid())
   tenantId       String
   code           String
@@ -614,6 +640,8 @@ model TaxIdentifier {
 }
 
 model Designation {
+  workers Worker[]
+
   id        String   @id @default(cuid())
   tenantId  String
   name      String
@@ -626,6 +654,9 @@ model Designation {
 }
 
 model ApprovalPolicy {
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  stage   Stage?   @relation(fields: [stageId], references: [id], onDelete: Restrict)
+
   id             String               @id @default(cuid())
   organizationId String
   documentType   DocumentType
@@ -665,6 +696,13 @@ model ApprovalPolicyStep {
 }
 
 model ApprovalRequest {
+  submission   TaskSubmission?
+  delayRequest TaskDelayRequest?
+  expense      Expense?
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  stage   Stage?   @relation(fields: [stageId], references: [id], onDelete: Restrict)
+
   id             String                @id @default(cuid())
   organizationId String
   policyId       String?
@@ -767,4 +805,381 @@ model Attachment {
 
   @@index([organizationId, entityType, entityId])
   @@map("attachments")
+}
+
+enum ProjectStatus {
+  PLANNED
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  SUBMITTED
+  REWORK
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum PayType {
+  MONTHLY
+  DAILY
+  HOURLY
+}
+
+enum AttendanceStatus {
+  PRESENT
+  HALF_DAY
+  ABSENT
+  LEAVE
+}
+
+enum CostType {
+  LABOUR
+  MATERIAL
+  EQUIPMENT
+  FUEL
+  ELECTRICITY
+  SUBCONTRACT
+  OVERHEAD
+  OTHER
+}
+
+enum CostSourceType {
+  ATTENDANCE
+  EXPENSE
+  MANUAL
+}
+
+model Project {
+  id             String              @id @default(cuid())
+  organizationId String
+  code           String
+  name           String
+  description    String?
+  clientPartyId  String?
+  status         ProjectStatus       @default(PLANNED)
+  startDate      DateTime?           @db.Date
+  endDate        DateTime?           @db.Date
+  managerUserId  String?
+  budgetAmount   Decimal             @default(0) @db.Decimal(18, 2)
+  currency       String
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  organization   Organization        @relation(fields: [organizationId], references: [id])
+  clientParty    Party?              @relation(fields: [clientPartyId], references: [id])
+  manager        User?               @relation("ProjectManager", fields: [managerUserId], references: [id])
+  sites          ProjectSite[]
+  budgetLines    ProjectBudgetLine[]
+  members        ProjectMember[]
+  stages         Stage[]
+  tasks          Task[]
+  workers        ProjectWorker[]
+  attendance     Attendance[]
+  expenses       Expense[]
+  costs          CostEntry[]
+  policies       ApprovalPolicy[]
+  requests       ApprovalRequest[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, status])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  roleId    String?
+  isManager Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  role      Role?    @relation(fields: [roleId], references: [id])
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model ProjectSite {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  countryId String?
+  stateId   String?
+  cityId    String?
+  address   String
+  pincode   String?
+  latitude  Decimal? @db.Decimal(10, 7)
+  longitude Decimal? @db.Decimal(10, 7)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id])
+  country   Country? @relation(fields: [countryId], references: [id])
+  state     State?   @relation(fields: [stateId], references: [id])
+  city      City?    @relation(fields: [cityId], references: [id])
+
+  @@index([projectId])
+  @@map("project_sites")
+}
+
+model ProjectBudgetLine {
+  id        String   @id @default(cuid())
+  projectId String
+  costType  CostType
+  stageId   String?
+  amount    Decimal  @db.Decimal(18, 2)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id])
+  stage     Stage?   @relation(fields: [stageId], references: [id])
+
+  @@index([projectId, costType])
+  @@map("project_budget_lines")
+}
+
+model Stage {
+  id            String              @id @default(cuid())
+  projectId     String
+  name          String
+  sequence      Int                 @default(1)
+  startDate     DateTime?           @db.Date
+  endDate       DateTime?           @db.Date
+  status        ProjectStatus       @default(PLANNED)
+  managerUserId String?
+  budgetAmount  Decimal?            @db.Decimal(18, 2)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  project       Project             @relation(fields: [projectId], references: [id])
+  manager       User?               @relation("StageManager", fields: [managerUserId], references: [id])
+  tasks         Task[]
+  budgetLines   ProjectBudgetLine[]
+  expenses      Expense[]
+  costs         CostEntry[]
+  policies      ApprovalPolicy[]
+  requests      ApprovalRequest[]
+
+  @@index([projectId, sequence])
+  @@map("stages")
+}
+
+model Task {
+  id              String             @id @default(cuid())
+  projectId       String
+  stageId         String?
+  code            String
+  title           String
+  description     String?
+  priority        TaskPriority       @default(NORMAL)
+  status          TaskStatus         @default(TODO)
+  plannedStart    DateTime?          @db.Date
+  dueDate         DateTime?          @db.Date
+  actualStart     DateTime?
+  completedAt     DateTime?
+  estimatedHours  Decimal?           @db.Decimal(18, 4)
+  progressPercent Int                @default(0)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  project         Project            @relation(fields: [projectId], references: [id])
+  stage           Stage?             @relation(fields: [stageId], references: [id])
+  assignments     TaskAssignment[]
+  submissions     TaskSubmission[]
+  delays          TaskDelayRequest[]
+  expenses        Expense[]
+  costs           CostEntry[]
+
+  @@unique([projectId, code])
+  @@index([projectId, status, dueDate])
+  @@map("tasks")
+}
+
+model TaskAssignment {
+  id           String    @id @default(cuid())
+  taskId       String
+  workerId     String
+  assignedById String
+  startDate    DateTime? @db.Date
+  endDate      DateTime? @db.Date
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  task         Task      @relation(fields: [taskId], references: [id])
+  worker       Worker    @relation(fields: [workerId], references: [id])
+  assignedBy   User      @relation(fields: [assignedById], references: [id])
+
+  @@unique([taskId, workerId])
+  @@map("task_assignments")
+}
+
+model TaskSubmission {
+  id                 String           @id @default(cuid())
+  taskId             String
+  submittedById      String
+  onBehalfOfWorkerId String?
+  note               String
+  progressPercent    Int
+  status             ApprovalStatus   @default(PENDING)
+  approvalRequestId  String?          @unique
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  task               Task             @relation(fields: [taskId], references: [id])
+  submittedBy        User             @relation(fields: [submittedById], references: [id])
+  worker             Worker?          @relation(fields: [onBehalfOfWorkerId], references: [id])
+  approvalRequest    ApprovalRequest? @relation(fields: [approvalRequestId], references: [id])
+
+  @@index([taskId])
+  @@map("task_submissions")
+}
+
+model TaskDelayRequest {
+  id                String           @id @default(cuid())
+  taskId            String
+  requestedById     String
+  currentDueDate    DateTime?        @db.Date
+  proposedDueDate   DateTime         @db.Date
+  reason            String
+  status            ApprovalStatus   @default(PENDING)
+  approvalRequestId String?          @unique
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  task              Task             @relation(fields: [taskId], references: [id])
+  requestedBy       User             @relation(fields: [requestedById], references: [id])
+  approvalRequest   ApprovalRequest? @relation(fields: [approvalRequestId], references: [id])
+
+  @@index([taskId])
+  @@map("task_delay_requests")
+}
+
+model Worker {
+  id                  String           @id @default(cuid())
+  organizationId      String
+  code                String
+  name                String
+  phone               String?
+  designationId       String?
+  payType             PayType
+  salaryAmount        Decimal          @db.Decimal(18, 2)
+  costDaysPerMonth    Decimal          @default(30) @db.Decimal(18, 4)
+  standardHoursPerDay Decimal          @default(8) @db.Decimal(18, 4)
+  overtimeMultiplier  Decimal          @default(1.5) @db.Decimal(18, 4)
+  joinDate            DateTime?        @db.Date
+  active              Boolean          @default(true)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  organization        Organization     @relation(fields: [organizationId], references: [id])
+  designation         Designation?     @relation(fields: [designationId], references: [id])
+  projects            ProjectWorker[]
+  tasks               TaskAssignment[]
+  submissions         TaskSubmission[]
+  attendance          Attendance[]
+
+  @@unique([organizationId, code])
+  @@map("workers")
+}
+
+model ProjectWorker {
+  id                   String    @id @default(cuid())
+  projectId            String
+  workerId             String
+  startDate            DateTime  @db.Date
+  endDate              DateTime? @db.Date
+  dayRateOverride      Decimal?  @db.Decimal(18, 4)
+  otHourlyRateOverride Decimal?  @db.Decimal(18, 4)
+  notes                String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  project              Project   @relation(fields: [projectId], references: [id])
+  worker               Worker    @relation(fields: [workerId], references: [id])
+
+  @@index([workerId, startDate, endDate])
+  @@index([projectId])
+  @@map("project_workers")
+}
+
+model Attendance {
+  id             String           @id @default(cuid())
+  organizationId String
+  projectId      String
+  workerId       String
+  date           DateTime         @db.Date
+  status         AttendanceStatus
+  hoursWorked    Decimal          @db.Decimal(18, 4)
+  overtimeHours  Decimal          @db.Decimal(18, 4)
+  recordedById   String
+  dayCost        Decimal          @db.Decimal(18, 2)
+  otCost         Decimal          @db.Decimal(18, 2)
+  totalCost      Decimal          @db.Decimal(18, 2)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  project        Project          @relation(fields: [projectId], references: [id])
+  worker         Worker           @relation(fields: [workerId], references: [id])
+  recordedBy     User             @relation(fields: [recordedById], references: [id])
+
+  @@unique([workerId, date, projectId])
+  @@map("attendance")
+}
+
+model Expense {
+  id                String           @id @default(cuid())
+  projectId         String
+  stageId           String?
+  taskId            String?
+  code              String
+  date              DateTime         @db.Date
+  costType          CostType
+  amount            Decimal          @db.Decimal(18, 2)
+  description       String
+  partyId           String?
+  createdById       String
+  status            ApprovalStatus   @default(PENDING)
+  approvalRequestId String?          @unique
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  project           Project          @relation(fields: [projectId], references: [id])
+  stage             Stage?           @relation(fields: [stageId], references: [id])
+  task              Task?            @relation(fields: [taskId], references: [id])
+  party             Party?           @relation(fields: [partyId], references: [id])
+  createdBy         User             @relation(fields: [createdById], references: [id])
+  approvalRequest   ApprovalRequest? @relation(fields: [approvalRequestId], references: [id])
+
+  @@unique([projectId, code])
+  @@map("expenses")
+}
+
+model CostEntry {
+  id             String         @id @default(cuid())
+  organizationId String
+  projectId      String
+  stageId        String?
+  taskId         String?
+  date           DateTime       @db.Date
+  costType       CostType
+  amount         Decimal        @db.Decimal(18, 2)
+  description    String
+  sourceType     CostSourceType
+  sourceId       String
+  createdById    String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  project        Project        @relation(fields: [projectId], references: [id])
+  stage          Stage?         @relation(fields: [stageId], references: [id])
+  task           Task?          @relation(fields: [taskId], references: [id])
+  createdBy      User           @relation(fields: [createdById], references: [id])
+
+  @@unique([organizationId, sourceType, sourceId])
+  @@index([projectId, date, costType])
+  @@map("cost_entries")
 }

@@ -1,0 +1,16 @@
+ALTER TABLE projects ADD CONSTRAINT project_budget_dates CHECK ("budgetAmount" >= 0 AND ("startDate" IS NULL OR "endDate" IS NULL OR "endDate" >= "startDate"));
+ALTER TABLE stages ADD CONSTRAINT stage_budget_dates CHECK (sequence > 0 AND ("budgetAmount" IS NULL OR "budgetAmount" >= 0) AND ("startDate" IS NULL OR "endDate" IS NULL OR "endDate" >= "startDate"));
+ALTER TABLE workers ADD CONSTRAINT worker_pay_terms CHECK ("salaryAmount" >= 0 AND "costDaysPerMonth" > 0 AND "standardHoursPerDay" > 0 AND "overtimeMultiplier" >= 0);
+ALTER TABLE project_workers ADD CONSTRAINT worker_assignment_terms CHECK (("endDate" IS NULL OR "endDate" >= "startDate") AND ("dayRateOverride" IS NULL OR "dayRateOverride" >= 0) AND ("otHourlyRateOverride" IS NULL OR "otHourlyRateOverride" >= 0));
+ALTER TABLE task_assignments ADD CONSTRAINT task_assignment_dates CHECK ("startDate" IS NULL OR "endDate" IS NULL OR "endDate" >= "startDate");
+ALTER TABLE tasks ADD CONSTRAINT task_progress_hours CHECK ("progressPercent" BETWEEN 0 AND 100 AND ("estimatedHours" IS NULL OR "estimatedHours" >= 0) AND ("plannedStart" IS NULL OR "dueDate" IS NULL OR "dueDate" >= "plannedStart"));
+ALTER TABLE task_submissions ADD CONSTRAINT submission_progress CHECK ("progressPercent" BETWEEN 0 AND 100);
+ALTER TABLE task_delay_requests ADD CONSTRAINT delay_dates CHECK ("currentDueDate" IS NULL OR "proposedDueDate" > "currentDueDate");
+CREATE UNIQUE INDEX task_one_pending_submission ON task_submissions ("taskId") WHERE status = 'PENDING';
+CREATE UNIQUE INDEX task_one_pending_delay ON task_delay_requests ("taskId") WHERE status = 'PENDING';
+ALTER TABLE attendance ADD CONSTRAINT attendance_cost_hours CHECK ("hoursWorked" >= 0 AND "overtimeHours" >= 0 AND "dayCost" >= 0 AND "otCost" >= 0 AND "totalCost" = "dayCost" + "otCost");
+ALTER TABLE project_budget_lines ADD CONSTRAINT budget_line_amount CHECK (amount >= 0);
+ALTER TABLE expenses ADD CONSTRAINT expense_amount CHECK (amount > 0);
+ALTER TABLE cost_entries ADD CONSTRAINT cost_entry_amount CHECK (amount >= 0);
+ALTER TABLE project_sites ADD CONSTRAINT site_coordinates CHECK ((latitude IS NULL OR latitude BETWEEN -90 AND 90) AND (longitude IS NULL OR longitude BETWEEN -180 AND 180));
+ALTER TABLE approval_requests ADD CONSTRAINT approval_request_scope CHECK ("stageId" IS NULL OR "projectId" IS NOT NULL);
