@@ -1,14 +1,165 @@
+import Link from "next/link";
+import { Suspense } from "react";
+import Loading from "@/app/(app)/loading";
+import { Field, SelectField } from "@/components/fields";
+import { FormCard } from "@/components/form-card";
 import { PageHeading } from "@/components/page-heading";
-export default function ProjectsPage() {
+import {
+  dateValue,
+  EnumOptions,
+  ProjectForm,
+} from "@/components/project-forms";
+import { DataTable } from "@/components/project-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ProjectStatus } from "@/generated/prisma/enums";
+import {
+  canViewProjectCost,
+  projectAccessWhere,
+  projectCostAccessWhere,
+  requireOrgContext,
+} from "@/server/context";
+import { db } from "@/server/db";
+import { budgetUsage } from "@/server/projects/costing";
+import { projectUsers } from "@/server/projects/queries";
+
+async function Projects({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ org: string }>;
+  searchParams: Promise<{ status?: string; search?: string }>;
+}) {
+  const { org } = await params;
+  const ctx = await requireOrgContext(org);
+  const filters = await searchParams;
+  const [projects, users, customers, costs] = await Promise.all([
+    db.project.findMany({
+      where: {
+        organizationId: ctx.org.id,
+        ...projectAccessWhere(ctx),
+        ...(Object.values(ProjectStatus).includes(
+          filters.status as ProjectStatus,
+        )
+          ? { status: filters.status as ProjectStatus }
+          : {}),
+        ...(filters.search
+          ? {
+              OR: [
+                { name: { contains: filters.search, mode: "insensitive" } },
+                { code: { contains: filters.search, mode: "insensitive" } },
+              ],
+              AND: [projectAccessWhere(ctx)],
+            }
+          : {}),
+      },
+      include: {
+        clientParty: true,
+        manager: true,
+        members: { where: { userId: ctx.user.id }, include: { role: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    projectUsers(ctx.org.id),
+    db.party.findMany({
+      where: { tenantId: ctx.tenant.id, isCustomer: true },
+      select: { id: true, displayName: true },
+    }),
+    db.costEntry.groupBy({
+      by: ["projectId"],
+      where: {
+        organizationId: ctx.org.id,
+        project: projectCostAccessWhere(ctx),
+      },
+      _sum: { amount: true },
+    }),
+  ]);
   return (
     <>
       <PageHeading
         title="Projects"
-        description="Project planning, stages, tasks and costing arrive in Phase 2."
+        description="Track delivery, workforce and project costs."
       />
-      <p className="rounded-lg border p-6 text-sm text-muted-foreground">
-        Your foundation is ready. No projects have been created.
-      </p>
+      <form className="grid items-end gap-4 sm:grid-cols-3">
+        <Field label="Search" name="search" defaultValue={filters.search} />
+        <SelectField
+          label="Status"
+          name="status"
+          defaultValue={filters.status ?? ""}
+        >
+          <option value="">All statuses</option>
+          <EnumOptions values={ProjectStatus} />
+        </SelectField>
+        <Button type="submit">Filter projects</Button>
+      </form>
+      <FormCard title="Projects">
+        <DataTable
+          headings={[
+            "Code",
+            "Name",
+            "Client",
+            "Manager",
+            "Dates",
+            "Status",
+            "Budget",
+            "Spent",
+            "Used",
+          ]}
+          rows={projects.map((p) => {
+            const projectCost = canViewProjectCost(ctx, p);
+            const spent =
+              costs
+                .find((c) => c.projectId === p.id)
+                ?._sum.amount?.toFixed(2) ?? "0.00";
+            return {
+              id: p.id,
+              cells: [
+                p.code,
+                <Link
+                  key="name"
+                  className="underline"
+                  href={`/${org}/projects/${p.id}`}
+                >
+                  {p.name}
+                </Link>,
+                p.clientParty?.displayName ?? "—",
+                p.manager?.name ?? "—",
+                `${dateValue(p.startDate)} / ${dateValue(p.endDate)}`,
+                <Badge key="status" variant="secondary">
+                  {p.status}
+                </Badge>,
+                projectCost
+                  ? `${p.currency} ${p.budgetAmount.toFixed(2)}`
+                  : "—",
+                projectCost ? spent : "—",
+                projectCost
+                  ? `${budgetUsage(p.budgetAmount, spent).percent}%`
+                  : "—",
+              ],
+            };
+          })}
+        />
+      </FormCard>
+      {(ctx.isAdmin || ctx.permissions.has("project.create")) && (
+        <FormCard title="Create project">
+          <ProjectForm
+            org={org}
+            currency={ctx.org.baseCurrency}
+            users={users}
+            customers={customers.map((c) => ({
+              id: c.id,
+              name: c.displayName,
+            }))}
+          />
+        </FormCard>
+      )}
     </>
+  );
+}
+export default function Page(props: Parameters<typeof Projects>[0]) {
+  return (
+    <Suspense fallback={<Loading />}>
+      <Projects {...props} />
+    </Suspense>
   );
 }

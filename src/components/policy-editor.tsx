@@ -15,11 +15,24 @@ export function PolicyEditor({
   initialSteps,
   roles,
   users,
+  projects = [],
+  stages = [],
+  initialProjectId = null,
+  initialStageId = null,
 }: {
   initialSteps?: Step[];
   roles: { id: string; name: string }[];
   users: { id: string; name: string }[];
+  projects?: { id: string; name: string }[];
+  stages?: { id: string; name: string; projectId: string }[];
+  initialProjectId?: string | null;
+  initialStageId?: string | null;
 }) {
+  const [scope, setScope] = useState(
+    initialStageId ? "stage" : initialProjectId ? "project" : "org",
+  );
+  const [projectId, setProjectId] = useState(initialProjectId ?? "");
+  const [stageId, setStageId] = useState(initialStageId ?? "");
   const [steps, setSteps] = useState<(Step & { editorId: string })[]>(() =>
     (initialSteps?.length
       ? initialSteps
@@ -53,16 +66,50 @@ export function PolicyEditor({
         value={JSON.stringify(steps.map(({ editorId: _editorId, ...s }) => s))}
       />
       <div className="grid gap-4 sm:grid-cols-3">
-        <SelectField label="Policy scope" defaultValue="org">
+        <SelectField
+          label="Policy scope"
+          name="scope"
+          value={scope}
+          onChange={(e) => setScope(e.target.value)}
+        >
           <option value="org">Organization default</option>
-          <option disabled>Project · available in Phase 2</option>
-          <option disabled>Stage · available in Phase 2</option>
+          <option value="project">Project</option>
+          <option value="stage">Stage</option>
         </SelectField>
-        <SelectField label="Project" disabled>
-          <option>Available in Phase 2</option>
+        <SelectField
+          label="Project"
+          name="projectId"
+          disabled={scope === "org"}
+          required={scope !== "org"}
+          value={projectId}
+          onChange={(e) => {
+            setProjectId(e.target.value);
+            setStageId("");
+          }}
+        >
+          <option value="">Select project</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
         </SelectField>
-        <SelectField label="Stage" disabled>
-          <option>Available in Phase 2</option>
+        <SelectField
+          label="Stage"
+          name="stageId"
+          disabled={scope !== "stage"}
+          required={scope === "stage"}
+          value={stageId}
+          onChange={(e) => setStageId(e.target.value)}
+        >
+          <option value="">Select stage</option>
+          {stages
+            .filter((s) => s.projectId === projectId)
+            .map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
         </SelectField>
       </div>
       {steps.map((step, index) => (
@@ -192,8 +239,8 @@ export function PolicyEditor({
         Add step
       </Button>
       <p className="text-xs text-muted-foreground">
-        Manager steps use the organization owner or administrator until project
-        and stage managers are available.
+        Manager steps resolve project or stage managers. When no manager is set,
+        organization or tenant administrators can act.
       </p>
     </div>
   );

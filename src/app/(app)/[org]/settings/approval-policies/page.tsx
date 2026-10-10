@@ -14,7 +14,7 @@ async function PoliciesPage({ params }: { params: Promise<{ org: string }> }) {
   const { org } = await params;
   const ctx = await requireOrgContext(org);
   assertPermission(ctx, "approval.policy.manage");
-  const [policies, roles, members] = await Promise.all([
+  const [policies, roles, members, projects, stages] = await Promise.all([
     db.approvalPolicy.findMany({
       where: { organizationId: ctx.org.id },
       include: { steps: { orderBy: { sequence: "asc" } } },
@@ -27,6 +27,14 @@ async function PoliciesPage({ params }: { params: Promise<{ org: string }> }) {
     db.member.findMany({
       where: { organizationId: ctx.org.id },
       include: { user: { select: { id: true, name: true } } },
+    }),
+    db.project.findMany({
+      where: { organizationId: ctx.org.id },
+      select: { id: true, name: true },
+    }),
+    db.stage.findMany({
+      where: { project: { organizationId: ctx.org.id } },
+      select: { id: true, name: true, projectId: true },
     }),
   ]);
   return (
@@ -73,6 +81,10 @@ async function PoliciesPage({ params }: { params: Promise<{ org: string }> }) {
                     Active
                   </label>
                   <PolicyEditor
+                    projects={projects}
+                    stages={stages}
+                    initialProjectId={policy.projectId}
+                    initialStageId={policy.stageId}
                     roles={roles}
                     users={members.map((m) => m.user)}
                     initialSteps={policy.steps.map((s) => ({
@@ -106,7 +118,12 @@ async function PoliciesPage({ params }: { params: Promise<{ org: string }> }) {
             <input type="checkbox" name="active" defaultChecked />
             Active
           </label>
-          <PolicyEditor roles={roles} users={members.map((m) => m.user)} />
+          <PolicyEditor
+            projects={projects}
+            stages={stages}
+            roles={roles}
+            users={members.map((m) => m.user)}
+          />
         </ActionForm>
       </FormCard>
     </>

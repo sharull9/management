@@ -1,0 +1,119 @@
+import { Suspense } from "react";
+import Loading from "@/app/(app)/loading";
+import { AttendanceGrid } from "@/components/attendance-grid";
+import { Field } from "@/components/fields";
+import { FormCard } from "@/components/form-card";
+import { dateValue } from "@/components/project-forms";
+import { Button } from "@/components/ui/button";
+import { assertPermission, requireProjectContext } from "@/server/context";
+import { db } from "@/server/db";
+import { attendanceAction } from "@/server/projects/actions";
+import { readDate } from "@/server/projects/queries";
+
+async function Attendance({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ org: string; projectId: string }>;
+  searchParams: Promise<{ date?: string }>;
+}) {
+  const { org, projectId } = await params;
+  const ctx = await requireProjectContext(org, projectId);
+  assertPermission(ctx, "attendance.record");
+  const day = readDate(
+    (await searchParams).date,
+    new Date(new Date().toISOString().slice(0, 10)),
+  );
+  const [assignments, saved] = await Promise.all([
+    db.projectWorker.findMany({
+      where: {
+        projectId,
+        startDate: { lte: day },
+        OR: [{ endDate: null }, { endDate: { gte: day } }],
+        worker: { active: true },
+      },
+      include: { worker: true },
+      orderBy: { worker: { name: "asc" } },
+    }),
+    db.attendance.findMany({
+      where: { projectId, date: day },
+      include: { worker: true },
+    }),
+  ]);
+  const initialRows = assignments.map((a) => {
+    const row = saved.find((s) => s.workerId === a.workerId);
+    return {
+      workerId: a.workerId,
+      name: a.worker.name,
+      status: row?.status ?? ("ABSENT" as const),
+      hoursWorked: row?.hoursWorked.toString() ?? "0",
+      overtimeHours: row?.overtimeHours.toString() ?? "0",
+      terms: {
+        payType: a.worker.payType,
+        salaryAmount: a.worker.salaryAmount.toString(),
+        costDaysPerMonth: a.worker.costDaysPerMonth.toString(),
+        standardHoursPerDay: a.worker.standardHoursPerDay.toString(),
+        overtimeMultiplier: a.worker.overtimeMultiplier.toString(),
+        dayRateOverride: a.dayRateOverride?.toString(),
+        otHourlyRateOverride: a.otHourlyRateOverride?.toString(),
+      },
+    };
+  });
+  const inactiveRows = saved.filter(
+    (s) => !assignments.some((a) => a.workerId === s.workerId),
+  );
+  return (
+    <>
+      <h2 className="text-lg font-medium">Attendance</h2>
+      <form className="flex flex-wrap items-end gap-4">
+        <Field
+          label="Attendance date"
+          name="date"
+          type="date"
+          defaultValue={dateValue(day)}
+        />
+        <Button type="submit">Load date</Button>
+      </form>
+      <FormCard title={`Attendance · ${dateValue(day)}`}>
+        <AttendanceGrid
+          key={dateValue(day)}
+          date={dateValue(day)}
+          initialRows={initialRows}
+          action={attendanceAction.bind(null, org, projectId)}
+          currency={ctx.project.currency}
+        />
+      </FormCard>
+      {inactiveRows.length > 0 && (
+        <FormCard title="Saved rows for inactive or unassigned workers">
+          <AttendanceGrid
+            date={dateValue(day)}
+            action={attendanceAction.bind(null, org, projectId)}
+            currency={ctx.project.currency}
+            initialRows={inactiveRows.map((r) => ({
+              workerId: r.workerId,
+              name: r.worker.name,
+              status: r.status,
+              hoursWorked: r.hoursWorked.toString(),
+              overtimeHours: r.overtimeHours.toString(),
+              remove: true,
+              terms: {
+                payType: r.worker.payType,
+                salaryAmount: r.worker.salaryAmount.toString(),
+                costDaysPerMonth: r.worker.costDaysPerMonth.toString(),
+                standardHoursPerDay: r.worker.standardHoursPerDay.toString(),
+                overtimeMultiplier: r.worker.overtimeMultiplier.toString(),
+              },
+            }))}
+          />
+        </FormCard>
+      )}
+    </>
+  );
+}
+export default function Page(props: Parameters<typeof Attendance>[0]) {
+  return (
+    <Suspense fallback={<Loading />}>
+      <Attendance {...props} />
+    </Suspense>
+  );
+}

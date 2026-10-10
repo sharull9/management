@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import Loading from "@/app/(app)/loading";
 import { ActionForm } from "@/components/action-form";
@@ -6,6 +7,7 @@ import { FormCard } from "@/components/form-card";
 import { PageHeading } from "@/components/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { approvalDecisionAction, cancelApprovalAction } from "@/server/actions";
+import { approvalDocumentLinks } from "@/server/approvals/document-link";
 import { listPendingForUser } from "@/server/approvals/service";
 import { requireOrgContext } from "@/server/context";
 import { db } from "@/server/db";
@@ -51,11 +53,15 @@ async function ApprovalsPage({ params }: { params: Promise<{ org: string }> }) {
       take: 100,
     }),
   ]);
+  const links = await approvalDocumentLinks(org, [
+    ...pending.map((s) => s.request),
+    ...history,
+  ]);
   return (
     <>
       <PageHeading
         title="Approvals"
-        description="Review steps assigned to you. Rejections require a comment. Document workflows will submit requests here in later phases."
+        description="Review task submissions, delay requests and expenses. Rejections require a comment."
       />
       <h2 className="text-lg font-medium">Your pending steps</h2>
       {pending.length === 0 && (
@@ -66,6 +72,12 @@ async function ApprovalsPage({ params }: { params: Promise<{ org: string }> }) {
       <div className="space-y-4">
         {pending.map((step) => (
           <FormCard key={step.id} title={step.request.title}>
+            <Link
+              className="mb-4 inline-block text-sm underline"
+              href={links.get(step.request.id) ?? `/${org}/approvals`}
+            >
+              Open document
+            </Link>
             <p className="mb-4 text-sm text-muted-foreground">
               {step.request.documentType.replaceAll("_", " ")} · {step.name} ·
               Requested by {step.request.requestedBy.name}
@@ -98,6 +110,12 @@ async function ApprovalsPage({ params }: { params: Promise<{ org: string }> }) {
       <div className="space-y-4">
         {history.map((request) => (
           <FormCard key={request.id} title={request.title}>
+            <Link
+              className="mb-4 inline-block text-sm underline"
+              href={links.get(request.id) ?? `/${org}/approvals`}
+            >
+              Open document
+            </Link>
             <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
               <Badge variant="secondary">{request.status}</Badge>
               <span className="text-muted-foreground">
