@@ -1,0 +1,770 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum TenantRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum ItemType {
+  PRODUCT
+  SERVICE
+  RAW_MATERIAL
+}
+
+enum ItemLevelMode {
+  NOT_USED
+  ANY
+  LINKED
+}
+
+enum PartyType {
+  BUSINESS
+  INDIVIDUAL
+}
+
+enum TaxScope {
+  INTRA
+  INTER
+  ANY
+}
+
+enum DocumentType {
+  TASK_SUBMISSION
+  TASK_DELAY
+  EXPENSE
+  PURCHASE_REQUEST
+  PURCHASE_ORDER
+  GRN
+  VENDOR_BILL
+  PAYMENT_REQUEST
+  STOCK_TRANSFER
+  CUSTOMER_INVOICE
+  JOURNAL
+}
+
+enum ApproverType {
+  ROLE
+  USER
+  PROJECT_MANAGER
+  STAGE_MANAGER
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELED
+}
+
+enum ApprovalStepStatus {
+  WAITING
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELED
+}
+
+model User {
+  id            String                @id @default(cuid())
+  name          String
+  email         String                @unique
+  emailVerified Boolean               @default(false)
+  image         String?
+  role          String?               @default("user")
+  banned        Boolean?              @default(false)
+  banReason     String?
+  banExpires    DateTime?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  members       Member[]
+  invitations   Invitation[]
+  tenantMembers TenantMember[]
+  requests      ApprovalRequest[]
+  policySteps   ApprovalPolicyStep[]
+  assignedSteps ApprovalRequestStep[] @relation("AssignedApprover")
+  actedSteps    ApprovalRequestStep[] @relation("ApprovalActor")
+  auditLogs     AuditLog[]
+  attachments   Attachment[]
+
+  @@map("users")
+}
+
+model Session {
+  id                   String   @id @default(cuid())
+  expiresAt            DateTime
+  token                String   @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  ipAddress            String?
+  userAgent            String?
+  userId               String
+  impersonatedBy       String?
+  activeOrganizationId String?
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+model Tenant {
+  id               String                @id @default(cuid())
+  name             String
+  slug             String                @unique
+  status           TenantStatus          @default(ACTIVE)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  members          TenantMember[]
+  organizations    Organization[]
+  roles            Role[]
+  cities           City[]
+  uomGroups        UomGroup[]
+  uoms             Uom[]
+  categories       ItemCategory[]
+  items            Item[]
+  levelDefinitions ItemLevelDefinition[]
+  levelValues      ItemLevelValue[]
+  parties          Party[]
+  taxComponents    TaxComponent[]
+  taxGroups        TaxGroup[]
+  designations     Designation[]
+  auditLogs        AuditLog[]
+
+  @@map("tenants")
+}
+
+model TenantMember {
+  id        String     @id @default(cuid())
+  tenantId  String
+  userId    String
+  role      TenantRole @default(MEMBER)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
+  @@map("tenant_members")
+}
+
+model Organization {
+  id             String            @id @default(cuid())
+  name           String
+  slug           String            @unique
+  logo           String?
+  metadata       String?
+  tenantId       String
+  legalName      String?
+  baseCurrency   String            @default("INR")
+  countryId      String?
+  stateId        String?
+  cityId         String?
+  addressLine1   String?
+  addressLine2   String?
+  postalCode     String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  country        Country?          @relation(fields: [countryId], references: [id])
+  state          State?            @relation(fields: [stateId], references: [id])
+  city           City?             @relation(fields: [cityId], references: [id])
+  members        Member[]
+  invitations    Invitation[]
+  taxIdentifiers TaxIdentifier[]
+  policies       ApprovalPolicy[]
+  requests       ApprovalRequest[]
+  series         DocumentSeries[]
+  auditLogs      AuditLog[]
+  attachments    Attachment[]
+
+  @@index([tenantId])
+  @@map("organizations")
+}
+
+model Member {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String       @default("member")
+  roleId         String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  customRole     Role?        @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("members")
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  email          String
+  role           String?
+  status         String       @default("pending")
+  inviterId      String
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  inviter        User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, email])
+  @@map("invitations")
+}
+
+model Role {
+  id           String                @id @default(cuid())
+  tenantId     String
+  name         String
+  description  String?
+  permissions  String[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  members      Member[]
+  policySteps  ApprovalPolicyStep[]
+  requestSteps ApprovalRequestStep[]
+
+  @@unique([tenantId, name])
+  @@map("roles")
+}
+
+model Country {
+  id            String         @id @default(cuid())
+  code          String         @unique
+  name          String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  states        State[]
+  organizations Organization[]
+  addresses     PartyAddress[]
+  taxGroups     TaxGroup[]
+
+  @@map("countries")
+}
+
+model State {
+  id            String         @id @default(cuid())
+  countryId     String
+  code          String
+  name          String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  country       Country        @relation(fields: [countryId], references: [id])
+  cities        City[]
+  organizations Organization[]
+  addresses     PartyAddress[]
+
+  @@unique([countryId, code])
+  @@map("states")
+}
+
+model City {
+  id            String         @id @default(cuid())
+  tenantId      String
+  stateId       String
+  name          String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  state         State          @relation(fields: [stateId], references: [id])
+  organizations Organization[]
+  addresses     PartyAddress[]
+
+  @@unique([tenantId, stateId, name])
+  @@map("cities")
+}
+
+model UomGroup {
+  id        String   @id @default(cuid())
+  tenantId  String?
+  key       String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id])
+  uoms      Uom[]
+
+  @@index([tenantId])
+  @@map("uom_groups")
+}
+
+model Uom {
+  id            String   @id @default(cuid())
+  tenantId      String?
+  groupId       String
+  code          String
+  name          String
+  factor        Decimal  @db.Decimal(18, 4)
+  isBase        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  tenant        Tenant?  @relation(fields: [tenantId], references: [id])
+  group         UomGroup @relation(fields: [groupId], references: [id])
+  stockItems    Item[]   @relation("StockUom")
+  purchaseItems Item[]   @relation("PurchaseUom")
+
+  @@unique([groupId, code])
+  @@index([tenantId])
+  @@map("uoms")
+}
+
+model ItemCategory {
+  id        String         @id @default(cuid())
+  tenantId  String
+  parentId  String?
+  name      String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  parent    ItemCategory?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  ItemCategory[] @relation("CategoryTree")
+  items     Item[]
+
+  @@index([tenantId, parentId])
+  @@map("item_categories")
+}
+
+model Item {
+  id                String            @id @default(cuid())
+  tenantId          String
+  code              String
+  name              String
+  description       String?
+  type              ItemType
+  categoryId        String?
+  taxCode           String?
+  stockUomId        String
+  purchaseUomId     String?
+  defaultTaxGroupId String?
+  active            Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  tenant            Tenant            @relation(fields: [tenantId], references: [id])
+  category          ItemCategory?     @relation(fields: [categoryId], references: [id])
+  stockUom          Uom               @relation("StockUom", fields: [stockUomId], references: [id])
+  purchaseUom       Uom?              @relation("PurchaseUom", fields: [purchaseUomId], references: [id])
+  defaultTaxGroup   TaxGroup?         @relation(fields: [defaultTaxGroupId], references: [id])
+  levelConfigs      ItemLevelConfig[]
+  variants          ItemVariant[]
+
+  @@unique([tenantId, code])
+  @@map("items")
+}
+
+model ItemLevelDefinition {
+  id        String            @id @default(cuid())
+  tenantId  String
+  level     Int
+  name      String
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  tenant    Tenant            @relation(fields: [tenantId], references: [id])
+  values    ItemLevelValue[]
+  configs   ItemLevelConfig[]
+
+  @@unique([tenantId, level])
+  @@map("item_level_definitions")
+}
+
+model ItemLevelValue {
+  id           String              @id @default(cuid())
+  tenantId     String
+  definitionId String
+  name         String
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  tenant       Tenant              @relation(fields: [tenantId], references: [id])
+  definition   ItemLevelDefinition @relation(fields: [definitionId], references: [id])
+  links        ItemLevelLink[]
+  variants1    ItemVariant[]       @relation("Level1")
+  variants2    ItemVariant[]       @relation("Level2")
+  variants3    ItemVariant[]       @relation("Level3")
+  variants4    ItemVariant[]       @relation("Level4")
+  variants5    ItemVariant[]       @relation("Level5")
+
+  @@unique([definitionId, name])
+  @@index([tenantId])
+  @@map("item_level_values")
+}
+
+model ItemLevelConfig {
+  id           String              @id @default(cuid())
+  itemId       String
+  definitionId String
+  mode         ItemLevelMode       @default(NOT_USED)
+  required     Boolean             @default(false)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  item         Item                @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  definition   ItemLevelDefinition @relation(fields: [definitionId], references: [id])
+  links        ItemLevelLink[]
+
+  @@unique([itemId, definitionId])
+  @@map("item_level_configs")
+}
+
+model ItemLevelLink {
+  id        String          @id @default(cuid())
+  configId  String
+  valueId   String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  config    ItemLevelConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+  value     ItemLevelValue  @relation(fields: [valueId], references: [id])
+
+  @@unique([configId, valueId])
+  @@map("item_level_links")
+}
+
+model ItemVariant {
+  id        String          @id @default(cuid())
+  itemId    String
+  key       String          @unique
+  level1Id  String?
+  level2Id  String?
+  level3Id  String?
+  level4Id  String?
+  level5Id  String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  item      Item            @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  level1    ItemLevelValue? @relation("Level1", fields: [level1Id], references: [id])
+  level2    ItemLevelValue? @relation("Level2", fields: [level2Id], references: [id])
+  level3    ItemLevelValue? @relation("Level3", fields: [level3Id], references: [id])
+  level4    ItemLevelValue? @relation("Level4", fields: [level4Id], references: [id])
+  level5    ItemLevelValue? @relation("Level5", fields: [level5Id], references: [id])
+
+  @@index([itemId])
+  @@map("item_variants")
+}
+
+model Party {
+  id             String          @id @default(cuid())
+  tenantId       String
+  code           String
+  legalName      String
+  displayName    String
+  type           PartyType       @default(BUSINESS)
+  isVendor       Boolean         @default(false)
+  isCustomer     Boolean         @default(false)
+  paymentTerms   Int             @default(0)
+  creditLimit    Decimal         @default(0) @db.Decimal(18, 2)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  addresses      PartyAddress[]
+  contacts       PartyContact[]
+  taxIdentifiers TaxIdentifier[]
+
+  @@unique([tenantId, code])
+  @@map("parties")
+}
+
+model PartyAddress {
+  id           String   @id @default(cuid())
+  partyId      String
+  label        String
+  addressLine1 String
+  addressLine2 String?
+  postalCode   String?
+  countryId    String?
+  stateId      String?
+  cityId       String?
+  isDefault    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  party        Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  country      Country? @relation(fields: [countryId], references: [id])
+  state        State?   @relation(fields: [stateId], references: [id])
+  city         City?    @relation(fields: [cityId], references: [id])
+
+  @@index([partyId])
+  @@map("party_addresses")
+}
+
+model PartyContact {
+  id        String   @id @default(cuid())
+  partyId   String
+  name      String
+  email     String?
+  phone     String?
+  jobTitle  String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  party     Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+
+  @@index([partyId])
+  @@map("party_contacts")
+}
+
+model TaxComponent {
+  id            String              @id @default(cuid())
+  tenantId      String
+  name          String
+  rate          Decimal             @db.Decimal(18, 4)
+  isWithholding Boolean             @default(false)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  tenant        Tenant              @relation(fields: [tenantId], references: [id])
+  groups        TaxGroupComponent[]
+
+  @@unique([tenantId, name])
+  @@map("tax_components")
+}
+
+model TaxGroup {
+  id         String              @id @default(cuid())
+  tenantId   String
+  name       String
+  countryId  String?
+  scope      TaxScope            @default(ANY)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  tenant     Tenant              @relation(fields: [tenantId], references: [id])
+  country    Country?            @relation(fields: [countryId], references: [id])
+  components TaxGroupComponent[]
+  items      Item[]
+
+  @@unique([tenantId, name])
+  @@map("tax_groups")
+}
+
+model TaxGroupComponent {
+  id          String       @id @default(cuid())
+  groupId     String
+  componentId String
+  sequence    Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  group       TaxGroup     @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  component   TaxComponent @relation(fields: [componentId], references: [id])
+
+  @@unique([groupId, componentId])
+  @@map("tax_group_components")
+}
+
+model TaxIdentifier {
+  id             String        @id @default(cuid())
+  partyId        String?
+  organizationId String?
+  label          String
+  value          String
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  party          Party?        @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([partyId])
+  @@index([organizationId])
+  @@map("tax_identifiers")
+}
+
+model Designation {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, name])
+  @@map("designations")
+}
+
+model ApprovalPolicy {
+  id             String               @id @default(cuid())
+  organizationId String
+  documentType   DocumentType
+  scopeKey       String
+  projectId      String?
+  stageId        String?
+  name           String
+  active         Boolean              @default(true)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  organization   Organization         @relation(fields: [organizationId], references: [id])
+  steps          ApprovalPolicyStep[]
+  requests       ApprovalRequest[]
+
+  @@unique([organizationId, documentType, scopeKey])
+  @@index([organizationId, documentType, active])
+  @@map("approval_policies")
+}
+
+model ApprovalPolicyStep {
+  id           String         @id @default(cuid())
+  policyId     String
+  sequence     Int
+  name         String
+  approverType ApproverType
+  roleId       String?
+  userId       String?
+  minAmount    Decimal?       @db.Decimal(18, 2)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  policy       ApprovalPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  role         Role?          @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  user         User?          @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([policyId, sequence])
+  @@map("approval_policy_steps")
+}
+
+model ApprovalRequest {
+  id             String                @id @default(cuid())
+  organizationId String
+  policyId       String?
+  documentType   DocumentType
+  documentId     String
+  title          String
+  projectId      String?
+  stageId        String?
+  amount         Decimal?              @db.Decimal(18, 2)
+  requestedById  String
+  status         ApprovalStatus        @default(PENDING)
+  completedAt    DateTime?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  organization   Organization          @relation(fields: [organizationId], references: [id])
+  policy         ApprovalPolicy?       @relation(fields: [policyId], references: [id], onDelete: SetNull)
+  requestedBy    User                  @relation(fields: [requestedById], references: [id])
+  steps          ApprovalRequestStep[]
+
+  @@index([organizationId, status])
+  @@index([organizationId, documentType, documentId])
+  @@map("approval_requests")
+}
+
+model ApprovalRequestStep {
+  id           String             @id @default(cuid())
+  requestId    String
+  sequence     Int
+  name         String
+  approverType ApproverType
+  roleId       String?
+  userId       String?
+  minAmount    Decimal?           @db.Decimal(18, 2)
+  status       ApprovalStepStatus @default(WAITING)
+  actedById    String?
+  actedAt      DateTime?
+  comment      String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  request      ApprovalRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  role         Role?              @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  user         User?              @relation("AssignedApprover", fields: [userId], references: [id], onDelete: Restrict)
+  actedBy      User?              @relation("ApprovalActor", fields: [actedById], references: [id])
+
+  @@unique([requestId, sequence])
+  @@index([status, userId])
+  @@map("approval_request_steps")
+}
+
+model AuditLog {
+  id             String        @id @default(cuid())
+  tenantId       String?
+  organizationId String?
+  userId         String?
+  action         String
+  entityType     String
+  entityId       String
+  changes        Json?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  tenant         Tenant?       @relation(fields: [tenantId], references: [id])
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  user           User?         @relation(fields: [userId], references: [id])
+
+  @@index([organizationId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+model DocumentSeries {
+  id             String       @id @default(cuid())
+  organizationId String
+  type           String
+  prefix         String
+  padding        Int          @default(4)
+  nextNumber     Int          @default(1)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, type])
+  @@map("document_series")
+}
+
+model Attachment {
+  id             String       @id @default(cuid())
+  organizationId String
+  uploadedById   String
+  entityType     String
+  entityId       String
+  filename       String
+  storageKey     String       @unique
+  mimeType       String
+  sizeBytes      Int
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  uploadedBy     User         @relation(fields: [uploadedById], references: [id])
+
+  @@index([organizationId, entityType, entityId])
+  @@map("attachments")
+}
