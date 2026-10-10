@@ -52,6 +52,7 @@ enum DocumentType {
   PAYMENT_REQUEST
   STOCK_TRANSFER
   CUSTOMER_INVOICE
+  SALES_INVOICE
   JOURNAL
 }
 
@@ -78,6 +79,12 @@ enum ApprovalStepStatus {
 }
 
 model User {
+  paymentRequestRows    PaymentRequest[]
+  paymentRows           Payment[]
+  paymentAllocationRows PaymentAllocation[]
+  vendorBillRows        VendorBill[]
+  salesInvoiceRows      SalesInvoice[]
+
   purchaseRequestRows     PurchaseRequest[]
   purchaseOrderRows       PurchaseOrder[]
   goodsReceiptRows        GoodsReceipt[]
@@ -212,6 +219,11 @@ model TenantMember {
 }
 
 model Organization {
+  vendorBillRows     VendorBill[]
+  paymentRequestRows PaymentRequest[]
+  paymentRows        Payment[]
+  salesInvoiceRows   SalesInvoice[]
+
   purchaseRequestRows     PurchaseRequest[]
   purchaseOrderRows       PurchaseOrder[]
   goodsReceiptRows        GoodsReceipt[]
@@ -328,6 +340,8 @@ model Country {
 }
 
 model State {
+  salesInvoiceRows SalesInvoice[]
+
   projectSites ProjectSite[]
 
   id            String         @id @default(cuid())
@@ -378,6 +392,9 @@ model UomGroup {
 }
 
 model Uom {
+  vendorBillLineRows   VendorBillLine[]
+  salesInvoiceLineRows SalesInvoiceLine[]
+
   purchaseRequestLineRows     PurchaseRequestLine[]
   PoLineUom                   PurchaseOrderLine[]       @relation("PoLineUom")
   PoLineStockUom              PurchaseOrderLine[]       @relation("PoLineStockUom")
@@ -517,6 +534,9 @@ model ItemLevelLink {
 }
 
 model ItemVariant {
+  vendorBillLineRows   VendorBillLine[]
+  salesInvoiceLineRows SalesInvoiceLine[]
+
   purchaseRequestLineRows     PurchaseRequestLine[]
   purchaseOrderLineRows       PurchaseOrderLine[]
   materialConsumptionLineRows MaterialConsumptionLine[]
@@ -547,6 +567,11 @@ model ItemVariant {
 }
 
 model Party {
+  vendorBillRows     VendorBill[]
+  paymentRequestRows PaymentRequest[]
+  paymentRows        Payment[]
+  salesInvoiceRows   SalesInvoice[]
+
   purchaseOrderRows PurchaseOrder[]
 
   email String?
@@ -615,6 +640,9 @@ model PartyContact {
 }
 
 model TaxComponent {
+  vendorBillLineTaxRows   VendorBillLineTax[]
+  salesInvoiceLineTaxRows SalesInvoiceLineTax[]
+
   purchaseOrderLineTaxRows PurchaseOrderLineTax[]
 
   code      String           @default("")
@@ -635,6 +663,9 @@ model TaxComponent {
 }
 
 model TaxGroup {
+  vendorBillLineRows   VendorBillLine[]
+  salesInvoiceLineRows SalesInvoiceLine[]
+
   purchaseOrderLineRows PurchaseOrderLine[]
 
   id         String              @id @default(cuid())
@@ -740,6 +771,10 @@ model ApprovalPolicyStep {
 }
 
 model ApprovalRequest {
+  vendorBill     VendorBill?
+  paymentRequest PaymentRequest?
+  salesInvoice   SalesInvoice?
+
   purchaseRequestRows PurchaseRequest[]
   purchaseOrderRows   PurchaseOrder[]
   goodsReceiptRows    GoodsReceipt[]
@@ -905,6 +940,8 @@ enum CostType {
 }
 
 enum CostSourceType {
+  GRN
+  BILL_VARIANCE
   CONSUMPTION
   TRANSFER
   ATTENDANCE
@@ -913,11 +950,17 @@ enum CostSourceType {
 }
 
 model Project {
+  vendorBillRows     VendorBill[]
+  paymentRequestRows PaymentRequest[]
+  paymentRows        Payment[]
+  salesInvoiceRows   SalesInvoice[]
+
+  materialCostRecognition MaterialCostRecognition @default(ON_CONSUMPTION)
   purchaseRequestRows     PurchaseRequest[]
   purchaseOrderRows       PurchaseOrder[]
   goodsReceiptRows        GoodsReceipt[]
   materialConsumptionRows MaterialConsumption[]
-  TransferDestination     StockTransfer[]       @relation("TransferDestination")
+  TransferDestination     StockTransfer[]         @relation("TransferDestination")
   stockTransferRows       StockTransfer[]
   stockMovementRows       StockMovement[]
 
@@ -1277,6 +1320,7 @@ enum PurchasePaymentTerms {
 }
 
 enum StockMovementType {
+  SALE_OUT
   GRN_IN
   CONSUMPTION_OUT
   TRANSFER_OUT
@@ -1333,6 +1377,8 @@ model PurchaseRequestLine {
 }
 
 model PurchaseOrder {
+  vendorBillRows VendorBill[]
+
   goodsReceiptRows GoodsReceipt[]
 
   id                      String               @id @default(cuid())
@@ -1369,6 +1415,8 @@ model PurchaseOrder {
 }
 
 model PurchaseOrderLine {
+  vendorBillLineRows VendorBillLine[]
+
   goodsReceiptLineRows GoodsReceiptLine[]
 
   id              String                 @id @default(cuid())
@@ -1445,6 +1493,8 @@ model GoodsReceipt {
 }
 
 model GoodsReceiptLine {
+  vendorBillLineRows VendorBillLine[]
+
   id          String            @id @default(cuid())
   receiptId   String
   poLineId    String
@@ -1543,6 +1593,8 @@ model StockTransferLine {
 }
 
 model StockMovement {
+  salesInvoiceLine SalesInvoiceLine?
+
   id             String            @id @default(cuid())
   organizationId String
   projectId      String
@@ -1567,4 +1619,330 @@ model StockMovement {
   @@unique([organizationId, sourceType, sourceId, type])
   @@index([projectId, itemVariantId])
   @@map("stock_movements")
+}
+
+enum MaterialCostRecognition {
+  ON_RECEIPT
+  ON_CONSUMPTION
+}
+
+enum FinanceDocumentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+}
+
+enum PaymentRequestStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+enum PaymentMode {
+  CASH
+  BANK
+  UPI
+  CHEQUE
+  OTHER
+}
+
+enum PaymentPurpose {
+  ADVANCE
+  BILL_SETTLEMENT
+  OTHER
+}
+
+enum PaymentDirection {
+  OUTGOING
+  INCOMING
+}
+
+enum PaymentStatus {
+  POSTED
+  VOID
+}
+
+/// Attachments use Attachment.entityType = "VendorBill" and entityId = id.
+model VendorBill {
+  id                String                @id @default(cuid())
+  organizationId    String
+  projectId         String
+  partyId           String
+  code              String
+  date              DateTime              @default(now()) @db.Date
+  vendorInvoiceNo   String
+  vendorInvoiceDate DateTime              @db.Date
+  dueDate           DateTime?             @db.Date
+  purchaseOrderId   String?
+  currency          String
+  subtotal          Decimal               @db.Decimal(18, 2)
+  discountTotal     Decimal               @default(0) @db.Decimal(18, 2)
+  taxTotal          Decimal               @db.Decimal(18, 2)
+  withholdingTotal  Decimal               @default(0) @db.Decimal(18, 2)
+  grandTotal        Decimal               @db.Decimal(18, 2)
+  payableTotal      Decimal               @db.Decimal(18, 2)
+  paidTotal         Decimal               @default(0) @db.Decimal(18, 2)
+  status            FinanceDocumentStatus @default(DRAFT)
+  approvalRequestId String?               @unique
+  notes             String?
+  createdById       String
+  organization      Organization          @relation(fields: [organizationId], references: [id])
+  project           Project               @relation(fields: [projectId], references: [id])
+  party             Party                 @relation(fields: [partyId], references: [id])
+  purchaseOrder     PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id])
+  approvalRequest   ApprovalRequest?      @relation(fields: [approvalRequestId], references: [id])
+  createdBy         User                  @relation(fields: [createdById], references: [id])
+  lines             VendorBillLine[]
+  paymentRequests   PaymentRequestBill[]
+  allocations       PaymentAllocation[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@unique([organizationId, code])
+  @@index([organizationId, partyId, status, date])
+  @@index([organizationId, status, date])
+  @@index([projectId, status])
+  @@index([purchaseOrderId])
+  @@map("vendor_bills")
+}
+
+model VendorBillLine {
+  id              String              @id @default(cuid())
+  billId          String
+  poLineId        String?
+  grnLineId       String?
+  itemVariantId   String?
+  description     String
+  qty             Decimal             @db.Decimal(18, 4)
+  uomId           String
+  rate            Decimal             @db.Decimal(18, 4)
+  discountPercent Decimal             @default(0) @db.Decimal(7, 4)
+  taxGroupId      String?
+  lineSubtotal    Decimal             @db.Decimal(18, 2)
+  lineTax         Decimal             @db.Decimal(18, 2)
+  lineTotal       Decimal             @db.Decimal(18, 2)
+  poRate          Decimal?            @db.Decimal(18, 4)
+  varianceAmount  Decimal             @default(0) @db.Decimal(18, 2)
+  bill            VendorBill          @relation(fields: [billId], references: [id])
+  poLine          PurchaseOrderLine?  @relation(fields: [poLineId], references: [id])
+  grnLine         GoodsReceiptLine?   @relation(fields: [grnLineId], references: [id])
+  variant         ItemVariant?        @relation(fields: [itemVariantId], references: [id])
+  uom             Uom                 @relation(fields: [uomId], references: [id])
+  taxGroup        TaxGroup?           @relation(fields: [taxGroupId], references: [id])
+  taxes           VendorBillLineTax[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([billId])
+  @@index([poLineId])
+  @@index([grnLineId])
+  @@map("vendor_bill_lines")
+}
+
+model VendorBillLineTax {
+  id            String         @id @default(cuid())
+  lineId        String
+  componentId   String
+  name          String
+  rate          Decimal        @db.Decimal(18, 4)
+  amount        Decimal        @db.Decimal(18, 2)
+  isWithholding Boolean
+  line          VendorBillLine @relation(fields: [lineId], references: [id])
+  component     TaxComponent   @relation(fields: [componentId], references: [id])
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([lineId])
+  @@map("vendor_bill_line_taxes")
+}
+
+model PaymentRequest {
+  id                String               @id @default(cuid())
+  organizationId    String
+  projectId         String?
+  partyId           String
+  code              String
+  date              DateTime             @default(now()) @db.Date
+  currency          String
+  amount            Decimal              @db.Decimal(18, 2)
+  mode              PaymentMode
+  purpose           PaymentPurpose
+  requestedById     String
+  reason            String
+  status            PaymentRequestStatus @default(DRAFT)
+  approvalRequestId String?              @unique
+  organization      Organization         @relation(fields: [organizationId], references: [id])
+  project           Project?             @relation(fields: [projectId], references: [id])
+  party             Party                @relation(fields: [partyId], references: [id])
+  requestedBy       User                 @relation(fields: [requestedById], references: [id])
+  approvalRequest   ApprovalRequest?     @relation(fields: [approvalRequestId], references: [id])
+  bills             PaymentRequestBill[]
+  payments          Payment[]
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@unique([organizationId, code])
+  @@index([organizationId, partyId, status, date])
+  @@index([organizationId, status, date])
+  @@index([projectId, status])
+  @@map("payment_requests")
+}
+
+model PaymentRequestBill {
+  id               String         @id @default(cuid())
+  paymentRequestId String
+  billId           String
+  amount           Decimal        @db.Decimal(18, 2)
+  paymentRequest   PaymentRequest @relation(fields: [paymentRequestId], references: [id])
+  bill             VendorBill     @relation(fields: [billId], references: [id])
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([paymentRequestId, billId])
+  @@index([billId])
+  @@map("payment_request_bills")
+}
+
+model Payment {
+  id                String              @id @default(cuid())
+  organizationId    String
+  code              String
+  partyId           String
+  direction         PaymentDirection
+  date              DateTime            @db.Date
+  mode              PaymentMode
+  reference         String?
+  currency          String
+  amount            Decimal             @db.Decimal(18, 2)
+  allocatedAmount   Decimal             @default(0) @db.Decimal(18, 2)
+  unallocatedAmount Decimal             @db.Decimal(18, 2)
+  paymentRequestId  String?
+  projectId         String?
+  notes             String?
+  status            PaymentStatus       @default(POSTED)
+  createdById       String
+  organization      Organization        @relation(fields: [organizationId], references: [id])
+  party             Party               @relation(fields: [partyId], references: [id])
+  paymentRequest    PaymentRequest?     @relation(fields: [paymentRequestId], references: [id])
+  project           Project?            @relation(fields: [projectId], references: [id])
+  createdBy         User                @relation(fields: [createdById], references: [id])
+  allocations       PaymentAllocation[]
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([organizationId, code])
+  @@index([organizationId, partyId, status, date])
+  @@index([organizationId, status, date])
+  @@index([organizationId, direction, date])
+  @@index([paymentRequestId])
+  @@index([projectId])
+  @@map("payments")
+}
+
+model PaymentAllocation {
+  id             String        @id @default(cuid())
+  paymentId      String
+  vendorBillId   String?
+  salesInvoiceId String?
+  amount         Decimal       @db.Decimal(18, 2)
+  allocatedAt    DateTime      @default(now())
+  allocatedById  String
+  payment        Payment       @relation(fields: [paymentId], references: [id])
+  vendorBill     VendorBill?   @relation(fields: [vendorBillId], references: [id])
+  salesInvoice   SalesInvoice? @relation(fields: [salesInvoiceId], references: [id])
+  allocatedBy    User          @relation(fields: [allocatedById], references: [id])
+
+  @@index([paymentId])
+  @@index([vendorBillId])
+  @@index([salesInvoiceId])
+  @@map("payment_allocations")
+}
+
+model SalesInvoice {
+  id                String                @id @default(cuid())
+  organizationId    String
+  projectId         String?
+  partyId           String
+  code              String
+  date              DateTime              @db.Date
+  dueDate           DateTime?             @db.Date
+  stateId           String?
+  currency          String
+  subtotal          Decimal               @db.Decimal(18, 2)
+  discountTotal     Decimal               @default(0) @db.Decimal(18, 2)
+  taxTotal          Decimal               @db.Decimal(18, 2)
+  withholdingTotal  Decimal               @default(0) @db.Decimal(18, 2)
+  grandTotal        Decimal               @db.Decimal(18, 2)
+  payableTotal      Decimal               @db.Decimal(18, 2)
+  receivedTotal     Decimal               @default(0) @db.Decimal(18, 2)
+  status            FinanceDocumentStatus @default(DRAFT)
+  approvalRequestId String?               @unique
+  notes             String?
+  createdById       String
+  organization      Organization          @relation(fields: [organizationId], references: [id])
+  project           Project?              @relation(fields: [projectId], references: [id])
+  party             Party                 @relation(fields: [partyId], references: [id])
+  placeOfSupply     State?                @relation(fields: [stateId], references: [id])
+  approvalRequest   ApprovalRequest?      @relation(fields: [approvalRequestId], references: [id])
+  createdBy         User                  @relation(fields: [createdById], references: [id])
+  lines             SalesInvoiceLine[]
+  allocations       PaymentAllocation[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@unique([organizationId, code])
+  @@index([organizationId, partyId, status, date])
+  @@index([organizationId, status, date])
+  @@index([projectId, status])
+  @@map("sales_invoices")
+}
+
+model SalesInvoiceLine {
+  id               String                @id @default(cuid())
+  invoiceId        String
+  itemVariantId    String?
+  description      String
+  qty              Decimal               @db.Decimal(18, 4)
+  uomId            String
+  rate             Decimal               @db.Decimal(18, 4)
+  discountPercent  Decimal               @default(0) @db.Decimal(7, 4)
+  taxGroupId       String?
+  lineSubtotal     Decimal               @db.Decimal(18, 2)
+  lineTax          Decimal               @db.Decimal(18, 2)
+  lineTotal        Decimal               @db.Decimal(18, 2)
+  fromProjectStock Boolean               @default(false)
+  stockMovementId  String?               @unique
+  invoice          SalesInvoice          @relation(fields: [invoiceId], references: [id])
+  variant          ItemVariant?          @relation(fields: [itemVariantId], references: [id])
+  uom              Uom                   @relation(fields: [uomId], references: [id])
+  taxGroup         TaxGroup?             @relation(fields: [taxGroupId], references: [id])
+  stockMovement    StockMovement?        @relation(fields: [stockMovementId], references: [id])
+  taxes            SalesInvoiceLineTax[]
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  @@index([invoiceId])
+  @@map("sales_invoice_lines")
+}
+
+model SalesInvoiceLineTax {
+  id            String           @id @default(cuid())
+  lineId        String
+  componentId   String
+  name          String
+  rate          Decimal          @db.Decimal(18, 4)
+  amount        Decimal          @db.Decimal(18, 2)
+  isWithholding Boolean
+  line          SalesInvoiceLine @relation(fields: [lineId], references: [id])
+  component     TaxComponent     @relation(fields: [componentId], references: [id])
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([lineId])
+  @@map("sales_invoice_line_taxes")
 }

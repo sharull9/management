@@ -1,6 +1,13 @@
 import "server-only";
 import type { ApprovalRequest } from "@/generated/prisma/client";
 import { db } from "../db";
+// Titles for finance submission callers; ApprovalRequest.title stores the document-specific title.
+export const financeDocumentTitles = {
+  VENDOR_BILL: "Vendor bill",
+  PAYMENT_REQUEST: "Payment request",
+  SALES_INVOICE: "Sales invoice",
+} as const;
+
 export async function approvalDocumentLinks(
   org: string,
   requests: Pick<
@@ -14,6 +21,9 @@ export async function approvalDocumentLinks(
         PURCHASE_REQUEST: "procurement/requests",
         PURCHASE_ORDER: "procurement/orders",
         GRN: "procurement/receipts",
+        VENDOR_BILL: "procurement/bills",
+        PAYMENT_REQUEST: "finance/payment-requests",
+        SALES_INVOICE: "sales/invoices",
         STOCK_TRANSFER: "inventory/transfers",
       };
       if (paths[r.documentType])

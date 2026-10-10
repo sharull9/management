@@ -117,6 +117,17 @@ export function AppShell({
                 ["Purchase requests", "procurement/requests"],
                 ["Purchase orders", "procurement/orders"],
                 ["Goods receipts", "procurement/receipts"],
+                ["Vendor bills", "procurement/bills"],
+                ["Payments", "finance/payments"],
+                ["Payment requests", "finance/payment-requests"],
+              ],
+            },
+            {
+              title: "Sales",
+              links: [
+                ["Invoices", "sales/invoices"],
+                ["Receipts", "sales/receipts"],
+                ["Balances", "finance/balances"],
               ],
             },
             {

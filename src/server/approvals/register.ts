@@ -1,7 +1,10 @@
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
 import { writeAudit } from "../audit";
+import * as billApproval from "../bills/approval";
+import * as paymentRequestApproval from "../payments/approval";
 import { registerProcurementHandlers } from "../procurement/approvals";
+import * as salesInvoiceApproval from "../sales/approval";
 import { registerManagerResolver } from "./authorization";
 import { registerApprovalHandler } from "./handlers";
 import { managerApprovers, submissionTaskEffect } from "./project-effects";
@@ -158,3 +161,6 @@ registerManagerResolver(async (request, type, tx) => {
 });
 
 registerProcurementHandlers();
+registerApprovalHandler("VENDOR_BILL", billApproval);
+registerApprovalHandler("PAYMENT_REQUEST", paymentRequestApproval);
+registerApprovalHandler("SALES_INVOICE", salesInvoiceApproval);

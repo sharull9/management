@@ -4,6 +4,7 @@ export const permissionGroups = {
     "project.create": "Create projects",
     "project.manage": "Manage projects",
     "project.edit": "Edit projects",
+    "project.settings.manage": "Manage project settings",
     "stage.manage": "Manage stages",
     "task.manage": "Manage tasks",
     "task.submit": "Submit task work",
@@ -32,6 +33,11 @@ export const permissionGroups = {
     "purchase.request": "Create purchase requests",
     "purchase.manage": "Manage orders and receipts",
     "bill.manage": "Manage vendor bills",
+    "bill.create": "Create and submit vendor bills",
+    "bill.view": "View vendor bills",
+    "payment.request.create": "Create and submit payment requests",
+    "payment.record": "Record payments and receipts",
+    "payment.view": "View payments and balances",
     "payment.manage": "Manage payments",
   },
   Inventory: {
@@ -41,7 +47,11 @@ export const permissionGroups = {
     "stock.view": "View stock",
     "stock.manage": "Manage consumption and transfers",
   },
-  Sales: { "sales.view": "View sales", "sales.manage": "Manage invoices" },
+  Sales: {
+    "sales.view": "View sales",
+    "sales.manage": "Manage invoices",
+    "sales.invoice.create": "Create and submit sales invoices",
+  },
   Assets: {
     "asset.view": "View vehicles and machinery",
     "asset.manage": "Manage assets",
