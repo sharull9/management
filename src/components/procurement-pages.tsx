@@ -332,6 +332,18 @@ export async function ProcurementDetail({
         description={`${row.project.name} · ${row.status.replaceAll("_", " ")}`}
       />
       <Badge variant="secondary">{row.status.replaceAll("_", " ")}</Badge>
+      {isOrder &&
+        ["APPROVED", "PARTIALLY_RECEIVED", "RECEIVED", "CLOSED"].includes(
+          row.status,
+        ) &&
+        (ctx.isAdmin || ctx.permissions.has("bill.create")) && (
+          <Link
+            className="inline-flex rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground print:hidden"
+            href={`/${org}/procurement/bills/new?po=${row.id}`}
+          >
+            Create bill
+          </Link>
+        )}
       <p className="text-sm">
         <Link
           className="underline"
