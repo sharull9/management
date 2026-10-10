@@ -1,2 +1,2 @@
-import { getBillAttachment } from "@/modules/vendor-bill/server/attachment";
+import { getBillAttachment } from "@/modules/vendor-bill";
 export const GET = getBillAttachment;

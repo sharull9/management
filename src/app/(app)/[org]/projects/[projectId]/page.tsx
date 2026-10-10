@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Loading from "@/components/shared/page-loading";
 import { requireProjectContext } from "@/core/context";
 import { ProjectOverviewView } from "@/modules/project/ui/views/project-overview-view";
-import { ProjectCostRecognitionForm } from "@/modules/project-cost/ui/components/project-cost-recognition-form";
+import { ProjectCostRecognitionForm } from "@/modules/project-cost/ui/views/project-cost-recognition-view";
 
 async function Content({
   params,
