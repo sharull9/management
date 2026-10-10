@@ -8,7 +8,7 @@ const normalize = (path: string) => path.replaceAll("\\", "/");
 
 function violation(file: string, specifier: string): boolean {
   const target = specifier.startsWith("@/")
-    ? `src/${specifier.slice(2)}`
+    ? normalize(relative(root, resolve(root, "src", specifier.slice(2))))
     : specifier.startsWith(".")
       ? normalize(relative(root, resolve(root, dirname(file), specifier)))
       : specifier;
@@ -42,6 +42,10 @@ assert.equal(
   true,
 );
 assert.equal(violation("scripts/a.ts", "../src/modules/tax/util"), true);
+assert.equal(
+  violation("src/modules/tax/a.ts", "@/modules/tax/../payment/server/service"),
+  true,
+);
 
 function files(directory: string): string[] {
   return readdirSync(resolve(root, directory), { withFileTypes: true }).flatMap(
