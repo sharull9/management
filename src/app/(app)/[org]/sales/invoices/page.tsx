@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { InvoiceList } from "@/components/sales/pages";
 import Loading from "@/components/shared/page-loading";
+import { InvoiceList } from "@/modules/sales-invoice/ui/views/invoices-list-view";
 
 async function Content({
   params,

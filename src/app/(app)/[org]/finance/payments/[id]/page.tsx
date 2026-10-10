@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { PaymentDetail } from "@/components/finance/pages";
 import Loading from "@/components/shared/page-loading";
+import { PaymentDetail } from "@/modules/payment/ui/views/payments-detail-view";
 
 type Props = {
   params: Promise<{ org: string; id: string }>;

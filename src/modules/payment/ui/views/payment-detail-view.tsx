@@ -1,0 +1,134 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ActionForm } from "@/components/shared/action-form";
+import { Field } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
+import { PageHeading } from "@/components/shared/page-heading";
+import { requireOrgContext, requireProjectContext } from "@/core/context";
+import { voidPaymentAction } from "../../server/actions";
+import { financeData } from "../../server/queries";
+import { AllocationForm } from "../components/allocation-form";
+
+import { date, formData, linkClass, money } from "../util";
+export async function PaymentDetail({ org, id }: { org: string; id: string }) {
+  const ctx = await requireOrgContext(org);
+  const salesOnly =
+    !ctx.isAdmin &&
+    !ctx.permissions.has("payment.view") &&
+    ctx.permissions.has("sales.view");
+  const d = await financeData(org, salesOnly ? "sales.view" : "payment.view"),
+    row = d.payments.find((p) => p.id === id);
+  if (!row || (salesOnly && row.direction !== "INCOMING")) notFound();
+  const permissionCtx = row.projectId
+    ? await requireProjectContext(org, row.projectId)
+    : d.ctx;
+  const canRecord =
+    permissionCtx.isAdmin || permissionCtx.permissions.has("payment.record");
+  const documents =
+    row.direction === "OUTGOING"
+      ? formData(d).bills
+      : d.invoices
+          .filter((i) => i.payableTotal.gt(i.receivedTotal))
+          .map((i) => ({
+            id: i.id,
+            code: i.code,
+            partyId: i.partyId,
+            projectId: i.projectId,
+            currency: i.currency,
+            outstanding: money(i.payableTotal.sub(i.receivedTotal)),
+          }));
+  return (
+    <div className="space-y-6">
+      <PageHeading
+        title={row.code}
+        description={`${row.party.displayName} · ${row.direction} · ${row.status} · ${row.currency} ${money(row.amount)}`}
+      />
+      <FormCard title="Payment">
+        <dl className="grid gap-3 text-sm md:grid-cols-2">
+          <div>Date: {date(row.date)}</div>
+          <div>Mode: {row.mode}</div>
+          <div>Reference: {row.reference ?? "None"}</div>
+          <div>
+            Project:{" "}
+            {d.projects.find((p) => p.id === row.projectId)?.name ??
+              "Organization"}
+          </div>
+          <div>Allocated: {money(row.allocatedAmount)}</div>
+          <div>
+            {row.status === "VOID" ? "Reversed amount" : "Unallocated advance"}:{" "}
+            {money(row.unallocatedAmount)}
+          </div>
+        </dl>
+        {row.paymentRequestId && (
+          <Link
+            className={linkClass}
+            href={`/${org}/finance/payment-requests/${row.paymentRequestId}`}
+          >
+            Payment request
+          </Link>
+        )}
+        <p className="mt-4 whitespace-pre-wrap text-sm">{row.notes}</p>
+      </FormCard>
+      <FormCard
+        title={row.status === "VOID" ? "Reversed allocations" : "Allocations"}
+      >
+        {row.allocations.map((a) => (
+          <p key={a.id} className="py-2 text-sm">
+            <Link
+              className={linkClass}
+              href={`/${org}/${a.vendorBillId ? `procurement/bills/${a.vendorBillId}` : `sales/invoices/${a.salesInvoiceId}`}`}
+            >
+              {a.vendorBill?.code ?? a.salesInvoice?.code}
+            </Link>{" "}
+            · {money(a.amount)} · {date(a.allocatedAt)}
+          </p>
+        ))}
+        {!row.allocations.length && (
+          <p className="text-sm text-muted-foreground">No allocations yet.</p>
+        )}
+      </FormCard>
+      {row.status === "POSTED" && canRecord && (
+        <>
+          {row.unallocatedAmount.gt(0) && (
+            <FormCard
+              title={`Allocate advance · ${money(row.unallocatedAmount)} available`}
+            >
+              <AllocationForm
+                key={`${row.id}:${row.updatedAt.toISOString()}`}
+                org={org}
+                paymentId={id}
+                documents={documents.filter(
+                  (r) =>
+                    r.partyId === row.partyId &&
+                    r.currency === row.currency &&
+                    (!row.projectId || r.projectId === row.projectId),
+                )}
+              />
+            </FormCard>
+          )}
+          <FormCard title="Void payment">
+            <ActionForm
+              action={voidPaymentAction.bind(null, org)}
+              submit="Void and reverse allocations"
+              destructive
+            >
+              <input type="hidden" name="id" value={id} />
+              <Field
+                label="Reason for voiding"
+                name="reason"
+                required
+                maxLength={1000}
+              />
+            </ActionForm>
+          </FormCard>
+        </>
+      )}
+      <Link
+        className={linkClass}
+        href={`/${org}/finance/balances/${row.partyId}?currency=${row.currency}`}
+      >
+        Party statement
+      </Link>
+    </div>
+  );
+}
