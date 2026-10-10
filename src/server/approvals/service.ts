@@ -1,7 +1,8 @@
 import "server-only";
+import "./register";
 import type { DocumentType, Prisma } from "@/generated/prisma/client";
 import { writeAudit } from "../audit";
-import { requireOrgContext, requireUser } from "../context";
+import { type OrgContext, requireOrgContext, requireUser } from "../context";
 import { db } from "../db";
 import { canActOnStep } from "./authorization";
 import { getApprovalHandler } from "./handlers";
@@ -19,9 +20,26 @@ export async function submitForApproval(
     amount?: string;
   } & Scope,
   transaction?: Prisma.TransactionClient,
+  authorizedContext?: OrgContext,
 ) {
-  const ctx = await requireOrgContext(input.orgSlug);
+  const ctx = authorizedContext ?? (await requireOrgContext(input.orgSlug));
+  if (ctx.org.slug !== input.orgSlug)
+    throw new Error("Invalid approval organization.");
   const execute = async (tx: Prisma.TransactionClient) => {
+    if (
+      input.projectId &&
+      !(await tx.project.findFirst({
+        where: { id: input.projectId, organizationId: ctx.org.id },
+      }))
+    )
+      throw new Error("Invalid approval project.");
+    if (
+      input.stageId &&
+      !(await tx.stage.findFirst({
+        where: { id: input.stageId, projectId: input.projectId ?? "" },
+      }))
+    )
+      throw new Error("Invalid approval stage.");
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${ctx.org.id + input.documentType + input.documentId}))::text`;
     const pending = await tx.approvalRequest.findFirst({
       where: {
@@ -123,6 +141,7 @@ export async function actOnApproval(
         await (action === "APPROVE" ? handler.onApproved : handler.onRejected)(
           completed,
           tx,
+          ctx.user.id,
         );
     }
     await writeAudit(
@@ -159,6 +178,11 @@ export async function cancelApproval(requestId: string) {
       where: { requestId, status: { in: ["WAITING", "PENDING"] } },
       data: { status: "CANCELED" },
     });
+    await getApprovalHandler(request.documentType)?.onCanceled?.(
+      request,
+      tx,
+      ctx.user.id,
+    );
     await writeAudit(
       {
         tenantId: ctx.tenant.id,

@@ -70,9 +70,103 @@ export function assertPermission(ctx: OrgContext, permission: string) {
   if (!ctx.isAdmin && !ctx.permissions.has(permission))
     throw new Error("You do not have permission to perform this action.");
 }
+export const requireProjectContext = cache(
+  async (orgSlug: string, projectId: string) => {
+    const ctx = await requireOrgContext(orgSlug);
+    const project = await db.project.findFirst({
+      where: { id: projectId, organizationId: ctx.org.id },
+      include: {
+        members: { where: { userId: ctx.user.id }, include: { role: true } },
+      },
+    });
+    if (!project) notFound();
+    const membership = project.members[0];
+    const isProjectManager =
+      project.managerUserId === ctx.user.id || !!membership?.isManager;
+    const permissions = new Set(ctx.permissions);
+    if (membership?.role?.tenantId === ctx.tenant.id)
+      for (const key of membership.role.permissions) permissions.add(key);
+    if (membership || isProjectManager) permissions.add("project.view");
+    if (isProjectManager)
+      for (const key of [
+        "project.edit",
+        "stage.manage",
+        "task.manage",
+        "task.submit",
+        "task.delay.request",
+        "attendance.record",
+        "cost.view",
+        "expense.create",
+      ])
+        permissions.add(key);
+    const scoped = {
+      ...ctx,
+      project,
+      projectMember: membership,
+      isProjectManager,
+      permissions,
+    };
+    assertPermission(scoped, "project.view");
+    return scoped;
+  },
+);
+export function projectAccessWhere(ctx: OrgContext) {
+  return ctx.isAdmin || ctx.permissions.has("project.view")
+    ? {}
+    : {
+        OR: [
+          { managerUserId: ctx.user.id },
+          { members: { some: { userId: ctx.user.id } } },
+        ],
+      };
+}
 export function assertTenantAdmin(ctx: OrgContext) {
   if (ctx.tenantRole !== "OWNER" && ctx.tenantRole !== "ADMIN")
     throw new Error("Tenant owner or administrator access is required.");
+}
+export function projectCostAccessWhere(ctx: OrgContext) {
+  return ctx.isAdmin || ctx.permissions.has("cost.view")
+    ? projectAccessWhere(ctx)
+    : {
+        AND: [projectAccessWhere(ctx)],
+        OR: [
+          { managerUserId: ctx.user.id },
+          { members: { some: { userId: ctx.user.id, isManager: true } } },
+          {
+            members: {
+              some: {
+                userId: ctx.user.id,
+                role: {
+                  tenantId: ctx.tenant.id,
+                  permissions: { has: "cost.view" },
+                },
+              },
+            },
+          },
+        ],
+      };
+}
+export function canViewProjectCost(
+  ctx: OrgContext,
+  project: {
+    managerUserId: string | null;
+    members: {
+      isManager: boolean;
+      role: { tenantId: string; permissions: string[] } | null;
+    }[];
+  },
+) {
+  return (
+    ctx.isAdmin ||
+    ctx.permissions.has("cost.view") ||
+    project.managerUserId === ctx.user.id ||
+    project.members.some(
+      (m) =>
+        m.isManager ||
+        (m.role?.tenantId === ctx.tenant.id &&
+          m.role.permissions.includes("cost.view")),
+    )
+  );
 }
 export async function listAccessibleOrgs(userId: string) {
   return db.organization.findMany({

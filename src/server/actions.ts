@@ -401,6 +401,26 @@ export async function removeMemberAction(
         })) <= 1
       )
         throw new Error("Keep at least one organization owner.");
+      const projectReferences =
+        (await tx.projectMember.count({
+          where: {
+            userId: member.userId,
+            project: { organizationId: ctx.org.id },
+          },
+        })) +
+        (await tx.project.count({
+          where: { organizationId: ctx.org.id, managerUserId: member.userId },
+        })) +
+        (await tx.stage.count({
+          where: {
+            managerUserId: member.userId,
+            project: { organizationId: ctx.org.id },
+          },
+        }));
+      if (projectReferences)
+        throw new Error(
+          "Remove this member from project teams and manager assignments before removing organization access.",
+        );
       await tx.member.delete({ where: { id: member.id } });
       await writeAudit(
         {
@@ -446,9 +466,9 @@ export async function saveRoleAction(
       if (roleId) {
         const role = await tx.role.findFirstOrThrow({
           where: { id: roleId, tenantId: ctx.tenant.id },
-          include: { members: true },
+          include: { members: true, projectMembers: true },
         });
-        if (!ctx.isAdmin && role.members.length)
+        if (!ctx.isAdmin && (role.members.length || role.projectMembers.length))
           throw new Error("Only administrators can edit assigned roles.");
       }
       const role = roleId
@@ -481,9 +501,9 @@ export async function deleteRoleAction(
     await db.$transaction(async (tx) => {
       const role = await tx.role.findFirstOrThrow({
         where: { id: roleId, tenantId: ctx.tenant.id },
-        include: { members: true },
+        include: { members: true, projectMembers: true },
       });
-      if (role.members.length)
+      if (role.members.length || role.projectMembers.length)
         throw new Error("Unassign this role from members before deleting it.");
       await tx.role.delete({ where: { id: role.id } });
       await writeAudit(
@@ -676,6 +696,25 @@ export async function savePolicyAction(
         throw new Error("Approver user must belong to this organization.");
     }
     const policyId = optional(data, "id");
+    const scope = z
+      .enum(["org", "project", "stage"])
+      .parse(data.get("scope") ?? "org");
+    const projectId = scope === "org" ? null : id.parse(data.get("projectId"));
+    const stageId = scope === "stage" ? id.parse(data.get("stageId")) : null;
+    if (
+      projectId &&
+      !(await db.project.findFirst({
+        where: { id: projectId, organizationId: ctx.org.id },
+      }))
+    )
+      throw new Error("Select a project in this organization.");
+    if (
+      stageId &&
+      !(await db.stage.findFirst({
+        where: { id: stageId, projectId: projectId ?? "" },
+      }))
+    )
+      throw new Error("Select a stage in this project.");
     await db.$transaction(async (tx) => {
       if (
         policyId &&
@@ -688,9 +727,13 @@ export async function savePolicyAction(
         name: input.name,
         documentType: input.documentType,
         active: input.active,
-        scopeKey: "org",
-        projectId: null,
-        stageId: null,
+        scopeKey: stageId
+          ? `stage:${stageId}`
+          : projectId
+            ? `project:${projectId}`
+            : "org",
+        projectId,
+        stageId,
       };
       const steps = input.steps.map((s, index) => ({
         ...s,

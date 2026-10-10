@@ -8,8 +8,13 @@ import type {
 type Handler = (
   request: ApprovalRequest,
   tx: Prisma.TransactionClient,
+  actorId: string,
 ) => Promise<void>;
-export type ApprovalHandler = { onApproved: Handler; onRejected: Handler };
+export type ApprovalHandler = {
+  onApproved: Handler;
+  onRejected: Handler;
+  onCanceled?: Handler;
+};
 const handlers = new Map<DocumentType, ApprovalHandler>();
 export function registerApprovalHandler(
   type: DocumentType,
@@ -20,5 +25,3 @@ export function registerApprovalHandler(
 export function getApprovalHandler(type: DocumentType) {
   return handlers.get(type);
 }
-// Register future document handlers in a server bootstrap imported by this module.
-// Handlers must use the supplied transaction and avoid external side effects.

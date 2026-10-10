@@ -3,9 +3,11 @@ export const permissionGroups = {
     "project.view": "View projects",
     "project.create": "Create projects",
     "project.manage": "Manage projects",
+    "project.edit": "Edit projects",
     "stage.manage": "Manage stages",
     "task.manage": "Manage tasks",
     "task.submit": "Submit task work",
+    "task.delay.request": "Request task delays",
   },
   Workforce: {
     "workforce.view": "View workforce",
