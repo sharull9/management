@@ -1,0 +1,14 @@
+CREATE UNIQUE INDEX uom_one_base_per_group ON uoms ("groupId") WHERE "isBase";
+ALTER TABLE uoms ADD CONSTRAINT uom_base_factor CHECK (NOT "isBase" OR factor = 1);
+ALTER TABLE tax_components ADD CONSTRAINT tax_rate_bounds CHECK (rate BETWEEN 0 AND 100);
+ALTER TABLE parties ADD CONSTRAINT party_credit_terms CHECK ("creditLimit" >= 0 AND "paymentTerms" >= 0);
+ALTER TABLE purchase_requests ADD CONSTRAINT pr_total_nonnegative CHECK ("estimatedTotal" >= 0);
+ALTER TABLE purchase_request_lines ADD CONSTRAINT pr_line_amounts CHECK (qty > 0 AND "estimatedRate" >= 0 AND "estimatedAmount" >= 0);
+ALTER TABLE purchase_orders ADD CONSTRAINT po_amounts CHECK (subtotal >= 0 AND "taxTotal" >= 0 AND "withholdingTotal" >= 0 AND "grandTotal" = subtotal + "taxTotal" - "withholdingTotal" AND "paymentDays" >= 0 AND "receiptTolerancePercent" BETWEEN 0 AND 100);
+ALTER TABLE purchase_order_lines ADD CONSTRAINT po_line_amounts CHECK (qty > 0 AND rate >= 0 AND "netRate" >= 0 AND "netAmount" >= 0 AND "discountPercent" BETWEEN 0 AND 100 AND "receivedQty" >= 0 AND "acceptedQty" >= 0 AND "acceptedQty" <= "receivedQty" AND "stockFactor" > 0);
+ALTER TABLE purchase_order_line_taxes ADD CONSTRAINT po_tax_amounts CHECK (rate BETWEEN 0 AND 100 AND amount >= 0);
+ALTER TABLE goods_receipt_lines ADD CONSTRAINT receipt_qty_split CHECK ("receivedQty" > 0 AND "acceptedQty" >= 0 AND "rejectedQty" >= 0 AND "acceptedQty" + "rejectedQty" = "receivedQty");
+ALTER TABLE material_consumption_lines ADD CONSTRAINT consumption_amounts CHECK (qty > 0 AND "stockQty" > 0 AND "unitCost" >= 0 AND "totalCost" >= 0);
+ALTER TABLE stock_transfers ADD CONSTRAINT transfer_distinct_projects CHECK ("projectId" <> "toProjectId");
+ALTER TABLE stock_transfer_lines ADD CONSTRAINT transfer_positive_qty CHECK (qty > 0 AND "stockQty" > 0);
+ALTER TABLE stock_movements ADD CONSTRAINT stock_movement_sign CHECK ("unitCost" >= 0 AND ((type IN ('GRN_IN','TRANSFER_IN') AND qty > 0 AND "totalCost" >= 0) OR (type IN ('CONSUMPTION_OUT','TRANSFER_OUT') AND qty < 0 AND "totalCost" <= 0) OR type = 'ADJUSTMENT'));

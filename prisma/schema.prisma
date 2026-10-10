@@ -78,6 +78,12 @@ enum ApprovalStepStatus {
 }
 
 model User {
+  purchaseRequestRows     PurchaseRequest[]
+  purchaseOrderRows       PurchaseOrder[]
+  goodsReceiptRows        GoodsReceipt[]
+  materialConsumptionRows MaterialConsumption[]
+  stockTransferRows       StockTransfer[]
+
   managedProjects Project[]          @relation("ProjectManager")
   managedStages   Stage[]            @relation("StageManager")
   projectMembers  ProjectMember[]
@@ -206,6 +212,13 @@ model TenantMember {
 }
 
 model Organization {
+  purchaseRequestRows     PurchaseRequest[]
+  purchaseOrderRows       PurchaseOrder[]
+  goodsReceiptRows        GoodsReceipt[]
+  materialConsumptionRows MaterialConsumption[]
+  stockTransferRows       StockTransfer[]
+  stockMovementRows       StockMovement[]
+
   projects    Project[]
   workers     Worker[]
   attendance  Attendance[]
@@ -365,6 +378,13 @@ model UomGroup {
 }
 
 model Uom {
+  purchaseRequestLineRows     PurchaseRequestLine[]
+  PoLineUom                   PurchaseOrderLine[]       @relation("PoLineUom")
+  PoLineStockUom              PurchaseOrderLine[]       @relation("PoLineStockUom")
+  goodsReceiptLineRows        GoodsReceiptLine[]
+  materialConsumptionLineRows MaterialConsumptionLine[]
+  stockTransferLineRows       StockTransferLine[]
+
   id            String   @id @default(cuid())
   tenantId      String?
   groupId       String
@@ -401,6 +421,8 @@ model ItemCategory {
 }
 
 model Item {
+  stockTracked Boolean @default(false)
+
   id                String            @id @default(cuid())
   tenantId          String
   code              String
@@ -428,6 +450,8 @@ model Item {
 }
 
 model ItemLevelDefinition {
+  enabled Boolean @default(true)
+
   id        String            @id @default(cuid())
   tenantId  String
   level     Int
@@ -493,6 +517,14 @@ model ItemLevelLink {
 }
 
 model ItemVariant {
+  purchaseRequestLineRows     PurchaseRequestLine[]
+  purchaseOrderLineRows       PurchaseOrderLine[]
+  materialConsumptionLineRows MaterialConsumptionLine[]
+  stockTransferLineRows       StockTransferLine[]
+  stockMovementRows           StockMovement[]
+
+  name String @default("")
+
   id        String          @id @default(cuid())
   itemId    String
   key       String          @unique
@@ -515,6 +547,11 @@ model ItemVariant {
 }
 
 model Party {
+  purchaseOrderRows PurchaseOrder[]
+
+  email String?
+  phone String?
+
   projects Project[]
   expenses Expense[]
 
@@ -578,6 +615,11 @@ model PartyContact {
 }
 
 model TaxComponent {
+  purchaseOrderLineTaxRows PurchaseOrderLineTax[]
+
+  code      String           @default("")
+  appliesTo TaxApplicability @default(BOTH)
+
   id            String              @id @default(cuid())
   tenantId      String
   name          String
@@ -593,6 +635,8 @@ model TaxComponent {
 }
 
 model TaxGroup {
+  purchaseOrderLineRows PurchaseOrderLine[]
+
   id         String              @id @default(cuid())
   tenantId   String
   name       String
@@ -696,6 +740,11 @@ model ApprovalPolicyStep {
 }
 
 model ApprovalRequest {
+  purchaseRequestRows PurchaseRequest[]
+  purchaseOrderRows   PurchaseOrder[]
+  goodsReceiptRows    GoodsReceipt[]
+  stockTransferRows   StockTransfer[]
+
   submission   TaskSubmission?
   delayRequest TaskDelayRequest?
   expense      Expense?
@@ -856,12 +905,22 @@ enum CostType {
 }
 
 enum CostSourceType {
+  CONSUMPTION
+  TRANSFER
   ATTENDANCE
   EXPENSE
   MANUAL
 }
 
 model Project {
+  purchaseRequestRows     PurchaseRequest[]
+  purchaseOrderRows       PurchaseOrder[]
+  goodsReceiptRows        GoodsReceipt[]
+  materialConsumptionRows MaterialConsumption[]
+  TransferDestination     StockTransfer[]       @relation("TransferDestination")
+  stockTransferRows       StockTransfer[]
+  stockMovementRows       StockMovement[]
+
   id             String              @id @default(cuid())
   organizationId String
   code           String
@@ -913,6 +972,9 @@ model ProjectMember {
 }
 
 model ProjectSite {
+  purchaseOrderRows PurchaseOrder[]
+  goodsReceiptRows  GoodsReceipt[]
+
   id        String   @id @default(cuid())
   projectId String
   name      String
@@ -951,6 +1013,10 @@ model ProjectBudgetLine {
 }
 
 model Stage {
+  purchaseRequestRows     PurchaseRequest[]
+  materialConsumptionRows MaterialConsumption[]
+  stockMovementRows       StockMovement[]
+
   id            String              @id @default(cuid())
   projectId     String
   name          String
@@ -976,6 +1042,10 @@ model Stage {
 }
 
 model Task {
+  purchaseRequestRows     PurchaseRequest[]
+  materialConsumptionRows MaterialConsumption[]
+  stockMovementRows       StockMovement[]
+
   id              String             @id @default(cuid())
   projectId       String
   stageId         String?
@@ -1182,4 +1252,319 @@ model CostEntry {
   @@unique([organizationId, sourceType, sourceId])
   @@index([projectId, date, costType])
   @@map("cost_entries")
+}
+
+enum TaxApplicability {
+  PURCHASE
+  SALES
+  BOTH
+}
+
+enum ProcurementStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CLOSED
+  CANCELLED
+}
+
+enum PurchasePaymentTerms {
+  CREDIT
+  CASH
+  ADVANCE
+}
+
+enum StockMovementType {
+  GRN_IN
+  CONSUMPTION_OUT
+  TRANSFER_OUT
+  TRANSFER_IN
+  ADJUSTMENT
+}
+
+model PurchaseRequest {
+  id                String                @id @default(cuid())
+  organizationId    String
+  projectId         String
+  code              String
+  status            ProcurementStatus     @default(DRAFT)
+  approvalRequestId String?               @unique
+  requestedById     String
+  neededBy          DateTime?             @db.Date
+  stageId           String?
+  taskId            String?
+  estimatedTotal    Decimal               @db.Decimal(18, 2)
+  lines             PurchaseRequestLine[]
+  organization      Organization          @relation(fields: [organizationId], references: [id])
+  project           Project               @relation(fields: [projectId], references: [id])
+  approvalRequest   ApprovalRequest?      @relation(fields: [approvalRequestId], references: [id])
+  requestedBy       User                  @relation(fields: [requestedById], references: [id])
+  stage             Stage?                @relation(fields: [stageId], references: [id])
+  task              Task?                 @relation(fields: [taskId], references: [id])
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@unique([organizationId, code])
+  @@index([projectId, status])
+  @@map("purchase_requests")
+}
+
+model PurchaseRequestLine {
+  purchaseOrderLineRows PurchaseOrderLine[]
+
+  id              String            @id @default(cuid())
+  requestId       String
+  itemVariantId   String
+  description     String
+  qty             Decimal           @db.Decimal(18, 4)
+  uomId           String
+  estimatedRate   Decimal           @db.Decimal(18, 4)
+  estimatedAmount Decimal           @db.Decimal(18, 2)
+  status          ProcurementStatus @default(DRAFT)
+  request         PurchaseRequest   @relation(fields: [requestId], references: [id])
+  variant         ItemVariant       @relation(fields: [itemVariantId], references: [id])
+  uom             Uom               @relation(fields: [uomId], references: [id])
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@map("purchase_request_lines")
+}
+
+model PurchaseOrder {
+  goodsReceiptRows GoodsReceipt[]
+
+  id                      String               @id @default(cuid())
+  organizationId          String
+  projectId               String
+  code                    String
+  status                  ProcurementStatus    @default(DRAFT)
+  approvalRequestId       String?              @unique
+  vendorPartyId           String
+  date                    DateTime             @db.Date
+  siteId                  String?
+  paymentTerms            PurchasePaymentTerms @default(CREDIT)
+  paymentDays             Int                  @default(0)
+  currency                String
+  subtotal                Decimal              @db.Decimal(18, 2)
+  taxTotal                Decimal              @db.Decimal(18, 2)
+  withholdingTotal        Decimal              @db.Decimal(18, 2)
+  grandTotal              Decimal              @db.Decimal(18, 2)
+  receiptTolerancePercent Decimal              @default(0) @db.Decimal(7, 4)
+  createdById             String
+  lines                   PurchaseOrderLine[]
+  organization            Organization         @relation(fields: [organizationId], references: [id])
+  project                 Project              @relation(fields: [projectId], references: [id])
+  approvalRequest         ApprovalRequest?     @relation(fields: [approvalRequestId], references: [id])
+  vendor                  Party                @relation(fields: [vendorPartyId], references: [id])
+  site                    ProjectSite?         @relation(fields: [siteId], references: [id])
+  createdBy               User                 @relation(fields: [createdById], references: [id])
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+
+  @@unique([organizationId, code])
+  @@index([projectId, status])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderLine {
+  goodsReceiptLineRows GoodsReceiptLine[]
+
+  id              String                 @id @default(cuid())
+  orderId         String
+  prLineId        String?
+  itemVariantId   String
+  description     String
+  qty             Decimal                @db.Decimal(18, 4)
+  uomId           String
+  rate            Decimal                @db.Decimal(18, 4)
+  discountPercent Decimal                @db.Decimal(7, 4)
+  netAmount       Decimal                @db.Decimal(18, 2)
+  netRate         Decimal                @db.Decimal(24, 8)
+  taxGroupId      String?
+  receivedQty     Decimal                @default(0) @db.Decimal(18, 4)
+  acceptedQty     Decimal                @default(0) @db.Decimal(18, 4)
+  stockFactor     Decimal                @db.Decimal(24, 8)
+  stockUomId      String
+  taxes           PurchaseOrderLineTax[]
+  order           PurchaseOrder          @relation(fields: [orderId], references: [id])
+  prLine          PurchaseRequestLine?   @relation(fields: [prLineId], references: [id])
+  variant         ItemVariant            @relation(fields: [itemVariantId], references: [id])
+  uom             Uom                    @relation("PoLineUom", fields: [uomId], references: [id])
+  stockUom        Uom                    @relation("PoLineStockUom", fields: [stockUomId], references: [id])
+  taxGroup        TaxGroup?              @relation(fields: [taxGroupId], references: [id])
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@map("purchase_order_lines")
+}
+
+model PurchaseOrderLineTax {
+  id            String            @id @default(cuid())
+  lineId        String
+  componentId   String
+  name          String
+  rate          Decimal           @db.Decimal(18, 4)
+  amount        Decimal           @db.Decimal(18, 2)
+  isWithholding Boolean
+  line          PurchaseOrderLine @relation(fields: [lineId], references: [id])
+  component     TaxComponent      @relation(fields: [componentId], references: [id])
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@map("purchase_order_line_taxes")
+}
+
+model GoodsReceipt {
+  id                String             @id @default(cuid())
+  organizationId    String
+  projectId         String
+  code              String
+  status            ProcurementStatus  @default(DRAFT)
+  approvalRequestId String?            @unique
+  poId              String
+  siteId            String?
+  receivedDate      DateTime           @db.Date
+  challanNumber     String?
+  vehicleNumber     String?
+  receivedById      String
+  lines             GoodsReceiptLine[]
+  organization      Organization       @relation(fields: [organizationId], references: [id])
+  project           Project            @relation(fields: [projectId], references: [id])
+  approvalRequest   ApprovalRequest?   @relation(fields: [approvalRequestId], references: [id])
+  order             PurchaseOrder      @relation(fields: [poId], references: [id])
+  site              ProjectSite?       @relation(fields: [siteId], references: [id])
+  receivedBy        User               @relation(fields: [receivedById], references: [id])
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@unique([organizationId, code])
+  @@index([projectId, status])
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptLine {
+  id          String            @id @default(cuid())
+  receiptId   String
+  poLineId    String
+  receivedQty Decimal           @db.Decimal(18, 4)
+  acceptedQty Decimal           @db.Decimal(18, 4)
+  rejectedQty Decimal           @db.Decimal(18, 4)
+  uomId       String
+  remarks     String?
+  receipt     GoodsReceipt      @relation(fields: [receiptId], references: [id])
+  poLine      PurchaseOrderLine @relation(fields: [poLineId], references: [id])
+  uom         Uom               @relation(fields: [uomId], references: [id])
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@map("goods_receipt_lines")
+}
+
+model MaterialConsumption {
+  id             String                    @id @default(cuid())
+  organizationId String
+  projectId      String
+  code           String
+  stageId        String?
+  taskId         String?
+  date           DateTime                  @db.Date
+  recordedById   String
+  lines          MaterialConsumptionLine[]
+  organization   Organization              @relation(fields: [organizationId], references: [id])
+  project        Project                   @relation(fields: [projectId], references: [id])
+  stage          Stage?                    @relation(fields: [stageId], references: [id])
+  task           Task?                     @relation(fields: [taskId], references: [id])
+  recordedBy     User                      @relation(fields: [recordedById], references: [id])
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@unique([organizationId, code])
+  @@map("material_consumptions")
+}
+
+model MaterialConsumptionLine {
+  id            String              @id @default(cuid())
+  consumptionId String
+  itemVariantId String
+  qty           Decimal             @db.Decimal(18, 4)
+  uomId         String
+  stockQty      Decimal             @db.Decimal(18, 4)
+  unitCost      Decimal             @db.Decimal(24, 8)
+  totalCost     Decimal             @db.Decimal(24, 8)
+  consumption   MaterialConsumption @relation(fields: [consumptionId], references: [id])
+  variant       ItemVariant         @relation(fields: [itemVariantId], references: [id])
+  uom           Uom                 @relation(fields: [uomId], references: [id])
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@map("material_consumption_lines")
+}
+
+model StockTransfer {
+  id                String              @id @default(cuid())
+  organizationId    String
+  projectId         String
+  code              String
+  status            ProcurementStatus   @default(DRAFT)
+  approvalRequestId String?             @unique
+  toProjectId       String
+  date              DateTime            @db.Date
+  createdById       String
+  lines             StockTransferLine[]
+  organization      Organization        @relation(fields: [organizationId], references: [id])
+  project           Project             @relation(fields: [projectId], references: [id])
+  approvalRequest   ApprovalRequest?    @relation(fields: [approvalRequestId], references: [id])
+  toProject         Project             @relation("TransferDestination", fields: [toProjectId], references: [id])
+  createdBy         User                @relation(fields: [createdById], references: [id])
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([organizationId, code])
+  @@index([projectId, status])
+  @@map("stock_transfers")
+}
+
+model StockTransferLine {
+  id            String        @id @default(cuid())
+  transferId    String
+  itemVariantId String
+  qty           Decimal       @db.Decimal(18, 4)
+  uomId         String
+  stockQty      Decimal       @db.Decimal(18, 4)
+  transfer      StockTransfer @relation(fields: [transferId], references: [id])
+  variant       ItemVariant   @relation(fields: [itemVariantId], references: [id])
+  uom           Uom           @relation(fields: [uomId], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("stock_transfer_lines")
+}
+
+model StockMovement {
+  id             String            @id @default(cuid())
+  organizationId String
+  projectId      String
+  itemVariantId  String
+  date           DateTime          @db.Date
+  type           StockMovementType
+  qty            Decimal           @db.Decimal(18, 4)
+  unitCost       Decimal           @db.Decimal(24, 8)
+  totalCost      Decimal           @db.Decimal(24, 8)
+  sourceType     String
+  sourceId       String
+  stageId        String?
+  taskId         String?
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  project        Project           @relation(fields: [projectId], references: [id])
+  variant        ItemVariant       @relation(fields: [itemVariantId], references: [id])
+  stage          Stage?            @relation(fields: [stageId], references: [id])
+  task           Task?             @relation(fields: [taskId], references: [id])
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([organizationId, sourceType, sourceId, type])
+  @@index([projectId, itemVariantId])
+  @@map("stock_movements")
 }

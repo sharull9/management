@@ -3,7 +3,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
 const globalDb = globalThis as unknown as { prisma?: PrismaClient };
-export const db = globalDb.prisma?.project
+export const db = globalDb.prisma?.stockMovement
   ? globalDb.prisma
   : new PrismaClient({
       adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
