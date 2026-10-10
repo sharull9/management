@@ -1,11 +1,11 @@
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
-import { ActionForm } from "@/components/action-form";
-import { FormCard } from "@/components/form-card";
 import { StageForm } from "@/components/project-forms";
+import { ActionForm } from "@/components/shared/action-form";
+import { FormCard } from "@/components/shared/form-card";
+import Loading from "@/components/shared/page-loading";
 import { Badge } from "@/components/ui/badge";
-import { requireProjectContext } from "@/server/context";
-import { db } from "@/server/db";
+import { requireProjectContext } from "@/core/context";
+import { db } from "@/core/db";
 import { deleteStageAction } from "@/server/projects/actions";
 import { projectUsers } from "@/server/projects/queries";
 

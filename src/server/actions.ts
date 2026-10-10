@@ -1,21 +1,22 @@
 "use server";
 import { headers } from "next/headers";
 import { z } from "zod";
-import type { Prisma } from "@/generated/prisma/client";
-import { ApproverType, DocumentType } from "@/generated/prisma/enums";
-import { auth, createAuth } from "@/lib/auth";
-import { permissionKeys } from "@/lib/permissions";
-import { type ActionState, runAction } from "./action-result";
-import { actOnApproval, cancelApproval } from "./approvals/service";
-import { writeAudit } from "./audit";
+import { type ActionState, runAction } from "@/core/action-result";
+import { writeAudit } from "@/core/audit";
+import { auth, createAuth } from "@/core/auth/auth";
 import {
   assertPermission,
   assertTenantAdmin,
   requireOrgContext,
   requireSuperAdmin,
   requireUser,
-} from "./context";
-import { db } from "./db";
+} from "@/core/context";
+import { db } from "@/core/db";
+import { optional, value } from "@/core/form-data";
+import { permissionKeys } from "@/core/permissions";
+import type { Prisma } from "@/generated/prisma/client";
+import { ApproverType, DocumentType } from "@/generated/prisma/enums";
+import { actOnApproval, cancelApproval } from "@/modules/approvals";
 
 const name = z.string().trim().min(1, "Name is required.").max(150);
 const id = z.string().min(1).max(100);
@@ -39,9 +40,6 @@ const credentials = z.object({
     .min(12, "Temporary passwords need at least 12 characters.")
     .max(128),
 });
-const value = (data: FormData, key: string) => String(data.get(key) ?? "");
-const optional = (data: FormData, key: string) =>
-  value(data, key).trim() || null;
 const orgInput = z.object({
   tenantId: id,
   name,

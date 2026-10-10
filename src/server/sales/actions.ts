@@ -1,12 +1,12 @@
 "use server";
-import { type ActionState, runAction } from "../action-result";
-import { submitForApproval } from "../approvals/service";
+import { type ActionState, runAction } from "@/core/action-result";
 import {
   assertPermission,
   requireOrgContext,
   requireProjectContext,
-} from "../context";
-import { db } from "../db";
+} from "@/core/context";
+import { db } from "@/core/db";
+import { submitForApproval } from "@/modules/approvals";
 import { domainAudit, lockDocument } from "../procurement/service";
 import { saveInvoice } from "./service";
 import { invoiceInput } from "./validation";

@@ -1,12 +1,12 @@
 "use server";
 import { z } from "zod";
-import { type ActionState, runAction } from "../action-result";
+import { type ActionState, runAction } from "@/core/action-result";
 import {
   assertPermission,
   requireOrgContext,
   requireProjectContext,
-} from "../context";
-import { db } from "../db";
+} from "@/core/context";
+import { db } from "@/core/db";
 import {
   allocatePayment,
   recordPayment,

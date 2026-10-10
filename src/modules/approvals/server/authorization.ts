@@ -1,12 +1,12 @@
 import "server-only";
+import type { OrgContext } from "@/core/context";
+import { db } from "@/core/db";
 import type {
   ApprovalRequest,
   ApprovalRequestStep,
   ApproverType,
   Prisma,
 } from "@/generated/prisma/client";
-import type { OrgContext } from "../context";
-import { db } from "../db";
 
 type ManagerResolver = (
   request: ApprovalRequest,

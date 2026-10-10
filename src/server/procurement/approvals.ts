@@ -1,7 +1,8 @@
+import { Decimal } from "@/core/decimal";
 import "server-only";
+import { writeAudit } from "@/core/audit";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
-import { registerApprovalHandler } from "../approvals/handlers";
-import { writeAudit } from "../audit";
+import { registerApprovalHandler } from "@/modules/approvals";
 import {
   assertStockDate,
   lockStockProjects,
@@ -9,7 +10,6 @@ import {
 } from "../inventory/service";
 import {
   assertReceiptQuantity,
-  Decimal,
   materialCostEffects,
   movingAverage,
 } from "./calculations";

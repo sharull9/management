@@ -1,20 +1,20 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
-import { Field, SelectField } from "@/components/fields";
-import { FormCard } from "@/components/form-card";
+import { TaskForm } from "@/components/project-forms";
+import { DataTable } from "@/components/shared/data-table";
+import { Field, SelectField } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
 import {
   dateValue,
   EnumOptions,
   Options,
-  TaskForm,
-} from "@/components/project-forms";
-import { DataTable } from "@/components/project-table";
+} from "@/components/shared/form-options";
+import Loading from "@/components/shared/page-loading";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { requireProjectContext } from "@/core/context";
+import { db } from "@/core/db";
 import { TaskStatus } from "@/generated/prisma/enums";
-import { requireProjectContext } from "@/server/context";
-import { db } from "@/server/db";
 
 async function Tasks({
   params,

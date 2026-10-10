@@ -1,8 +1,9 @@
+import { Decimal } from "@/core/decimal";
 import "server-only";
+import { writeAudit } from "@/core/audit";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
-import type { ApprovalHandler } from "../approvals/handlers";
-import { writeAudit } from "../audit";
-import { Decimal } from "../procurement/calculations";
+import type { ApprovalHandler } from "@/modules/approvals";
+
 import { lockDocument } from "../procurement/service";
 import { assertBillReceipts } from "./service";
 

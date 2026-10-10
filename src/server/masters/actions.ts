@@ -1,10 +1,10 @@
 "use server";
 import { z } from "zod";
+import { type ActionState, runAction } from "@/core/action-result";
+import { writeAudit } from "@/core/audit";
+import { assertPermission, requireOrgContext } from "@/core/context";
+import { db } from "@/core/db";
 import { Prisma } from "@/generated/prisma/client";
-import { type ActionState, runAction } from "../action-result";
-import { writeAudit } from "../audit";
-import { assertPermission, requireOrgContext } from "../context";
-import { db } from "../db";
 import { resolveVariant, validateLocation } from "./service";
 
 const name = z.string().trim().min(1).max(150);

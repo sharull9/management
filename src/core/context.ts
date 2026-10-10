@@ -2,7 +2,7 @@ import "server-only";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
-import { auth } from "@/lib/auth";
+import { auth } from "@/core/auth/auth";
 import { db } from "./db";
 
 export const getSession = cache(async () =>

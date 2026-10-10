@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ActionForm } from "@/components/action-form";
-import { Field } from "@/components/fields";
-import { FormCard } from "@/components/form-card";
+import { ActionForm } from "@/components/shared/action-form";
+import { Field } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
 import { signInAction } from "@/server/actions";
 export default function SignInPage() {
   return (

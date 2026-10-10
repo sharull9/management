@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
-import { ActionForm } from "@/components/action-form";
-import { FormCard } from "@/components/form-card";
 import { OrganizationForm } from "@/components/organization-form";
-import { PageHeading } from "@/components/page-heading";
+import { ActionForm } from "@/components/shared/action-form";
+import { FormCard } from "@/components/shared/form-card";
+import { PageHeading } from "@/components/shared/page-heading";
+import Loading from "@/components/shared/page-loading";
+import { listAccessibleOrgs, requireUser } from "@/core/context";
+import { db } from "@/core/db";
 import { signOutAction } from "@/server/actions";
-import { listAccessibleOrgs, requireUser } from "@/server/context";
-import { db } from "@/server/db";
 
 async function OrgPicker() {
   const user = await requireUser();

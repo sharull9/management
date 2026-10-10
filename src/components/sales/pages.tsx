@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { ActionForm } from "@/components/action-form";
-import { FormCard } from "@/components/form-card";
-import { PageHeading } from "@/components/page-heading";
-import { assertPermission, requireProjectContext } from "@/server/context";
-import { Decimal } from "@/server/procurement/calculations";
+import { ActionForm } from "@/components/shared/action-form";
+import { ApprovalTimeline } from "@/components/shared/approval-timeline";
+import { FormCard } from "@/components/shared/form-card";
+import { PageHeading } from "@/components/shared/page-heading";
+import { assertPermission, requireProjectContext } from "@/core/context";
+import { Decimal } from "@/core/decimal";
+
 import { submitInvoiceAction } from "@/server/sales/actions";
 import { isInvoiceOverdue } from "@/server/sales/calculations";
 import { invoiceDetail, salesData } from "@/server/sales/queries";
@@ -401,22 +403,7 @@ export async function InvoiceDetail({
             <InvoiceEdit org={org} invoiceId={invoiceId} />
           </>
         )}
-        <FormCard title="Approval timeline">
-          {d.approvals.map((a) => (
-            <div key={a.id} className="mb-4">
-              <p>
-                {a.createdAt.toISOString().slice(0, 10)} · {a.status}
-              </p>
-              {a.steps.map((s) => (
-                <p className="text-sm" key={s.id}>
-                  {s.sequence}. {s.name} · {s.status} ·{" "}
-                  {s.actedBy?.name ?? "Awaiting action"} {s.comment}
-                </p>
-              ))}
-            </div>
-          ))}
-          {!d.approvals.length && <p>Not submitted.</p>}
-        </FormCard>
+        <ApprovalTimeline org={org} approvals={d.approvals} variant="sales" />
         <FormCard title="Allocated receipts">
           {r.allocations.map((a) => (
             <p key={a.id}>

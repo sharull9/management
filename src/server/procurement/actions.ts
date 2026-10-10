@@ -1,10 +1,11 @@
 "use server";
 import { z } from "zod";
-import { type ActionState, runAction } from "../action-result";
-import { assertPermission, requireProjectContext } from "../context";
-import { db } from "../db";
+import { type ActionState, runAction } from "@/core/action-result";
+import { assertPermission, requireProjectContext } from "@/core/context";
+import { db } from "@/core/db";
+import { id } from "@/core/schema";
+import { storage } from "@/core/storage";
 import { recordConsumption, saveStockTransfer } from "../inventory/service";
-import { storage } from "../storage";
 import { documentKinds } from "./approvals";
 import {
   domainAudit,
@@ -15,7 +16,6 @@ import {
 import { submitDocument } from "./submission";
 import {
   consumptionInput,
-  id,
   orderInput,
   receiptInput,
   requestInput,

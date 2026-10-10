@@ -1,5 +1,5 @@
-import { AppShell } from "@/components/app-shell";
-import { listAccessibleOrgs, requireOrgContext } from "@/server/context";
+import { AppShell } from "@/components/shared/app-shell";
+import { listAccessibleOrgs, requireOrgContext } from "@/core/context";
 export const instant = false;
 export default async function OrgLayout({
   children,

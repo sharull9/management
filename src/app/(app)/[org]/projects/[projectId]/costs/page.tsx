@@ -1,20 +1,20 @@
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
-import { ActionForm } from "@/components/action-form";
-import { Field, SelectField } from "@/components/fields";
-import { FormCard } from "@/components/form-card";
+import { ActionForm } from "@/components/shared/action-form";
+import { CostTypeField } from "@/components/shared/cost-type-field";
+import { DataTable } from "@/components/shared/data-table";
+import { Field, SelectField } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
 import {
-  CostTypeField,
   dateValue,
   EnumOptions,
   Options,
-} from "@/components/project-forms";
-import { DataTable } from "@/components/project-table";
+} from "@/components/shared/form-options";
+import Loading from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
+import { assertPermission, requireProjectContext } from "@/core/context";
+import { db } from "@/core/db";
 import { Prisma } from "@/generated/prisma/client";
 import { CostType } from "@/generated/prisma/enums";
-import { assertPermission, requireProjectContext } from "@/server/context";
-import { db } from "@/server/db";
 import { expenseAction } from "@/server/projects/actions";
 import { readDate } from "@/server/projects/queries";
 

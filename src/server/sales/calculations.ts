@@ -1,7 +1,6 @@
+import { Decimal, money } from "@/core/decimal";
 import {
   calculateTax,
-  Decimal,
-  money,
   suggestTaxScope,
   type TaxInput,
 } from "../procurement/calculations";

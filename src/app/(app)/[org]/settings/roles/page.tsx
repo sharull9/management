@@ -1,13 +1,13 @@
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
-import { ActionForm } from "@/components/action-form";
-import { Field } from "@/components/fields";
-import { FormCard } from "@/components/form-card";
-import { PageHeading } from "@/components/page-heading";
-import { permissionGroups } from "@/lib/permissions";
+import { ActionForm } from "@/components/shared/action-form";
+import { Field } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
+import { PageHeading } from "@/components/shared/page-heading";
+import Loading from "@/components/shared/page-loading";
+import { assertPermission, requireOrgContext } from "@/core/context";
+import { db } from "@/core/db";
+import { permissionGroups } from "@/core/permissions";
 import { deleteRoleAction, saveRoleAction } from "@/server/actions";
-import { assertPermission, requireOrgContext } from "@/server/context";
-import { db } from "@/server/db";
 
 function Permissions({ selected = [] }: { selected?: string[] }) {
   return (

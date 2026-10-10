@@ -1,6 +1,6 @@
-import { assertPermission, requireProjectContext } from "@/server/context";
-import { db } from "@/server/db";
-import { storage } from "@/server/storage";
+import { assertPermission, requireProjectContext } from "@/core/context";
+import { db } from "@/core/db";
+import { storage } from "@/core/storage";
 export async function GET(
   _: Request,
   {

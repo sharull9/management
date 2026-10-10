@@ -1,4 +1,9 @@
 import Link from "next/link";
+import { ActionForm } from "@/components/shared/action-form";
+import { ApprovalTimeline } from "@/components/shared/approval-timeline";
+import { Field, SelectField } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
+import { PageHeading } from "@/components/shared/page-heading";
 import { attachBillAction, submitBillAction } from "@/server/bills/actions";
 import {
   billDetail,
@@ -6,10 +11,6 @@ import {
   billOptions,
   billStatuses,
 } from "@/server/bills/queries";
-import { ActionForm } from "../action-form";
-import { Field, SelectField } from "../fields";
-import { FormCard } from "../form-card";
-import { PageHeading } from "../page-heading";
 import { Badge } from "../ui/badge";
 import { type BillDraftLine, BillForm } from "./form";
 
@@ -408,32 +409,7 @@ export async function BillDetail({
           </ActionForm>
         </>
       )}
-      <FormCard title="Approval timeline">
-        <Link className="text-sm underline" href={`/${org}/approvals`}>
-          Open approvals inbox
-        </Link>
-        {approvals.map((a) => (
-          <div className="mt-4 space-y-2" key={a.id}>
-            <p>
-              {a.status} · {day(a.createdAt)}
-            </p>
-            <ol className="space-y-2 text-sm">
-              {a.steps.map((s) => (
-                <li key={s.id}>
-                  {s.sequence}. {s.name} · {s.status}
-                  {s.actedBy ? ` · ${s.actedBy.name}` : ""}
-                  {s.comment ? ` · ${s.comment}` : ""}
-                </li>
-              ))}
-            </ol>
-          </div>
-        ))}
-        {!approvals.length && (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Not submitted yet.
-          </p>
-        )}
-      </FormCard>
+      <ApprovalTimeline org={org} approvals={approvals} variant="bill" />
     </div>
   );
 }

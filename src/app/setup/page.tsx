@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { ActionForm } from "@/components/action-form";
-import { Field } from "@/components/fields";
-import { FormCard } from "@/components/form-card";
+import { ActionForm } from "@/components/shared/action-form";
+import { Field } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
+import { db } from "@/core/db";
 import { setupAction } from "@/server/actions";
-import { db } from "@/server/db";
 
 async function Setup() {
   await connection();

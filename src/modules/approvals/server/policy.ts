@@ -1,6 +1,6 @@
 import "server-only";
+import { db } from "@/core/db";
 import type { DocumentType, Prisma } from "@/generated/prisma/client";
-import { db } from "../db";
 export type Scope = { projectId?: string | null; stageId?: string | null };
 export async function resolvePolicy(
   orgId: string,

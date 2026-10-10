@@ -2,9 +2,9 @@ import {
   assertPermission,
   requireOrgContext,
   requireProjectContext,
-} from "@/server/context";
-import { db } from "@/server/db";
-import { storage } from "@/server/storage";
+} from "@/core/context";
+import { db } from "@/core/db";
+import { storage } from "@/core/storage";
 export async function GET(
   _: Request,
   { params }: { params: Promise<{ attachmentId: string }> },

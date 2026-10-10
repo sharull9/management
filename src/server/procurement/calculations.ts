@@ -1,10 +1,6 @@
-import { Prisma } from "../../generated/prisma/browser";
-import type { Prisma as ServerPrisma } from "../../generated/prisma/client";
+import { Decimal, money, type Numeric } from "@/core/decimal";
 
-type Numeric = string | ServerPrisma.Decimal;
-export const Decimal = Prisma.Decimal.clone({ precision: 48 });
-export const money = (value: Numeric) =>
-  new Decimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+export { Decimal, money } from "@/core/decimal";
 export type Unit = { groupId: string; factor: Numeric };
 export function convertUom(qty: Numeric, from: Unit, to: Unit) {
   const amount = new Decimal(qty),

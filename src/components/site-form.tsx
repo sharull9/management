@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
-import type { FormAction } from "./action-form";
-import { ActionForm } from "./action-form";
-import { Field, SelectField } from "./fields";
+import type { FormAction } from "@/components/shared/action-form";
+import { ActionForm } from "@/components/shared/action-form";
+import { Field, SelectField } from "@/components/shared/fields";
 
 type Site = {
   id: string;

@@ -1,16 +1,20 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { ActionForm } from "@/components/shared/action-form";
+import { Field, SelectField } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
+import { Options } from "@/components/shared/form-options";
+import {
+  CheckField,
+  ItemPicker,
+  ItemTypeStockFields,
+} from "@/components/shared/item-picker";
 import {
   deleteMasterAction,
   resolveVariantAction,
   saveMasterAction,
 } from "@/server/masters/actions";
 import type { masterData } from "@/server/masters/queries";
-import { ActionForm } from "./action-form";
-import { Field, SelectField } from "./fields";
-import { FormCard } from "./form-card";
-import { CheckField, ItemPicker, ItemTypeStockFields } from "./item-picker";
-import { Options } from "./project-forms";
 
 type Data = Awaited<ReturnType<typeof masterData>>;
 function MasterForm({

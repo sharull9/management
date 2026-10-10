@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { db } from "@/server/db";
+import { ActionForm } from "@/components/shared/action-form";
+import { ApprovalTimeline } from "@/components/shared/approval-timeline";
+import { Field } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
+import { PageHeading } from "@/components/shared/page-heading";
+import { db } from "@/core/db";
+import { Decimal } from "@/core/decimal";
 import {
   attachProformaAction,
   submitProcurementAction,
@@ -8,16 +14,12 @@ import {
   type DocumentKind,
   documentKinds,
 } from "@/server/procurement/approvals";
-import { Decimal } from "@/server/procurement/calculations";
+
 import {
   documentDetail,
   moduleProjectWhere,
   procurementData,
 } from "@/server/procurement/queries";
-import { ActionForm } from "./action-form";
-import { Field } from "./fields";
-import { FormCard } from "./form-card";
-import { PageHeading } from "./page-heading";
 import { ProcurementForm, type ProcurementFormData } from "./procurement-form";
 import type { DraftLine } from "./procurement-lines";
 import { Badge } from "./ui/badge";
@@ -523,35 +525,7 @@ export async function ProcurementDetail({
           </ActionForm>
         </div>
       )}
-      <FormCard title="Approval timeline">
-        <Link
-          className="text-sm underline print:hidden"
-          href={`/${org}/approvals`}
-        >
-          Open approvals inbox
-        </Link>
-        {approvals.map((a) => (
-          <div key={a.id} className="mt-4 space-y-2">
-            <p className="font-medium">
-              {a.status} · {a.createdAt.toLocaleDateString("en-IN")}
-            </p>
-            <ol className="space-y-2 text-sm">
-              {a.steps.map((s) => (
-                <li key={s.id}>
-                  {s.sequence}. {s.name} · {s.status}
-                  {s.actedBy ? ` · ${s.actedBy.name}` : ""}
-                  {s.comment ? ` · ${s.comment}` : ""}
-                </li>
-              ))}
-            </ol>
-          </div>
-        ))}
-        {!approvals.length && (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Not submitted yet.
-          </p>
-        )}
-      </FormCard>
+      <ApprovalTimeline org={org} approvals={approvals} variant="procurement" />
     </div>
   );
 }

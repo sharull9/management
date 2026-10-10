@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import * as nodeModule from "node:module";
 import test from "node:test";
-import type { OrgContext } from "../context";
+import type { OrgContext } from "@/core/context";
 import { paymentInput, requestInput } from "./validation";
 
 // Installed Node types target v20; the local smoke runner uses Node 24.
@@ -31,7 +31,7 @@ test(
           : resolved;
       },
     });
-    const { db } = await import("../db");
+    const { db } = await import("@/core/db");
     const { saveRequest, recordPayment, allocatePayment, voidPayment } =
       await import("./service");
     const { onApproved, onRejected, onCanceled } = await import("./approval");

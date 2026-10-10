@@ -1,3 +1,4 @@
+import { Decimal } from "@/core/decimal";
 import "server-only";
 import {
   assertPermission,
@@ -5,11 +6,11 @@ import {
   projectAccessWhere,
   requireOrgContext,
   requireProjectContext,
-} from "../context";
-import { db } from "../db";
+} from "@/core/context";
+import { db } from "@/core/db";
 import { pickerItems } from "../masters/queries";
 import type { DocumentKind } from "./approvals";
-import { Decimal, suggestTaxScope } from "./calculations";
+import { suggestTaxScope } from "./calculations";
 
 export function moduleProjectWhere(ctx: OrgContext, permission: string) {
   const global = ctx.isAdmin || ctx.permissions.has(permission);

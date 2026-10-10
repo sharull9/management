@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
+import { ActionForm, type FormAction } from "@/components/shared/action-form";
+import { Field, SelectField } from "@/components/shared/fields";
 import { attendanceCost, type PayTerms } from "@/server/projects/costing";
-import { ActionForm, type FormAction } from "./action-form";
-import { Field, SelectField } from "./fields";
 import { Button } from "./ui/button";
 import {
   Table,

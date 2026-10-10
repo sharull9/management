@@ -1,9 +1,9 @@
 "use client";
 import { useState } from "react";
+import { ActionForm } from "@/components/shared/action-form";
+import { Field, SelectField } from "@/components/shared/fields";
+import type { PickerItem } from "@/components/shared/item-picker";
 import { saveProcurementAction } from "@/server/procurement/actions";
-import { ActionForm } from "./action-form";
-import { Field, SelectField } from "./fields";
-import type { PickerItem } from "./item-picker";
 import { type DraftLine, ProcurementLines } from "./procurement-lines";
 
 type Choice = { id: string; name: string; projectId?: string };

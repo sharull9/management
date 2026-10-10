@@ -1,6 +1,6 @@
 import "server-only";
-import { assertPermission, requireOrgContext } from "../context";
-import { db } from "../db";
+import { assertPermission, requireOrgContext } from "@/core/context";
+import { db } from "@/core/db";
 export async function masterData(org: string) {
   const ctx = await requireOrgContext(org);
   assertPermission(ctx, "masters.manage");

@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { db } from "@/server/db";
+import { FormCard } from "@/components/shared/form-card";
+import { MaterialCostRecognitionBadge } from "@/components/shared/material-cost-recognition-badge";
+import { PageHeading } from "@/components/shared/page-heading";
+import { db } from "@/core/db";
 import {
   moduleProjectWhere,
   procurementData,
 } from "@/server/procurement/queries";
-import { FormCard } from "./form-card";
-import { PageHeading } from "./page-heading";
 import { ProcurementForm } from "./procurement-form";
 import { formData } from "./procurement-pages";
-import { MaterialCostRecognitionBadge } from "./project-forms";
 export async function InventoryPage({
   org,
   kind,

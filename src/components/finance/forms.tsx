@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
-import { ActionForm } from "@/components/action-form";
-import { Field, SelectField } from "@/components/fields";
+import { ActionForm } from "@/components/shared/action-form";
+import { Field, SelectField } from "@/components/shared/fields";
 import { Button } from "@/components/ui/button";
 import {
   allocatePaymentAction,

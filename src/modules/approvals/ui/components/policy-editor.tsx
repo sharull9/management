@@ -1,8 +1,8 @@
 "use client";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { Field, SelectField } from "@/components/shared/fields";
 import { Button } from "@/components/ui/button";
-import { Field, SelectField } from "./fields";
 
 type Step = {
   name: string;

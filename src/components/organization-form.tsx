@@ -1,3 +1,5 @@
+import { ActionForm } from "@/components/shared/action-form";
+import { Field, SelectField } from "@/components/shared/fields";
 import type {
   City,
   Country,
@@ -5,8 +7,6 @@ import type {
   State,
 } from "@/generated/prisma/client";
 import { saveOrganizationAction } from "@/server/actions";
-import { ActionForm } from "./action-form";
-import { Field, SelectField } from "./fields";
 export function OrganizationForm({
   tenantId,
   orgSlug = null,

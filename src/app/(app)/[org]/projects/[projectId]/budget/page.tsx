@@ -1,13 +1,14 @@
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
-import { ActionForm } from "@/components/action-form";
-import { Field, SelectField } from "@/components/fields";
-import { FormCard } from "@/components/form-card";
-import { CostTypeField, Options } from "@/components/project-forms";
-import { DataTable } from "@/components/project-table";
+import { ActionForm } from "@/components/shared/action-form";
+import { CostTypeField } from "@/components/shared/cost-type-field";
+import { DataTable } from "@/components/shared/data-table";
+import { Field, SelectField } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
+import { Options } from "@/components/shared/form-options";
+import Loading from "@/components/shared/page-loading";
+import { assertPermission, requireProjectContext } from "@/core/context";
+import { db } from "@/core/db";
 import { Prisma } from "@/generated/prisma/client";
-import { assertPermission, requireProjectContext } from "@/server/context";
-import { db } from "@/server/db";
 import { budgetAction } from "@/server/projects/actions";
 
 async function Budget({

@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
-import { FormCard } from "@/components/form-card";
 import {
-  MaterialCostRecognitionBadge,
   ProjectCostRecognitionForm,
   ProjectForm,
 } from "@/components/project-forms";
-import { DataTable } from "@/components/project-table";
+import { DataTable } from "@/components/shared/data-table";
+import { FormCard } from "@/components/shared/form-card";
+import { MaterialCostRecognitionBadge } from "@/components/shared/material-cost-recognition-badge";
+import Loading from "@/components/shared/page-loading";
 import { Progress } from "@/components/ui/progress";
-import { requireProjectContext } from "@/server/context";
-import { db } from "@/server/db";
+import { requireProjectContext } from "@/core/context";
+import { db } from "@/core/db";
 import { budgetUsage } from "@/server/projects/costing";
 import { projectSpent, projectUsers } from "@/server/projects/queries";
 

@@ -1,14 +1,20 @@
 import "server-only";
+import { writeAudit } from "@/core/audit";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
-import { writeAudit } from "../audit";
-import * as billApproval from "../bills/approval";
-import * as paymentRequestApproval from "../payments/approval";
-import { registerProcurementHandlers } from "../procurement/approvals";
-import * as salesInvoiceApproval from "../sales/approval";
+// R2 G3: vendor-bill and procurement imports.
+import * as billApproval from "@/server/bills/approval";
+// R2 G4: payment import.
+import * as paymentRequestApproval from "@/server/payments/approval";
+// R2 G3: procurement import.
+import { registerProcurementHandlers } from "@/server/procurement/approvals";
+// R2 G4: sales-invoice import.
+import * as salesInvoiceApproval from "@/server/sales/approval";
+// R2 G2: project imports and project handler block below.
 import { registerManagerResolver } from "./authorization";
 import { registerApprovalHandler } from "./handlers";
 import { managerApprovers, submissionTaskEffect } from "./project-effects";
 
+// BEGIN R2 G2 project handlers
 async function audit(
   request: ApprovalRequest,
   tx: Prisma.TransactionClient,
@@ -160,7 +166,11 @@ registerManagerResolver(async (request, type, tx) => {
   );
 });
 
+// END R2 G2 project handlers
+
+// R2 G3: procurement and vendor-bill registrations.
 registerProcurementHandlers();
 registerApprovalHandler("VENDOR_BILL", billApproval);
+// R2 G4: payment and sales-invoice registrations.
 registerApprovalHandler("PAYMENT_REQUEST", paymentRequestApproval);
 registerApprovalHandler("SALES_INVOICE", salesInvoiceApproval);

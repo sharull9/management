@@ -1,17 +1,18 @@
+import { Decimal } from "@/core/decimal";
 import "dotenv/config";
 import assert from "node:assert/strict";
-import { permissionKeys } from "../src/lib/permissions";
-import { getApprovalHandler } from "../src/server/approvals/handlers";
-import "../src/server/approvals/register";
-import type { OrgContext } from "../src/server/context";
-import { db } from "../src/server/db";
+import { permissionKeys } from "@/core/permissions";
+import { getApprovalHandler } from "@/modules/approvals";
+import "@/modules/approvals";
+import type { OrgContext } from "@/core/context";
+import { db } from "@/core/db";
 import {
   recordConsumption,
   saveStockTransfer,
   stockBalance,
 } from "../src/server/inventory/service";
 import { resolveVariant } from "../src/server/masters/service";
-import { Decimal } from "../src/server/procurement/calculations";
+
 import {
   saveGoodsReceipt,
   savePurchaseOrder,

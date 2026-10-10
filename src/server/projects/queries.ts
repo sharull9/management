@@ -1,6 +1,6 @@
 import "server-only";
+import { db } from "@/core/db";
 import type { Prisma } from "@/generated/prisma/client";
-import { db } from "../db";
 export function projectSpent(
   projectId: string,
   tx: Prisma.TransactionClient = db,

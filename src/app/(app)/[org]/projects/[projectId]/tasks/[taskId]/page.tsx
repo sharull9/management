@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
-import { ActionForm } from "@/components/action-form";
-import { Field, SelectField } from "@/components/fields";
-import { FormCard } from "@/components/form-card";
-import { dateValue, Options, TaskForm } from "@/components/project-forms";
-import { DataTable } from "@/components/project-table";
+import { TaskForm } from "@/components/project-forms";
+import { ActionForm } from "@/components/shared/action-form";
+import { DataTable } from "@/components/shared/data-table";
+import { Field, SelectField } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
+import { dateValue, Options } from "@/components/shared/form-options";
+import Loading from "@/components/shared/page-loading";
 import { Badge } from "@/components/ui/badge";
-import { requireProjectContext } from "@/server/context";
-import { db } from "@/server/db";
+import { requireProjectContext } from "@/core/context";
+import { db } from "@/core/db";
 import { taskWorkAction } from "@/server/projects/actions";
 
 async function TaskDetail({

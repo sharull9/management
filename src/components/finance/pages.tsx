@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ActionForm } from "@/components/action-form";
-import { Field, SelectField } from "@/components/fields";
-import { FormCard } from "@/components/form-card";
-import { PageHeading } from "@/components/page-heading";
+import { ActionForm } from "@/components/shared/action-form";
+import { ApprovalTimeline } from "@/components/shared/approval-timeline";
+import { Field, SelectField } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
+import { PageHeading } from "@/components/shared/page-heading";
 import { Badge } from "@/components/ui/badge";
-import { requireOrgContext, requireProjectContext } from "@/server/context";
-import { db } from "@/server/db";
+import { requireOrgContext, requireProjectContext } from "@/core/context";
+import { db } from "@/core/db";
 import {
   submitRequestAction,
   voidPaymentAction,
@@ -393,32 +394,7 @@ export async function RequestDetail({ org, id }: { org: string; id: string }) {
           <p className="text-sm text-muted-foreground">No posted payments.</p>
         )}
       </FormCard>
-      <FormCard title="Approval timeline">
-        <Link className={linkClass} href={`/${org}/approvals`}>
-          Open approvals inbox
-        </Link>
-        {approvals.map((a) => (
-          <div key={a.id} className="mt-4 text-sm">
-            <p>
-              {a.status} · {date(a.createdAt)}
-            </p>
-            <ol className="mt-2 space-y-2">
-              {a.steps.map((s) => (
-                <li key={s.id}>
-                  {s.sequence}. {s.name} · {s.status}
-                  {s.actedBy ? ` · ${s.actedBy.name}` : ""}
-                  {s.comment ? ` · ${s.comment}` : ""}
-                </li>
-              ))}
-            </ol>
-          </div>
-        ))}
-        {!approvals.length && (
-          <p className="mt-3 text-sm text-muted-foreground">
-            Not submitted yet.
-          </p>
-        )}
-      </FormCard>
+      <ApprovalTimeline org={org} approvals={approvals} variant="payment" />
     </div>
   );
 }

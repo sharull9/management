@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { Decimal } from "../procurement/calculations";
-import { date, id, quantity, rate } from "../procurement/validation";
+import { Decimal } from "@/core/decimal";
+import { date, id, quantity, rate } from "@/core/schema";
+
 export const invoiceInput = z.object({
   id: id.nullable(),
   projectId: id.nullable(),

@@ -4,8 +4,8 @@ import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins/admin";
 import { organization } from "better-auth/plugins/organization";
+import { db } from "@/core/db";
 import type { Prisma, PrismaClient } from "@/generated/prisma/client";
-import { db } from "@/server/db";
 
 export function createAuth(
   client: PrismaClient | Prisma.TransactionClient = db,

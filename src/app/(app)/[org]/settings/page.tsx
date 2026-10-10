@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
+import Loading from "@/components/shared/page-loading";
 
 async function SettingsPage({ params }: { params: Promise<{ org: string }> }) {
   return redirect(`/${(await params).org}/settings/organizations`);

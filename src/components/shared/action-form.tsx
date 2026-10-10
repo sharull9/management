@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { type ReactNode, useActionState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import type { ActionState } from "@/server/action-result";
+import type { ActionState } from "@/core/action-result";
 
 export type FormAction = (
   state: ActionState,

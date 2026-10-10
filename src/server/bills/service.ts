@@ -1,9 +1,10 @@
+import { Decimal } from "@/core/decimal";
 import "server-only";
 import type { z } from "zod";
+import type { OrgContext } from "@/core/context";
+import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
-import type { OrgContext } from "../context";
-import { nextDocumentNumber } from "../numbering";
-import { Decimal, suggestTaxScope } from "../procurement/calculations";
+import { suggestTaxScope } from "../procurement/calculations";
 import {
   domainAudit,
   lockDocument,

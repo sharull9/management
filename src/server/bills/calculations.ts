@@ -1,9 +1,5 @@
-import {
-  calculateTax,
-  Decimal,
-  money,
-  type TaxInput,
-} from "../procurement/calculations";
+import { Decimal, money } from "@/core/decimal";
+import { calculateTax, type TaxInput } from "../procurement/calculations";
 
 type Numeric = string | InstanceType<typeof Decimal>;
 export function billableQty(

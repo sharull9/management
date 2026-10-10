@@ -1,5 +1,16 @@
 "use server";
 import { z } from "zod";
+import { type ActionState, runAction } from "@/core/action-result";
+import { writeAudit } from "@/core/audit";
+import {
+  assertPermission,
+  type OrgContext,
+  requireOrgContext,
+  requireProjectContext,
+} from "@/core/context";
+import { db } from "@/core/db";
+import { nextDocumentNumber } from "@/core/numbering";
+import { storage } from "@/core/storage";
 import { Prisma } from "@/generated/prisma/client";
 import {
   AttendanceStatus,
@@ -9,20 +20,9 @@ import {
   TaskPriority,
   TaskStatus,
 } from "@/generated/prisma/enums";
-import { type ActionState, runAction } from "../action-result";
-import { submitForApproval } from "../approvals/service";
-import { writeAudit } from "../audit";
-import {
-  assertPermission,
-  type OrgContext,
-  requireOrgContext,
-  requireProjectContext,
-} from "../context";
-import { db } from "../db";
+import { submitForApproval } from "@/modules/approvals";
 import { lockStockProjects } from "../inventory/service";
-import { nextDocumentNumber } from "../numbering";
 import { validateProjectCostRecognitionChange } from "../procurement/cost-recognition";
-import { storage } from "../storage";
 import { checkAvailability } from "./availability";
 import { attendanceCost } from "./costing";
 

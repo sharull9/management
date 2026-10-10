@@ -1,7 +1,7 @@
 import "server-only";
+import type { OrgContext } from "@/core/context";
 import type { Prisma } from "@/generated/prisma/client";
-import { submitForApproval } from "../approvals/service";
-import type { OrgContext } from "../context";
+import { submitForApproval } from "@/modules/approvals";
 import { audit, lockSettlement, scope, validateRequestBills } from "./service";
 
 export async function submitRequest(

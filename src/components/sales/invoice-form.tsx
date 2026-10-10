@@ -1,8 +1,8 @@
 "use client";
 import { useState } from "react";
-import { ActionForm } from "@/components/action-form";
-import { Field, SelectField } from "@/components/fields";
-import { ItemPicker, type PickerItem } from "@/components/item-picker";
+import { ActionForm } from "@/components/shared/action-form";
+import { Field, SelectField } from "@/components/shared/fields";
+import { ItemPicker, type PickerItem } from "@/components/shared/item-picker";
 import { Button } from "@/components/ui/button";
 import type { TaxInput } from "@/server/procurement/calculations";
 import { saveInvoiceAction } from "@/server/sales/actions";

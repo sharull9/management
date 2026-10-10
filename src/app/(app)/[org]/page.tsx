@@ -1,19 +1,19 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
-import { FormCard } from "@/components/form-card";
-import { PageHeading } from "@/components/page-heading";
-import { DataTable } from "@/components/project-table";
+import { DataTable } from "@/components/shared/data-table";
+import { FormCard } from "@/components/shared/form-card";
+import { PageHeading } from "@/components/shared/page-heading";
+import Loading from "@/components/shared/page-loading";
 import { Progress } from "@/components/ui/progress";
-import { Prisma } from "@/generated/prisma/client";
-import { listPendingForUser } from "@/server/approvals/service";
 import {
   canViewProjectCost,
   projectAccessWhere,
   projectCostAccessWhere,
   requireOrgContext,
-} from "@/server/context";
-import { db } from "@/server/db";
+} from "@/core/context";
+import { db } from "@/core/db";
+import { Prisma } from "@/generated/prisma/client";
+import { listPendingForUser } from "@/modules/approvals";
 import { budgetUsage } from "@/server/projects/costing";
 
 async function Dashboard({ params }: { params: Promise<{ org: string }> }) {

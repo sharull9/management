@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { type ReactNode, Suspense } from "react";
-import Loading from "@/app/(app)/loading";
-import { requireProjectContext } from "@/server/context";
+import Loading from "@/components/shared/page-loading";
+import { requireProjectContext } from "@/core/context";
 
 async function ProjectLayout({
   params,

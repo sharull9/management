@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
-import { Field, SelectField } from "./fields";
-import { ItemPicker, type PickerItem } from "./item-picker";
+import { Field, SelectField } from "@/components/shared/fields";
+import { ItemPicker, type PickerItem } from "@/components/shared/item-picker";
 import { Button } from "./ui/button";
 
 type Choice = { id: string; name: string };

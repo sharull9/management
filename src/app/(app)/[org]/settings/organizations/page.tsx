@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
-import { FormCard } from "@/components/form-card";
 import { OrganizationForm } from "@/components/organization-form";
-import { PageHeading } from "@/components/page-heading";
-import { assertTenantAdmin, requireOrgContext } from "@/server/context";
-import { db } from "@/server/db";
+import { FormCard } from "@/components/shared/form-card";
+import { PageHeading } from "@/components/shared/page-heading";
+import Loading from "@/components/shared/page-loading";
+import { assertTenantAdmin, requireOrgContext } from "@/core/context";
+import { db } from "@/core/db";
 
 async function OrganizationsPage({
   params,

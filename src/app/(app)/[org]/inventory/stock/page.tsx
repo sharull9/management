@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
 import { InventoryPage } from "@/components/inventory-pages";
+import Loading from "@/components/shared/page-loading";
 
 async function Content({
   params,

@@ -1,12 +1,12 @@
 import { Suspense } from "react";
-import Loading from "@/app/(app)/loading";
 import { AttendanceGrid } from "@/components/attendance-grid";
-import { Field } from "@/components/fields";
-import { FormCard } from "@/components/form-card";
-import { dateValue } from "@/components/project-forms";
+import { Field } from "@/components/shared/fields";
+import { FormCard } from "@/components/shared/form-card";
+import { dateValue } from "@/components/shared/form-options";
+import Loading from "@/components/shared/page-loading";
 import { Button } from "@/components/ui/button";
-import { assertPermission, requireProjectContext } from "@/server/context";
-import { db } from "@/server/db";
+import { assertPermission, requireProjectContext } from "@/core/context";
+import { db } from "@/core/db";
 import { attendanceAction } from "@/server/projects/actions";
 import { readDate } from "@/server/projects/queries";
 
