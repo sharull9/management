@@ -1,0 +1,31 @@
+import { z } from "zod";
+import { AttendanceStatus } from "@/generated/prisma/enums";
+export const id = z.string().min(1).max(100);
+export const name = z.string().trim().min(1).max(150);
+export const rate = z
+  .string()
+  .regex(
+    /^\d{1,14}(?:\.\d{1,4})?$/,
+    "Enter a nonnegative rate with up to four decimal places.",
+  );
+export const date = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine(
+    (v) =>
+      !Number.isNaN(Date.parse(v)) &&
+      new Date(v).toISOString().slice(0, 10) === v,
+    "Invalid date.",
+  )
+  .transform((v) => new Date(`${v}T00:00:00Z`));
+export const attendanceRows = z
+  .array(
+    z.object({
+      workerId: id,
+      status: z.enum(AttendanceStatus),
+      hoursWorked: rate,
+      overtimeHours: rate,
+      remove: z.boolean().optional(),
+    }),
+  )
+  .max(1000);
