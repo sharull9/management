@@ -1,7 +1,6 @@
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
 import type { ApprovalHandler } from "@/modules/approvals";
-import { submissionTaskEffect } from "@/modules/approvals";
 import { auditApprovalEffect } from "@/modules/project";
 
 async function submission(
@@ -10,6 +9,7 @@ async function submission(
   status: "APPROVED" | "REJECTED" | "CANCELED",
   actorId: string,
 ) {
+  const { submissionTaskEffect } = await import("@/modules/approvals");
   const row = await tx.taskSubmission.findFirstOrThrow({
     where: {
       id: request.documentId,

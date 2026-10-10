@@ -4,12 +4,12 @@ import type {
   ApproverType,
   Prisma,
 } from "@/generated/prisma/client";
-import { managerApprovers } from "@/modules/approvals";
 export async function resolveProjectManagers(
   request: ApprovalRequest,
   type: ApproverType,
   tx: Prisma.TransactionClient,
 ): Promise<string[] | null> {
+  const { managerApprovers } = await import("@/modules/approvals");
   if (!request.projectId) return null;
   const project = await tx.project.findFirst({
     where: { id: request.projectId, organizationId: request.organizationId },

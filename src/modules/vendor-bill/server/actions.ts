@@ -5,7 +5,6 @@ import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { id } from "@/core/schema";
 import { storage } from "@/core/storage";
-import { submitForApproval } from "@/modules/approvals";
 import { domainAudit, lockDocument } from "@/modules/procurement";
 import { billInput } from "../schema";
 import { assertBillReceipts, saveBill } from "./service";
@@ -62,6 +61,7 @@ export async function submitBillAction(
           bill.purchaseOrderId,
           bill.lines,
         );
+        const { submitForApproval } = await import("@/modules/approvals");
         const approval = await submitForApproval(
           {
             orgSlug: org,

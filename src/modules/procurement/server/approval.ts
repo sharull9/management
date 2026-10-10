@@ -1,6 +1,6 @@
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
-import { registerApprovalHandler } from "@/modules/approvals";
+import type { registerApprovalHandler } from "@/modules/approvals";
 import { auditEffect } from "./approval-audit";
 import { approveReceipt } from "./receipt-approval";
 import { lockDocument } from "./service";
@@ -109,9 +109,11 @@ async function applyDecision(
     approved ? "APPROVED" : "RETURN_TO_DRAFT",
   );
 }
-export function registerProcurementHandlers() {
+export function registerProcurementHandlers(
+  register: typeof registerApprovalHandler,
+) {
   for (const kind of Object.keys(documentKinds) as DocumentKind[])
-    registerApprovalHandler(documentKinds[kind].documentType, {
+    register(documentKinds[kind].documentType, {
       onApproved: (r, tx, actor) => applyDecision(kind, r, tx, actor, true),
       onRejected: (r, tx, actor) => applyDecision(kind, r, tx, actor, false),
       onCanceled: (r, tx, actor) => applyDecision(kind, r, tx, actor, false),

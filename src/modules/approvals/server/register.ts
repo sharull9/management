@@ -16,7 +16,7 @@ registerManagerResolver(resolveProjectManagers);
 registerApprovalHandler("TASK_SUBMISSION", taskSubmissionApproval);
 registerApprovalHandler("TASK_DELAY", taskDelayApproval);
 registerApprovalHandler("EXPENSE", expenseApproval);
-registerProcurementHandlers();
+registerProcurementHandlers(registerApprovalHandler);
 registerApprovalHandler("VENDOR_BILL", vendorBillApproval);
 registerApprovalHandler("PAYMENT_REQUEST", paymentRequestApproval);
 registerApprovalHandler("SALES_INVOICE", salesInvoiceApproval);

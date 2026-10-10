@@ -1,7 +1,6 @@
 import "server-only";
 import type { OrgContext } from "@/core/context";
 import type { Prisma } from "@/generated/prisma/client";
-import { submitForApproval } from "@/modules/approvals";
 import { validateRequestBills } from "./request-service";
 import { audit, lockSettlement, scope } from "./service";
 
@@ -17,6 +16,7 @@ export async function submitRequest(
   });
   await scope(tx, ctx, row.projectId, "payment.request.create");
   await validateRequestBills(tx, row, ctx);
+  const { submitForApproval } = await import("@/modules/approvals");
   const approval = await submitForApproval(
     {
       orgSlug: ctx.org.slug,

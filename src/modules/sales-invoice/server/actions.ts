@@ -6,7 +6,6 @@ import {
   requireProjectContext,
 } from "@/core/context";
 import { db } from "@/core/db";
-import { submitForApproval } from "@/modules/approvals";
 import { domainAudit, lockDocument } from "@/modules/procurement";
 import { invoiceInput } from "../schema";
 import { saveInvoice } from "./service";
@@ -72,6 +71,7 @@ export async function submitInvoiceAction(
           throw new Error("Invoice changed. Reload before submitting.");
         if (invoice.status !== "DRAFT")
           throw new Error("Only drafts may be submitted.");
+        const { submitForApproval } = await import("@/modules/approvals");
         const approval = await submitForApproval(
           {
             orgSlug: org,

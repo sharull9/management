@@ -4,7 +4,6 @@ import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { optional } from "@/core/form-data";
 import { storage } from "@/core/storage";
-import { submitForApproval } from "@/modules/approvals";
 import { audit, dateOrder, nullableDate } from "@/modules/project";
 import {
   date,
@@ -139,6 +138,7 @@ export async function taskWork(
               });
               await audit(ctx, tx, "Attachment", attachment.id, "CREATE");
             }
+            const { submitForApproval } = await import("@/modules/approvals");
             const request = await submitForApproval(
               {
                 orgSlug: org,
@@ -185,6 +185,7 @@ export async function taskWork(
                 reason,
               },
             });
+            const { submitForApproval } = await import("@/modules/approvals");
             const request = await submitForApproval(
               {
                 orgSlug: org,

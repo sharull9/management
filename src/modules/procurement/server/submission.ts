@@ -1,7 +1,6 @@
 import "server-only";
 import type { OrgContext } from "@/core/context";
 import type { Prisma } from "@/generated/prisma/client";
-import { submitForApproval } from "@/modules/approvals";
 import {
   type DocumentKind,
   document,
@@ -33,6 +32,7 @@ export async function submitDocument(
       : "grandTotal" in row
         ? row.grandTotal.toString()
         : undefined;
+  const { submitForApproval } = await import("@/modules/approvals");
   const approval = await submitForApproval(
     {
       orgSlug: ctx.org.slug,
