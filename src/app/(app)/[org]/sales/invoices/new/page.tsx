@@ -1,22 +1,18 @@
 import { Suspense } from "react";
 import Loading from "@/app/(app)/loading";
-import { PageHeading } from "@/components/page-heading";
-import { Card, CardContent } from "@/components/ui/card";
-import { requireOrgContext } from "@/server/context";
+import { InvoiceNew } from "@/components/sales/pages";
 
-async function Content({ params }: { params: Promise<{ org: string }> }) {
+async function Content({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ org: string }>;
+  searchParams: Promise<{ projectId?: string }>;
+}) {
   const { org } = await params;
-  await requireOrgContext(org);
-  return (
-    <>
-      <PageHeading title="New sales invoices" description="Coming soon" />
-      <Card>
-        <CardContent className="py-6">Coming soon</CardContent>
-      </Card>
-    </>
-  );
+  const { projectId } = await searchParams;
+  return <InvoiceNew org={org} projectId={projectId} />;
 }
-
 export default function Page(props: Parameters<typeof Content>[0]) {
   return (
     <Suspense fallback={<Loading />}>

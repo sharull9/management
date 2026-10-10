@@ -1,11 +1,14 @@
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
 import type { ApprovalHandler } from "../approvals/handlers";
+import { writeAudit } from "../audit";
+import { postInvoiceStock } from "./stock";
 
 async function updateStatus(
   request: ApprovalRequest,
   tx: Prisma.TransactionClient,
   status: "APPROVED" | "DRAFT",
+  actorId: string,
 ): Promise<void> {
   await tx.salesInvoice.update({
     where: {
@@ -16,15 +19,45 @@ async function updateStatus(
     },
     data: { status },
   });
+  const organization = await tx.organization.findUniqueOrThrow({
+    where: { id: request.organizationId },
+  });
+  await writeAudit(
+    {
+      tenantId: organization.tenantId,
+      organizationId: request.organizationId,
+      userId: actorId,
+      entityType: "SalesInvoice",
+      entityId: request.documentId,
+      action: status === "APPROVED" ? "APPROVE" : "RETURN_TO_DRAFT",
+    },
+    tx,
+  );
 }
 
-// Stable wave-2 contract: (request: ApprovalRequest, tx: Prisma.TransactionClient, actorId: string) => Promise<void>.
-// Replace status-only bodies with document effects; keep these exports and avoid importing approval service here.
-export const onApproved: ApprovalHandler["onApproved"] = (request, tx) =>
-  updateStatus(request, tx, "APPROVED");
-export const onRejected: ApprovalHandler["onRejected"] = (request, tx) =>
-  updateStatus(request, tx, "DRAFT");
+export const onApproved: ApprovalHandler["onApproved"] = async (
+  request,
+  tx,
+  actorId,
+) => {
+  const invoice = await tx.salesInvoice.findFirstOrThrow({
+    where: {
+      id: request.documentId,
+      organizationId: request.organizationId,
+      approvalRequestId: request.id,
+      status: "PENDING_APPROVAL",
+    },
+  });
+  await postInvoiceStock(tx, invoice, actorId);
+  await updateStatus(request, tx, "APPROVED", actorId);
+};
+export const onRejected: ApprovalHandler["onRejected"] = (
+  request,
+  tx,
+  actorId,
+) => updateStatus(request, tx, "DRAFT", actorId);
 export const onCanceled: NonNullable<ApprovalHandler["onCanceled"]> = (
   request,
   tx,
-) => updateStatus(request, tx, "DRAFT");
+  actorId,
+) => updateStatus(request, tx, "DRAFT", actorId);
