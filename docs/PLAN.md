@@ -105,7 +105,7 @@ Postgres for testing migrations).
 ### Phase 0 — Setup ✅
 Dependencies, shadcn init + components, Prisma config, env example, this plan.
 
-### Phase 1 — Foundation
+### Phase 1 — Foundation ✅
 - Full Prisma schema for: Better Auth models (user/session/account/verification/organization/
   member/invitation incl. admin + organization plugin fields), Tenant, TenantMember, Role,
   ProjectMember, Country/State/City, UomGroup/Uom, ItemCategory, Item, ItemLevelDefinition,
@@ -130,7 +130,7 @@ Dependencies, shadcn init + components, Prisma config, env example, this plan.
   permissions, approval policies (per document type, steps editor), document series.
   Locations: countries/states (read-only list), cities CRUD.
 
-### Phase 2 — Projects, workforce & cost (core)
+### Phase 2 — Projects, workforce & cost (core) ✅
 - Schema: Project, ProjectSite, ProjectBudgetLine, Stage, Task, TaskAssignment, TaskSubmission,
   TaskDelayRequest, Worker, ProjectWorker, Attendance, Expense, CostEntry.
 - Projects list/create/edit; overview dashboard (budget, spent, remaining, cost by type & stage,
@@ -146,6 +146,11 @@ Dependencies, shadcn init + components, Prisma config, env example, this plan.
   cost entries (day rate = override ?? salary ÷ cost days; OT = hours × day rate ÷ std hours ×
   multiplier).
 - Manual expenses → approval → cost entry. Approvals inbox page. Org dashboard.
+
+Implemented with grouped task lists and sequence-number stage reordering. Budget actuals match
+cost type and stage; duplicate budget lines share that actual and are combined for totals.
+Attendance posts unallocated project labour costs. Monthly dashboard totals are separated by
+project currency; this phase does not convert currencies. See `PHASE2_REPORT.md` for validation.
 
 ### Phase 3 — Masters UI, procurement & inventory
 - Screens: UOMs, item categories, item levels (definitions, values), items (level configs, links,

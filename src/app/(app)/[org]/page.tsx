@@ -1,48 +1,164 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import Loading from "@/app/(app)/loading";
 import { FormCard } from "@/components/form-card";
 import { PageHeading } from "@/components/page-heading";
-import { Badge } from "@/components/ui/badge";
-import { requireOrgContext } from "@/server/context";
+import { DataTable } from "@/components/project-table";
+import { Progress } from "@/components/ui/progress";
+import { Prisma } from "@/generated/prisma/client";
+import { listPendingForUser } from "@/server/approvals/service";
+import {
+  canViewProjectCost,
+  projectAccessWhere,
+  projectCostAccessWhere,
+  requireOrgContext,
+} from "@/server/context";
+import { db } from "@/server/db";
+import { budgetUsage } from "@/server/projects/costing";
 
 async function Dashboard({ params }: { params: Promise<{ org: string }> }) {
-  const ctx = await requireOrgContext((await params).org);
+  const { org } = await params;
+  const ctx = await requireOrgContext(org);
+  const access = projectAccessWhere(ctx);
+  const costAccess = projectCostAccessWhere(ctx);
+  const today = new Date();
+  const monthStart = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1),
+  );
+  const [projects, costs, month, pending, overdue] = await Promise.all([
+    db.project.findMany({
+      where: { organizationId: ctx.org.id, ...access, status: "ACTIVE" },
+      include: {
+        members: { where: { userId: ctx.user.id }, include: { role: true } },
+      },
+      orderBy: { name: "asc" },
+    }),
+    db.costEntry.groupBy({
+      by: ["projectId"],
+      where: { organizationId: ctx.org.id, project: costAccess },
+      _sum: { amount: true },
+    }),
+    db.costEntry.findMany({
+      where: {
+        organizationId: ctx.org.id,
+        project: costAccess,
+        date: { gte: monthStart, lte: today },
+      },
+      select: { amount: true, project: { select: { currency: true } } },
+    }),
+    listPendingForUser(org),
+    db.task.findMany({
+      where: {
+        project: { organizationId: ctx.org.id, ...access },
+        dueDate: { lt: new Date(today.toISOString().slice(0, 10)) },
+        status: { notIn: ["COMPLETED", "CANCELLED"] },
+      },
+      include: { project: true },
+      orderBy: { dueDate: "asc" },
+      take: 100,
+    }),
+  ]);
+  const showCost =
+    ctx.isAdmin ||
+    ctx.permissions.has("cost.view") ||
+    projects.some((p) => canViewProjectCost(ctx, p)) ||
+    month.length > 0;
+  const monthTotals = new Map<string, Prisma.Decimal>();
+  for (const entry of month)
+    monthTotals.set(
+      entry.project.currency,
+      (monthTotals.get(entry.project.currency) ?? new Prisma.Decimal(0)).add(
+        entry.amount,
+      ),
+    );
+  if (!monthTotals.size)
+    monthTotals.set(ctx.org.baseCurrency, new Prisma.Decimal(0));
   return (
     <>
       <PageHeading
         title={ctx.org.name}
-        description="Your organization workspace is ready. Configure members, approvals and numbering before starting project work."
+        description="Project delivery and cost summary."
       />
-      <div className="grid gap-6 md:grid-cols-2">
-        <FormCard title="Organization">
-          <dl className="grid grid-cols-2 gap-4 text-sm">
-            <dt className="text-muted-foreground">Tenant</dt>
-            <dd>{ctx.tenant.name}</dd>
-            <dt className="text-muted-foreground">Legal name</dt>
-            <dd>{ctx.org.legalName ?? "Not set"}</dd>
-            <dt className="text-muted-foreground">Currency</dt>
-            <dd>{ctx.org.baseCurrency}</dd>
-            <dt className="text-muted-foreground">Your access</dt>
-            <dd>
-              <Badge variant="secondary">
-                {ctx.tenantRole === "MEMBER"
-                  ? ctx.member?.role
-                  : ctx.tenantRole}
-              </Badge>
-            </dd>
-          </dl>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <FormCard title="Active projects">
+          <p className="text-3xl font-semibold">{projects.length}</p>
         </FormCard>
-        <FormCard title="Projects and costing">
-          <p className="text-sm text-muted-foreground">
-            Projects, stages, tasks, workforce and the cost ledger will arrive
-            in Phase 2.
-          </p>
+        <FormCard title="Pending approvals for you">
+          <Link
+            className="text-3xl font-semibold underline"
+            href={`/${org}/approvals`}
+          >
+            {pending.length}
+          </Link>
         </FormCard>
+        {showCost && (
+          <FormCard title="Spent this month">
+            {Array.from(monthTotals, ([currency, total]) => (
+              <p key={currency} className="text-2xl font-semibold">
+                {currency} {total.toFixed(2)}
+              </p>
+            ))}
+          </FormCard>
+        )}
       </div>
+      <FormCard title="Active projects">
+        <DataTable
+          headings={["Project", "Budget", "Spent", "Budget usage"]}
+          rows={projects.map((p) => {
+            const projectCost = canViewProjectCost(ctx, p);
+            const spent =
+              costs.find((c) => c.projectId === p.id)?._sum.amount ??
+              new Prisma.Decimal(0);
+            const usage = budgetUsage(p.budgetAmount, spent);
+            return {
+              id: p.id,
+              cells: [
+                <Link
+                  key="project"
+                  className="underline"
+                  href={`/${org}/projects/${p.id}`}
+                >
+                  {p.code} · {p.name}
+                </Link>,
+                projectCost
+                  ? `${p.currency} ${p.budgetAmount.toFixed(2)}`
+                  : "—",
+                projectCost ? spent.toFixed(2) : "—",
+                projectCost ? (
+                  <div key="usage" className="min-w-32 space-y-2">
+                    <span>{usage.percent}%</span>
+                    <Progress value={Math.min(100, Number(usage.percent))} />
+                  </div>
+                ) : (
+                  "—"
+                ),
+              ],
+            };
+          })}
+        />
+      </FormCard>
+      <FormCard title="Overdue tasks">
+        <DataTable
+          headings={["Project", "Task", "Due"]}
+          rows={overdue.map((t) => ({
+            id: t.id,
+            cells: [
+              t.project.name,
+              <Link
+                key="task"
+                className="underline"
+                href={`/${org}/projects/${t.projectId}/tasks/${t.id}`}
+              >
+                {t.code} · {t.title}
+              </Link>,
+              t.dueDate?.toISOString().slice(0, 10),
+            ],
+          }))}
+        />
+      </FormCard>
     </>
   );
 }
-
 export default function Page(props: Parameters<typeof Dashboard>[0]) {
   return (
     <Suspense fallback={<Loading />}>

@@ -2,7 +2,8 @@
 
 Multi-tenant project management and costing. Phase 1 provides authentication,
 tenant administration, organization workspaces, shared reference data, settings,
-and a document approval engine. Project and transaction modules arrive in later phases.
+and a document approval engine. Phase 2 adds projects, stages, tasks, worker assignments,
+attendance costing, approved expenses, budgets, sites and organization dashboards.
 
 ## Run locally
 
@@ -53,7 +54,7 @@ pnpm prisma validate
 pnpm exec tsc --noEmit
 pnpm lint
 pnpm format
-pnpm test              # Money thresholds, snapshots, fallback and step advancement
+pnpm test              # Approval logic, task effects, Decimal costing and availability
 pnpm build
 pnpm start
 ```
@@ -61,7 +62,10 @@ pnpm start
 For production, set the environment variables, run `pnpm prisma migrate deploy`, seed
 the database, then build and start. The build does not connect to the database.
 Keep PostgreSQL and persistent `storage/` available at runtime. Files are private;
-future attachment routes must authorize the organization before calling the storage helper.
+the task photo download route authorizes the organization and project before reading storage.
+Restart the dev server after regenerating Prisma for a schema change so all route modules use
+the new client. `PRISMA_SHADOW_DATABASE_URL` optionally selects a separate shadow database,
+which is useful with Prisma dev's separate TCP shadow endpoint.
 
 ## Access model
 
@@ -84,7 +88,13 @@ future attachment routes must authorize the organization before calling the stor
 - `/[org]/approvals` pending steps, approve/reject with comments, cancellation and request history.
 - `/[org]/settings/{organizations,members,roles,approval-policies,numbering}`.
 - `/[org]/masters/locations` global country/state lists and tenant city CRUD.
-- `/[org]/projects` and `/[org]/workforce` placeholders for the next phase.
+- `/[org]/projects` filtered list and project creation, including quick customer creation.
+- `/[org]/projects/[projectId]` overview and project editing, with `stages`, `tasks`, `team`,
+  `attendance`, `costs`, `budget` and `sites` subroutes.
+- `/[org]/projects/[projectId]/tasks/[taskId]` worker assignments, work submission/photos,
+  delay requests, approval timelines and task history.
+- `/[org]/workforce` worker/designation management and date-range availability.
+- `/api/attachments/[attachmentId]` private task photo downloads.
 
 ## Approval integration for later phases
 
@@ -94,32 +104,66 @@ future attachment routes must authorize the organization before calling the stor
 After a document action validates and authorizes its domain operation, call
 `submitForApproval({ orgSlug, documentType, documentId, title, amount, projectId, stageId })`.
 Use decimal strings for money. An optional transaction lets submission share a transaction
-with the document write. Policy lookup selects active stage, project, then organization policies.
+with the document write. Pass the already verified `OrgContext` as the third argument when
+using a transaction, avoiding repeated session/DAL reads while its database connection is held.
+The service checks organization/project/stage consistency. Policy lookup selects active stage,
+project, then organization policies.
 Steps are filtered by minimum amount and copied into independent request snapshots.
 No applicable steps produce a PROJECT_MANAGER step, falling back to an organization or tenant
 administrator when no manager resolves.
 
-Register `registerApprovalHandler(documentType, { onApproved, onRejected })` from a server
-bootstrap imported by `handlers.ts`. Both callbacks receive the request and the current Prisma
-transaction. Write document status and cost entries using that transaction. Do not make external
+Register `registerApprovalHandler(documentType, { onApproved, onRejected, onCanceled })` in
+`src/server/approvals/register.ts`, imported by the approval service. Callbacks receive the
+request, current Prisma transaction and actor ID. Write document status and cost entries using
+that transaction. Do not make external
 network calls inside it. Unregistered document types remain generic approvals with no domain
-side effects. Register a manager resolver when project/stage models arrive; return user IDs or
-`null` for the admin fallback.
+side effects. The registered resolver uses Project.managerUserId and ProjectMember.isManager
+for PROJECT_MANAGER, and Stage.managerUserId for STAGE_MANAGER, with the administrator fallback
+when no manager resolves. TASK_SUBMISSION completes the task or returns it for rework; TASK_DELAY
+updates the due date when approved; EXPENSE posts one cost entry when approved. Cancellation
+updates each source document and returns a submitted task to IN_PROGRESS.
 
 Approval decisions lock the request, recheck the pending step, update its actor/comment,
 advance or finalize, call the handler and audit within one transaction. Duplicate pending
 submissions are prevented by a document lock and a partial unique index. Completed/rejected
 documents may be submitted again as a new request. Policy edits do not alter existing snapshots.
 
-Project/stage scope IDs are nullable strings until Phase 2 adds their models and foreign keys.
-The UI disables project/stage scopes for now. `ProjectMember` is deliberately deferred.
-Add document enum values and handlers as subsequent workflows are introduced.
+Project/stage scope IDs now have foreign keys. The policy editor enables organization, project
+and stage scopes and validates ownership. Expenses pass their Decimal amount for threshold steps.
+
+## Project access and costing
+
+Project members can view their project without an organization-wide project permission. A
+project manager can edit the project and manage its stages, tasks, attendance, costs and team.
+Project custom roles add permissions only within that project. The DAL and every action check
+organization/project ownership independently. Worker and designation writes require
+`workforce.manage`; workers remain separate from login users.
+
+Attendance uses Prisma Decimal with 48-digit calculation precision. The day rate is the
+assignment override, otherwise monthly salary divided by cost days, daily salary, or hourly pay
+multiplied by standard hours. Present counts one day, half-day counts half, absent/leave count
+zero base pay. OT hours multiply the hourly override or day rate divided by standard hours and
+multiplied by the OT multiplier. Day and OT costs round half up to two places; their sum is the
+posted total. Hours worked are recorded separately and do not replace the attendance status factor.
+
+Saving attendance upserts its LABOUR cost entry in the same transaction. Editing replaces that
+entry and deleting removes it. Costs are snapshots, so later salary/rate edits do not change
+already saved attendance until it is explicitly saved again. Assignment date ranges are inclusive.
+Inactive workers are blocked; overlaps between projects need explicit confirmation. Overlapping
+rate assignments within the same project are blocked to keep the rate selection unambiguous.
+
+Budget actuals match cost type and stage. Duplicate lines share those actuals and are combined
+for totals. Attendance labour has no stage allocation. Project currency labels are stored as
+entered; currency conversion is outside Phase 2. Dashboard monthly totals are shown per currency.
+Use rate overrides expressed in the project's currency when the worker's base pay currency differs.
+
+See [the Phase 2 report](docs/PHASE2_REPORT.md) for commands, smoke checks and implementation choices.
 
 ## Structure
 
 ```text
 prisma/
-  schema.prisma           Auth, tenancy and foundation master/service models
+  schema.prisma           Auth, tenancy, masters, projects, workforce and cost models
   migrations/             Initial schema plus SQL integrity constraints
   seed.ts                 Global locations and system units
 src/app/
@@ -135,6 +179,7 @@ src/server/
   context.ts              Session and tenancy DAL
   actions.ts              Zod-validated server mutations
   approvals/              Policy lookup, authorization, logic, handlers and service
+  projects/               Project actions, costing, availability and queries
   audit.ts                Transaction-aware audit writer
   numbering.ts            Atomic document number allocation
   storage.ts              Private local file storage abstraction
