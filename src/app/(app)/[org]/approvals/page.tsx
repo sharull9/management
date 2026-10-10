@@ -61,7 +61,7 @@ async function ApprovalsPage({ params }: { params: Promise<{ org: string }> }) {
     <>
       <PageHeading
         title="Approvals"
-        description="Review task submissions, delay requests and expenses. Rejections require a comment."
+        description="Review project work, expenses, procurement and stock transfers. Rejections require a comment."
       />
       <h2 className="text-lg font-medium">Your pending steps</h2>
       {pending.length === 0 && (

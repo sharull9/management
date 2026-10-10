@@ -110,22 +110,55 @@ export function AppShell({
               })}
             </SidebarMenu>
           </SidebarGroup>
-          <SidebarGroup>
-            <SidebarGroupLabel>Masters</SidebarGroupLabel>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === `/${org.slug}/masters/locations`}
-                >
-                  <Link href={`/${org.slug}/masters/locations`}>
-                    <MapPin />
-                    <span>Locations</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroup>
+          {[
+            {
+              title: "Procurement",
+              links: [
+                ["Purchase requests", "procurement/requests"],
+                ["Purchase orders", "procurement/orders"],
+                ["Goods receipts", "procurement/receipts"],
+              ],
+            },
+            {
+              title: "Inventory",
+              links: [
+                ["Stock", "inventory/stock"],
+                ["Consumption", "inventory/consumption"],
+                ["Transfers", "inventory/transfers"],
+              ],
+            },
+            {
+              title: "Masters",
+              links: [
+                ["UOMs", "masters/uoms"],
+                ["Categories", "masters/categories"],
+                ["Item levels", "masters/levels"],
+                ["Items", "masters/items"],
+                ["Parties", "masters/parties"],
+                ["Tax", "masters/tax"],
+                ["Locations", "masters/locations"],
+              ],
+            },
+          ].map((group) => (
+            <SidebarGroup key={group.title}>
+              <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
+              <SidebarMenu>
+                {group.links.map(([title, path]) => (
+                  <SidebarMenuItem key={path}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname.startsWith(`/${org.slug}/${path}`)}
+                    >
+                      <Link href={`/${org.slug}/${path}`}>
+                        <MapPin />
+                        <span>{title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+          ))}
         </SidebarContent>
         <SidebarFooter className="border-t p-4">
           <DropdownMenu>

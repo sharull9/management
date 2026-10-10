@@ -128,3 +128,26 @@
     @apply font-sans;
   }
 }
+@media print {
+  [data-slot="sidebar"],
+  [data-slot="sidebar-wrapper"] > [data-slot="sidebar"],
+  header,
+  nav,
+  form,
+  button {
+    display: none;
+  }
+  .procurement-document {
+    color: #000;
+    background: #fff;
+  }
+  .procurement-document table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .procurement-document td,
+  .procurement-document th {
+    border-bottom: 1px solid #ccc;
+    padding: 8px;
+  }
+}

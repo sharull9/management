@@ -1,4 +1,8 @@
-import { requireOrgContext, requireProjectContext } from "@/server/context";
+import {
+  assertPermission,
+  requireOrgContext,
+  requireProjectContext,
+} from "@/server/context";
 import { db } from "@/server/db";
 import { storage } from "@/server/storage";
 export async function GET(
@@ -12,20 +16,35 @@ export async function GET(
   });
   if (!attachment) return new Response("Not found", { status: 404 });
   await requireOrgContext(attachment.organization.slug);
-  if (attachment.entityType !== "TaskSubmission")
-    return new Response("Not found", { status: 404 });
-  const submission = await db.taskSubmission.findFirst({
-    where: {
-      id: attachment.entityId,
-      task: { project: { organizationId: attachment.organizationId } },
-    },
-    include: { task: true },
-  });
-  if (!submission) return new Response("Not found", { status: 404 });
-  await requireProjectContext(
-    attachment.organization.slug,
-    submission.task.projectId,
-  );
+  if (attachment.entityType === "PurchaseOrder") {
+    const order = await db.purchaseOrder.findFirst({
+      where: {
+        id: attachment.entityId,
+        organizationId: attachment.organizationId,
+      },
+    });
+    if (!order) return new Response("Not found", { status: 404 });
+    const ctx = await requireProjectContext(
+      attachment.organization.slug,
+      order.projectId,
+    );
+    assertPermission(ctx, "purchase.view");
+  } else {
+    if (attachment.entityType !== "TaskSubmission")
+      return new Response("Not found", { status: 404 });
+    const submission = await db.taskSubmission.findFirst({
+      where: {
+        id: attachment.entityId,
+        task: { project: { organizationId: attachment.organizationId } },
+      },
+      include: { task: true },
+    });
+    if (!submission) return new Response("Not found", { status: 404 });
+    await requireProjectContext(
+      attachment.organization.slug,
+      submission.task.projectId,
+    );
+  }
   const bytes = await storage.get(attachment.storageKey);
   return new Response(bytes, {
     headers: {

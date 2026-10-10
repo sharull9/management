@@ -34,6 +34,7 @@ async function ProjectLayout({
             "Costs",
             "Budget",
             "Sites",
+            "Materials",
           ].map((tab) => (
             <Link
               key={tab}
