@@ -152,7 +152,7 @@ cost type and stage; duplicate budget lines share that actual and are combined f
 Attendance posts unallocated project labour costs. Monthly dashboard totals are separated by
 project currency; this phase does not convert currencies. See `PHASE2_REPORT.md` for validation.
 
-### Phase 3a — Masters UI, purchasing up to GRN & project inventory ✅
+### Phase 3a — Masters UI, purchasing up to GRN & project inventory ✅ Done
 - Tenant master CRUD: UOM groups/units, category tree (depth 5), enabled item levels 1–5 and values,
   items with required ANY/LINKED configs and resolved variants, parties/addresses/contacts/tax IDs,
   tax components/applicability and country/scoped groups. System UOM rows are read-only.
@@ -173,13 +173,30 @@ project currency; this phase does not convert currencies. See `PHASE2_REPORT.md`
   settings are protected. Private proforma uploads currently cap at 900 KB. Browser print CSS added.
 - See `PHASE3A_REPORT.md` for tests, smoke verification, command outcomes and implementation limits.
 
-### Phase 3b — Bills, payments, advances & sales (pending)
+### Phase 3b — Bills, payments, advances & sales (done)
 - Vendor Bill against PO/GRN lines (actual price, discounts, tax, withholding) → approval →
   Payment Request → approval → Payment (cash/bank, partial).
 - Advances are unallocated payments allocated later to bills. Vendor balance view.
 - Basic customer invoices for goods/services and project client billing.
 - Attach to the existing typed PO/GRN/line IDs and tax snapshots. Preserve consumption-based material
   cost recognition; define price-variance/revaluation treatment when bills differ from PO prices.
+
+Phase 3b verification is recorded in [PHASE3B_REPORT.md](PHASE3B_REPORT.md).
+The module refactor is done. Routes are thin, shared infrastructure is in `src/core`,
+feature code is in `src/modules`, and cross-module imports use public indexes.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the final module map and rules.
+
+### Phase 3c — Multi-currency (next)
+- Currency master with code, symbol and decimals, enabled per tenant. Organization base
+  currency, party default currency and project currency.
+- Per-organization dated manual exchange rates. A document defaults to the latest rate
+  on or before its document date; users may edit that rate per document.
+- Documents store currency, exchangeRate and base-currency totals. Backfill existing rows
+  with rate 1.
+- CostEntry stores original currency/amount, base amount and project-currency amount.
+  Value stock in base currency.
+- Allocate only within the same currency. Store realised FX differences for phase 5.
+  Show balances per currency plus a base-currency total.
 
 ### Phase 4 — Vehicles & machinery
 - `Asset` (type VEHICLE/MACHINE, meter KM/HOURS, power DIESEL/PETROL/ELECTRIC/OTHER, kW rating,
