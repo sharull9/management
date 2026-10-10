@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { BillDetail } from "@/components/bills/pages";
 import Loading from "@/components/shared/page-loading";
+import { BillDetail } from "@/modules/vendor-bill/ui/views/bills-detail-view";
 
 async function Content({
   params,

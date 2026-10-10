@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { InventoryPage } from "@/components/inventory-pages";
 import Loading from "@/components/shared/page-loading";
+import { InventoryView } from "@/modules/procurement/ui/views/consumption-list-view";
 
 async function Content({
   params,
@@ -12,7 +12,7 @@ async function Content({
   const p = await params;
   const s = await searchParams;
   return (
-    <InventoryPage
+    <InventoryView
       org={p.org}
       kind="consumption"
       projectId={p.projectId ?? s.projectId}

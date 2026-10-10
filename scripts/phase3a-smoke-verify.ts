@@ -6,23 +6,18 @@ import { getApprovalHandler } from "@/modules/approvals";
 import "@/modules/approvals";
 import type { OrgContext } from "@/core/context";
 import { db } from "@/core/db";
-import {
-  recordConsumption,
-  saveStockTransfer,
-  stockBalance,
-} from "../src/server/inventory/service";
-import { resolveVariant } from "../src/server/masters/service";
-
-import {
-  saveGoodsReceipt,
-  savePurchaseOrder,
-} from "../src/server/procurement/service";
+import { resolveVariant } from "@/modules/masters";
 import {
   consumptionInput,
   orderInput,
   receiptInput,
+  recordConsumption,
+  saveGoodsReceipt,
+  savePurchaseOrder,
+  saveStockTransfer,
+  stockBalance,
   transferInput,
-} from "../src/server/procurement/validation";
+} from "@/modules/procurement";
 
 async function main() {
   const url = new URL(process.env.DATABASE_URL ?? "");

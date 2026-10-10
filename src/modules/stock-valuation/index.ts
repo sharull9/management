@@ -1,0 +1,1 @@
+export { movingAverage } from "./util";

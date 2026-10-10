@@ -1,6 +1,6 @@
 import { Suspense } from "react";
-import { ProcurementDetail } from "@/components/procurement-pages";
 import Loading from "@/components/shared/page-loading";
+import { ProcurementDetail } from "@/modules/procurement/ui/views/transfers-detail-view";
 
 async function Content({
   params,
