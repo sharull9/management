@@ -7,3 +7,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Code organisation
+
+Before moving feature code, adding cross-module imports, or running an R2 refactor, read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). It defines module boundaries, exact four-group file ownership, export names, and permitted shared-file edits. Keep routes thin, shared infrastructure in `src/core`, and tests next to their code.
