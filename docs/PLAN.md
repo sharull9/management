@@ -152,17 +152,34 @@ cost type and stage; duplicate budget lines share that actual and are combined f
 Attendance posts unallocated project labour costs. Monthly dashboard totals are separated by
 project currency; this phase does not convert currencies. See `PHASE2_REPORT.md` for validation.
 
-### Phase 3 — Masters UI, procurement & inventory
-- Screens: UOMs, item categories, item levels (definitions, values), items (level configs, links,
-  variants), parties, tax components/groups.
-- Purchase Request (per project, lines with variant/qty/uom) → approval → Purchase Order (vendor,
-  agreed price, tax snapshot, payment terms, proforma attachment) → approval → GRN(s) against PO
-  (received/pending qty) → approval → stock in at project → Vendor Bill (actual price, discounts,
-  tax, withholding) → approval → Payment Request → approval → Payment (cash/bank, partial).
-  Advances = unallocated payments allocated later to bills. Vendor balance view.
-- Project stock ledger (GRN in, consumption out against stage/task, inter-project transfer with
-  approval), stock on hand per project & variant, consumption → MATERIAL cost entries.
-- Sales side (customer invoices for goods/services, project client billing) — basic.
+### Phase 3a — Masters UI, purchasing up to GRN & project inventory ✅
+- Tenant master CRUD: UOM groups/units, category tree (depth 5), enabled item levels 1–5 and values,
+  items with required ANY/LINKED configs and resolved variants, parties/addresses/contacts/tax IDs,
+  tax components/applicability and country/scoped groups. System UOM rows are read-only.
+- PR draft/edit → submit estimated total → approval. PO direct or approved PR lines from one
+  project, vendor, net rates/discount, individual tax snapshots, credit/cash/advance terms,
+  proforma attachment → submit grand total → approval. Multiple partial GRNs → approval → stock.
+- Approved receipts enforce cumulative quantities plus configurable tolerance (0% default).
+  Accepted quantities convert to stock UOM; rejected quantities create no stock. Physical receipts
+  determine PO completion and accepted totals remain separately visible.
+- `MATERIAL_COST_RECOGNITION = "ON_CONSUMPTION"`: GRN adds inventory at discounted net cost
+  excluding tax. Consumption withdraws at weighted average and posts MATERIAL cost per line.
+  Approved transfers post opposite stock quantities/value, without CostEntry.
+- Organization Procurement/Inventory sidebar groups, scoped lists and document detail/timelines,
+  project Materials tab, multi-line item/level picker, stock balances and consumption history.
+  Existing approval registry, scoped manager resolution, transactions, audit and numbering reused.
+- Stock movements cannot predate existing project/variant movements. POs use project currency;
+  transfers require equal currencies and access to both projects. Referenced UOM factors/item stock
+  settings are protected. Private proforma uploads currently cap at 900 KB. Browser print CSS added.
+- See `PHASE3A_REPORT.md` for tests, smoke verification, command outcomes and implementation limits.
+
+### Phase 3b — Bills, payments, advances & sales (pending)
+- Vendor Bill against PO/GRN lines (actual price, discounts, tax, withholding) → approval →
+  Payment Request → approval → Payment (cash/bank, partial).
+- Advances are unallocated payments allocated later to bills. Vendor balance view.
+- Basic customer invoices for goods/services and project client billing.
+- Attach to the existing typed PO/GRN/line IDs and tax snapshots. Preserve consumption-based material
+  cost recognition; define price-variance/revaluation treatment when bills differ from PO prices.
 
 ### Phase 4 — Vehicles & machinery
 - `Asset` (type VEHICLE/MACHINE, meter KM/HOURS, power DIESEL/PETROL/ELECTRIC/OTHER, kW rating,

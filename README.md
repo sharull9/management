@@ -4,6 +4,8 @@ Multi-tenant project management and costing. Phase 1 provides authentication,
 tenant administration, organization workspaces, shared reference data, settings,
 and a document approval engine. Phase 2 adds projects, stages, tasks, worker assignments,
 attendance costing, approved expenses, budgets, sites and organization dashboards.
+Phase 3a adds shared master screens, purchase requests and orders, approved goods receipts,
+project stock, material consumption costing and approved inter-project transfers.
 
 ## Run locally
 
@@ -54,7 +56,7 @@ pnpm prisma validate
 pnpm exec tsc --noEmit
 pnpm lint
 pnpm format
-pnpm test              # Approval logic, task effects, Decimal costing and availability
+pnpm test              # Approvals, costing, variants, UOM, taxes, stock and receipt guards
 pnpm build
 pnpm start
 ```
@@ -62,7 +64,7 @@ pnpm start
 For production, set the environment variables, run `pnpm prisma migrate deploy`, seed
 the database, then build and start. The build does not connect to the database.
 Keep PostgreSQL and persistent `storage/` available at runtime. Files are private;
-the task photo download route authorizes the organization and project before reading storage.
+the attachment download route authorizes the organization and project before reading storage.
 Restart the dev server after regenerating Prisma for a schema change so all route modules use
 the new client. `PRISMA_SHADOW_DATABASE_URL` optionally selects a separate shadow database,
 which is useful with Prisma dev's separate TCP shadow endpoint.
@@ -88,9 +90,14 @@ which is useful with Prisma dev's separate TCP shadow endpoint.
 - `/[org]/approvals` pending steps, approve/reject with comments, cancellation and request history.
 - `/[org]/settings/{organizations,members,roles,approval-policies,numbering}`.
 - `/[org]/masters/locations` global country/state lists and tenant city CRUD.
+- `/[org]/masters/{uoms,categories,levels,items,parties,tax}` shared master CRUD, configs and variants.
+- `/[org]/procurement/{requests,orders,receipts}` organization lists and draft forms; each has
+  `/[documentId]` detail, draft editing, submission and approval timelines. `?projectId=` scopes lists.
+- `/[org]/inventory/{stock,consumption,transfers}` stock balances, consumption history/forms and
+  transfers; transfers have `/[documentId]` detail and approval. `?projectId=` scopes these pages.
 - `/[org]/projects` filtered list and project creation, including quick customer creation.
 - `/[org]/projects/[projectId]` overview and project editing, with `stages`, `tasks`, `team`,
-  `attendance`, `costs`, `budget` and `sites` subroutes.
+  `attendance`, `costs`, `budget`, `sites` and `materials` subroutes.
 - `/[org]/projects/[projectId]/tasks/[taskId]` worker assignments, work submission/photos,
   delay requests, approval timelines and task history.
 - `/[org]/workforce` worker/designation management and date-range availability.
@@ -159,11 +166,51 @@ Use rate overrides expressed in the project's currency when the worker's base pa
 
 See [the Phase 2 report](docs/PHASE2_REPORT.md) for commands, smoke checks and implementation choices.
 
+## Purchasing and materials
+
+Masters belong to the tenant and require `masters.manage`. System UOM groups/units are read-only;
+tenant groups are created with one base unit. Referenced conversion factors and item stock settings
+cannot change. Categories allow five levels; item level definitions independently enable levels 1–5.
+Items configure required ANY/LINKED levels; variant resolution validates choices and reuses a computed
+key. PRODUCT/RAW_MATERIAL forms initially track stock; SERVICE forms initially do not. Parties can be
+vendors and customers together, with multiple addresses, contacts and labeled tax identifiers.
+
+PR drafts submit their estimated total for approval. POs accept direct lines or approved PR lines
+from the same project; allocations cannot exceed the PR quantity. The vendor must belong to the
+tenant and have `isVendor`. PO snapshots preserve net rates, conversion factors and individual tax
+components. Taxes round half up per component to two places, with withholding shown separately and
+deducted from the grand total. The form suggests INTRA/INTER from organization and default vendor
+address states; the server rejects a conflicting explicit scope. Unknown states suggest ANY.
+
+GRNs receive in the PO line UOM, with accepted + rejected = received. Approval checks cumulative
+physical receipts against ordered quantity plus the PO tolerance (default 0%). Accepted stock alone
+posts GRN_IN in stock UOM. Physical receipts, including rejected quantities, determine PO receipt
+completion; accepted totals remain separate. Rejected quantities do not create stock.
+
+`MATERIAL_COST_RECOGNITION = "ON_CONSUMPTION"` is defined in
+`src/server/procurement/calculations.ts`. GRNs post no project cost. Material consumption withdraws
+on-hand stock at weighted-average cost and creates one MATERIAL CostEntry per consumption line,
+with stage/task allocation, in the same transaction. Transfers approve at the source average and
+post equal opposite stock value without CostEntry. Both projects must belong to the org and use
+the same currency. Stock movements cannot predate an existing movement for that project/variant;
+same-date entries follow posting order. Quantities use four decimal places; inventory value and
+unit-cost snapshots use eight; CostEntry amounts round half up to two.
+
+Project access and custom roles apply to every action and list. Managers receive purchasing and
+inventory permissions within their projects. Transfer creation/submission checks both projects.
+Read-only users see no mutation forms. Purchase visibility uses `purchase.view`; stock visibility
+uses `inventory.view`, with separate request/order/GRN/consume/transfer permissions. Existing legacy
+permission keys remain in the catalog; new screens use the explicit Phase 3a keys.
+
+PO detail supports printing through the browser and private PDF/PNG/JPEG proforma attachments up to
+900 KB, within Next's existing 1 MB action body limit. Larger upload flows, bills, payments, advances,
+vendor balances and sales remain for Phase 3b. See [the Phase 3a report](docs/PHASE3A_REPORT.md).
+
 ## Structure
 
 ```text
 prisma/
-  schema.prisma           Auth, tenancy, masters, projects, workforce and cost models
+  schema.prisma           Auth, masters, projects, procurement, stock and cost models
   migrations/             Initial schema plus SQL integrity constraints
   seed.ts                 Global locations and system units
 src/app/
@@ -180,6 +227,9 @@ src/server/
   actions.ts              Zod-validated server mutations
   approvals/              Policy lookup, authorization, logic, handlers and service
   projects/               Project actions, costing, availability and queries
+  masters/                Shared master actions, queries and variant resolution
+  procurement/            Document actions, validation, services, approvals and calculations
+  inventory/              Stock locking, balances, consumption and transfer posting
   audit.ts                Transaction-aware audit writer
   numbering.ts            Atomic document number allocation
   storage.ts              Private local file storage abstraction
