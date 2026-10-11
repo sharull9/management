@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
+import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Decimal } from "@/core/decimal";
-
 import { isInvoiceOverdue } from "../../server/calculations";
 import { salesData } from "../../server/queries";
+import { InvoiceFilters } from "../components/invoice-filters";
+import { InvoicesTable } from "../components/invoices-table";
 
 export async function InvoiceList({
   org,
@@ -13,7 +16,9 @@ export async function InvoiceList({
   org: string;
   filters: Record<string, string | undefined>;
 }) {
-  const d = await salesData(org, filters.projectId);
+  const d = await salesData(org, filters.projectId, "sales.view", {
+    customerIds: filters.customerId ? [filters.customerId] : [],
+  });
   const rows = d.invoices.filter(
     (r) =>
       (!filters.customerId || r.partyId === filters.customerId) &&
@@ -46,149 +51,69 @@ export async function InvoiceList({
         New invoice
       </Link>
       <FormCard title="Filters">
-        <form className="flex flex-wrap gap-4">
-          <label>
-            Customer
-            <select
-              name="customerId"
-              defaultValue={filters.customerId ?? ""}
-              className="block rounded border p-2"
-            >
-              <option value="">All customers</option>
-              {d.customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.displayName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Project
-            <select
-              name="projectId"
-              defaultValue={filters.projectId ?? ""}
-              className="block rounded border p-2"
-            >
-              <option value="">All projects</option>
-              {d.projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Status
-            <select
-              name="status"
-              defaultValue={filters.status ?? ""}
-              className="block rounded border p-2"
-            >
-              <option value="">All statuses</option>
-              {[
-                "DRAFT",
-                "PENDING_APPROVAL",
-                "APPROVED",
-                "PARTIALLY_PAID",
-                "PAID",
-                "CANCELLED",
-              ].map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              name="overdue"
-              value="1"
-              defaultChecked={filters.overdue === "1"}
-            />
-            Overdue
-          </label>
-          <button type="submit" className="rounded border px-4">
-            Apply
-          </button>
-        </form>
+        <InvoiceFilters
+          org={org}
+          filters={filters}
+          customers={d.customers.map((row) => ({
+            value: row.id,
+            label: row.displayName,
+          }))}
+          projects={d.projects
+            .filter((row) => row.id === filters.projectId)
+            .map((row) => ({ value: row.id, label: row.name }))}
+        />
       </FormCard>
       {filters.projectId && (
         <FormCard title="Project billing">
           <p className="text-sm">
             Approved invoices in the current filters, grouped by currency.
           </p>
-          {currencies.map((currency) => {
-            const invoices = billing.filter((r) => r.currency === currency);
-            const payable = invoices.reduce(
-              (a, r) => a.add(r.payableTotal),
-              new Decimal(0),
-            );
-            const received = invoices.reduce(
-              (a, r) => a.add(r.receivedTotal),
-              new Decimal(0),
-            );
-            return (
-              <p key={currency}>
-                {currency}: billed {payable.toFixed(2)} · received{" "}
-                {received.toFixed(2)} · balance{" "}
-                {payable.sub(received).toFixed(2)}
-              </p>
-            );
-          })}
+          <ItemGroup>
+            {currencies.map((currency) => {
+              const invoices = billing.filter((r) => r.currency === currency);
+              const payable = invoices.reduce(
+                (a, r) => a.add(r.payableTotal),
+                new Decimal(0),
+              );
+              const received = invoices.reduce(
+                (a, r) => a.add(r.receivedTotal),
+                new Decimal(0),
+              );
+              return (
+                <Item key={currency} variant="outline">
+                  <ItemContent>
+                    <ItemTitle>
+                      {currency}: billed {payable.toFixed(2)} · received{" "}
+                      {received.toFixed(2)} · balance{" "}
+                      {payable.sub(received).toFixed(2)}
+                    </ItemTitle>
+                  </ItemContent>
+                </Item>
+              );
+            })}
+          </ItemGroup>
+          {!currencies.length && (
+            <EmptyState title="No approved invoices in these filters." />
+          )}
         </FormCard>
       )}
       <FormCard title="Invoices">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr>
-                {[
-                  "Code",
-                  "Customer",
-                  "Project",
-                  "Date",
-                  "Due",
-                  "Grand total",
-                  "Received",
-                  "Balance",
-                  "Status",
-                ].map((h) => (
-                  <th className="p-2" key={h}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr className="border-t" key={r.id}>
-                  <td className="p-2">
-                    <Link
-                      className="underline"
-                      href={`/${org}/sales/invoices/${r.id}`}
-                    >
-                      {r.code}
-                    </Link>
-                  </td>
-                  <td className="p-2">{r.party.displayName}</td>
-                  <td className="p-2">{r.project?.name ?? "—"}</td>
-                  <td className="p-2">{r.date.toISOString().slice(0, 10)}</td>
-                  <td className="p-2">
-                    {r.dueDate?.toISOString().slice(0, 10) ?? "—"}
-                  </td>
-                  <td className="p-2">
-                    {r.currency} {r.grandTotal.toFixed(2)}
-                  </td>
-                  <td className="p-2">{r.receivedTotal.toFixed(2)}</td>
-                  <td className="p-2">
-                    {r.payableTotal.sub(r.receivedTotal).toFixed(2)}
-                  </td>
-                  <td className="p-2">{r.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {!rows.length && <p>No invoices match these filters.</p>}
+        <InvoicesTable
+          org={org}
+          rows={rows.map((row) => ({
+            id: row.id,
+            code: row.code,
+            customer: row.party.displayName,
+            project: row.project?.name ?? "Unspecified",
+            date: row.date.toISOString().slice(0, 10),
+            dueDate: row.dueDate?.toISOString().slice(0, 10) ?? null,
+            currency: row.currency,
+            grandTotal: row.grandTotal.toString(),
+            receivedTotal: row.receivedTotal.toString(),
+            balance: row.payableTotal.sub(row.receivedTotal).toString(),
+            status: row.status,
+          }))}
+        />
       </FormCard>
     </>
   );

@@ -1,10 +1,19 @@
-import { ActionForm } from "@/components/shared/action-form";
 import { ApprovalTimeline } from "@/components/shared/approval-timeline";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
-import { submitInvoiceAction } from "../../server/actions";
+import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { invoiceDetail } from "../../server/queries";
 import { InvoiceEdit } from "../components/invoice-edit";
+import { InvoiceSubmit } from "../components/invoice-submit";
 
 export async function InvoiceDetail({
   org,
@@ -59,50 +68,48 @@ export async function InvoiceDetail({
           </p>
         </div>
         <p>Place of supply: {r.placeOfSupply?.name ?? "Unspecified"}</p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr>
-                {[
-                  "Description",
-                  "Qty",
-                  "Unit",
-                  "Rate",
-                  "Discount %",
-                  "Taxable",
-                  "Tax",
-                  "Total",
-                ].map((h) => (
-                  <th className="p-2" key={h}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {r.lines.map((l) => (
-                <tr className="border-t" key={l.id}>
-                  <td className="p-2">
-                    {l.description || l.variant?.name}
-                    {l.fromProjectStock && (
-                      <span className="sales-no-print block text-xs">
-                        Project stock
-                        {l.stockMovementId ? " posted" : " on approval"}
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-2">{l.qty.toString()}</td>
-                  <td className="p-2">{l.uom.code}</td>
-                  <td className="p-2">{l.rate.toString()}</td>
-                  <td className="p-2">{l.discountPercent.toString()}</td>
-                  <td className="p-2">{l.lineSubtotal.toFixed(2)}</td>
-                  <td className="p-2">{l.lineTax.toFixed(2)}</td>
-                  <td className="p-2">{l.lineTotal.toFixed(2)}</td>
-                </tr>
+        <Table className="text-left">
+          <TableHeader>
+            <TableRow>
+              {[
+                "Description",
+                "Qty",
+                "Unit",
+                "Rate",
+                "Discount %",
+                "Taxable",
+                "Tax",
+                "Total",
+              ].map((h) => (
+                <TableHead className="p-2" key={h}>
+                  {h}
+                </TableHead>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {r.lines.map((l) => (
+              <TableRow className="border-t" key={l.id}>
+                <TableCell className="whitespace-normal">
+                  {l.description || l.variant?.name}
+                  {l.fromProjectStock && (
+                    <span className="sales-no-print block text-xs">
+                      Project stock
+                      {l.stockMovementId ? " posted" : " on approval"}
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell>{l.qty.toString()}</TableCell>
+                <TableCell>{l.uom.code}</TableCell>
+                <TableCell>{l.rate.toString()}</TableCell>
+                <TableCell>{l.discountPercent.toString()}</TableCell>
+                <TableCell>{l.lineSubtotal.toFixed(2)}</TableCell>
+                <TableCell>{l.lineTax.toFixed(2)}</TableCell>
+                <TableCell>{l.lineTotal.toFixed(2)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
         <div>
           <h3 className="font-medium">Tax breakdown</h3>
           {r.lines.flatMap((l) =>
@@ -145,26 +152,30 @@ export async function InvoiceDetail({
         {r.status === "DRAFT" && writable && (
           <>
             <FormCard title="Submit for approval">
-              <ActionForm
-                action={submitInvoiceAction.bind(null, org)}
-                submit="Submit"
-              >
-                <input type="hidden" name="id" value={r.id} />
-              </ActionForm>
+              <InvoiceSubmit org={org} id={r.id} />
             </FormCard>
             <InvoiceEdit org={org} invoiceId={invoiceId} />
           </>
         )}
         <ApprovalTimeline org={org} approvals={d.approvals} variant="sales" />
         <FormCard title="Allocated receipts">
-          {r.allocations.map((a) => (
-            <p key={a.id}>
-              {a.payment.code} · {a.payment.date.toISOString().slice(0, 10)} ·{" "}
-              {a.payment.mode} · {a.payment.reference} · {r.currency}{" "}
-              {a.amount.toFixed(2)}
-            </p>
-          ))}
-          {!r.allocations.length && <p>No receipts allocated.</p>}
+          <ItemGroup>
+            {r.allocations.map((a) => (
+              <Item key={a.id} variant="outline">
+                <ItemContent>
+                  <ItemTitle>
+                    {a.payment.code} ·{" "}
+                    {a.payment.date.toISOString().slice(0, 10)} ·{" "}
+                    {a.payment.mode} · {a.payment.reference} · {r.currency}{" "}
+                    {a.amount.toFixed(2)}
+                  </ItemTitle>
+                </ItemContent>
+              </Item>
+            ))}
+          </ItemGroup>
+          {!r.allocations.length && (
+            <EmptyState title="No receipts allocated." />
+          )}
         </FormCard>
       </div>
       <style>{`@media print { body * { visibility: hidden; } .sales-print-invoice, .sales-print-invoice * { visibility: visible; } .sales-print-invoice { position: absolute; left: 0; top: 0; width: 100%; border: 0; padding: 0; color: black; background: white; } .sales-no-print { display: none !important; } .sales-print-invoice table { font-size: 10pt; } .sales-print-invoice tr { break-inside: avoid; } @page { size: A4; margin: 15mm; } }`}</style>

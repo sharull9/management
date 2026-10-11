@@ -1,4 +1,4 @@
-import type { PickerItem } from "@/components/shared/item-picker";
+import type { PickerItem } from "@/components/shared/form/item-variant-value";
 import type { TaxInput } from "@/modules/tax/util";
 
 type Choice = { id: string; name: string };

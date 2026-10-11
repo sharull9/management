@@ -23,7 +23,11 @@ export async function InvoiceNew({
         description="Customer billing for goods and services."
       />
       <FormCard title="Draft invoice">
-        <InvoiceForm org={org} data={formData(d)} initial={{ projectId }} />
+        <InvoiceForm
+          org={org}
+          data={formData(d, projectId)}
+          initial={{ projectId }}
+        />
       </FormCard>
     </>
   );

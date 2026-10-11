@@ -17,12 +17,20 @@ export async function InvoiceEdit({
       await requireProjectContext(org, r.projectId),
       "sales.invoice.create",
     );
-  const d = await salesData(org, undefined, "sales.invoice.create");
+  const d = await salesData(org, undefined, "sales.invoice.create", {
+    customerIds: [r.partyId],
+    itemIds: r.lines.flatMap((line) =>
+      line.variant ? [line.variant.itemId] : [],
+    ),
+    groupIds: r.lines.flatMap((line) =>
+      line.taxGroupId ? [line.taxGroupId] : [],
+    ),
+  });
   return (
     <FormCard title="Edit draft">
       <InvoiceForm
         org={org}
-        data={formData(d)}
+        data={formData(d, r.projectId)}
         initial={{
           id: r.id,
           projectId: r.projectId,

@@ -1,20 +1,23 @@
 "use server";
-import { type ActionState, runAction } from "@/core/action-result";
+import type { z } from "zod";
 import {
   assertPermission,
   requireOrgContext,
   requireProjectContext,
 } from "@/core/context";
 import { db } from "@/core/db";
+import { typedAction } from "@/core/typed-action";
 import {
   domainAudit,
   lockDocument,
 } from "@/modules/procurement/server/service";
-import { invoiceInput } from "../schema";
+import {
+  invoiceFormInput,
+  invoiceServiceValues,
+  submitInvoiceInput,
+} from "../schema";
 import { saveInvoice } from "./service";
 
-const optional = (data: FormData, key: string) =>
-  String(data.get(key) ?? "").trim() || null;
 async function context(org: string, projectId: string | null) {
   const ctx = projectId
     ? await requireProjectContext(org, projectId)
@@ -24,19 +27,10 @@ async function context(org: string, projectId: string | null) {
 }
 export async function saveInvoiceAction(
   org: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof invoiceFormInput>,
 ) {
-  return runAction(async () => {
-    const input = invoiceInput.parse({
-      ...Object.fromEntries(data),
-      id: optional(data, "id"),
-      projectId: optional(data, "projectId"),
-      partyId: optional(data, "partyId"),
-      stateId: optional(data, "stateId"),
-      dueDate: optional(data, "dueDate"),
-      lines: JSON.parse(String(data.get("lines"))),
-    });
+  return typedAction(invoiceFormInput, async (parsed) => {
+    const input = invoiceServiceValues(parsed);
     const ctx = await context(org, input.projectId);
     let originalProjectId: string | null | undefined;
     if (input.id) {
@@ -51,17 +45,16 @@ export async function saveInvoiceAction(
       { timeout: 20000 },
     );
     return `/${org}/sales/invoices/${row.id}`;
-  });
+  })(input);
 }
 export async function submitInvoiceAction(
   org: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof submitInvoiceInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(submitInvoiceInput, async (input) => {
     const orgCtx = await requireOrgContext(org);
     const row = await db.salesInvoice.findFirstOrThrow({
-      where: { id: String(data.get("id")), organizationId: orgCtx.org.id },
+      where: { id: input.id, organizationId: orgCtx.org.id },
     });
     const ctx = await context(org, row.projectId);
     await db.$transaction(
@@ -97,5 +90,5 @@ export async function submitInvoiceAction(
       },
       { timeout: 20000 },
     );
-  });
+  })(input);
 }

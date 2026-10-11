@@ -5,12 +5,17 @@ import {
   requireProjectContext,
 } from "@/core/context";
 import { db } from "@/core/db";
-import { pickerItems } from "@/modules/masters/server/queries";
 import { moduleProjectWhere } from "@/modules/procurement/server/queries";
+import { invoiceItems } from "./picker-queries";
 export async function salesData(
   org: string,
   projectId?: string,
   permission = "sales.view",
+  selected: {
+    customerIds?: string[];
+    itemIds?: string[];
+    groupIds?: string[];
+  } = {},
 ) {
   const ctx = projectId
     ? await requireProjectContext(org, projectId)
@@ -21,6 +26,26 @@ export async function salesData(
     where: moduleProjectWhere(ctx, permission),
     orderBy: { name: "asc" },
   });
+  if (!global && !projects.length) assertPermission(ctx, permission);
+  const items = await invoiceItems(ctx.tenant.id, "", selected.itemIds ?? []);
+  const customerIds = [
+    ...(selected.customerIds ?? []),
+    ...projects
+      .filter(
+        (project) =>
+          project.id === projectId ||
+          (!global && !projectId && project.id === projects[0]?.id),
+      )
+      .flatMap((project) =>
+        project.clientPartyId ? [project.clientPartyId] : [],
+      ),
+  ];
+  const groupIds = [
+    ...(selected.groupIds ?? []),
+    ...items.flatMap((item) =>
+      item.defaultTaxGroupId ? [item.defaultTaxGroupId] : [],
+    ),
+  ];
   const where = {
     organizationId: ctx.org.id,
     OR: [
@@ -28,24 +53,27 @@ export async function salesData(
       ...(global && !projectId ? [{ projectId: null }] : []),
     ],
   };
-  const [invoices, customers, items, uoms, groups, states] = await Promise.all([
+  const [invoices, customers, uoms, groups, states] = await Promise.all([
     db.salesInvoice.findMany({
       where,
       include: { party: true, project: true },
       orderBy: { date: "desc" },
     }),
     db.party.findMany({
-      where: { tenantId: ctx.tenant.id, isCustomer: true },
+      where: {
+        tenantId: ctx.tenant.id,
+        isCustomer: true,
+        id: { in: customerIds },
+      },
       include: { addresses: { orderBy: { isDefault: "desc" } } },
       orderBy: { displayName: "asc" },
     }),
-    pickerItems(ctx.tenant.id),
     db.uom.findMany({
       where: { OR: [{ tenantId: ctx.tenant.id }, { tenantId: null }] },
       orderBy: { name: "asc" },
     }),
     db.taxGroup.findMany({
-      where: { tenantId: ctx.tenant.id },
+      where: { tenantId: ctx.tenant.id, id: { in: groupIds } },
       include: {
         components: {
           include: { component: true },
