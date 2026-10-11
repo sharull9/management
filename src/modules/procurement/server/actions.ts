@@ -1,13 +1,17 @@
 "use server";
-import { z } from "zod";
+import type { z } from "zod";
 import { type ActionState, runAction } from "@/core/action-result";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { id } from "@/core/schema";
 import { storage } from "@/core/storage";
+import { typedAction } from "@/core/typed-action";
 import {
   consumptionInput,
+  documentSubmissionInput,
   orderInput,
+  procurementFormInput,
+  procurementServiceInput,
   receiptInput,
   requestInput,
   transferInput,
@@ -21,40 +25,22 @@ import { domainAudit } from "./service";
 import { submitDocument } from "./submission";
 
 const val = (data: FormData, key: string) => String(data.get(key) ?? "");
-const opt = (data: FormData, key: string) => val(data, key).trim() || null;
 export async function saveProcurementAction(
   org: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof procurementFormInput>,
 ) {
-  return runAction(async () => {
-    const kind = z
-      .enum(["requests", "orders", "receipts", "consumption", "transfers"])
-      .parse(val(data, "kind"));
-    const projectId = id.parse(val(data, "projectId"));
-    const ctx = await requireProjectContext(org, projectId);
+  return typedAction(procurementFormInput, async (parsed) => {
+    const { kind, projectId } = parsed;
+    const ctx = await requireProjectContext(org, id.parse(projectId));
     assertPermission(
       ctx,
       kind === "consumption"
         ? "inventory.consume"
         : documentKinds[kind].permission,
     );
-    const raw = {
-      ...Object.fromEntries(data),
-      id: opt(data, "id"),
-      stageId: opt(data, "stageId"),
-      taskId: opt(data, "taskId"),
-      neededBy: opt(data, "neededBy"),
-      siteId: opt(data, "siteId"),
-      challanNumber: opt(data, "challanNumber"),
-      vehicleNumber: opt(data, "vehicleNumber"),
-      lines: JSON.parse(val(data, "lines")),
-    };
+    const raw = procurementServiceInput(parsed);
     if (kind === "transfers") {
-      const to = await requireProjectContext(
-        org,
-        id.parse(val(data, "toProjectId")),
-      );
+      const to = await requireProjectContext(org, id.parse(parsed.toProjectId));
       assertPermission(to, "inventory.transfer");
     }
     const row = await db.$transaction(
@@ -77,37 +63,36 @@ export async function saveProcurementAction(
     return kind === "consumption"
       ? `/${org}/inventory/consumption?projectId=${projectId}`
       : `/${org}/${kind === "transfers" ? "inventory" : "procurement"}/${kind}/${row.id}`;
-  });
+  })(input);
 }
 export async function submitProcurementAction(
   org: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof documentSubmissionInput>,
 ) {
-  return runAction(async () => {
-    const kind = z
-      .enum(["requests", "orders", "receipts", "transfers"])
-      .parse(val(data, "kind"));
-    const documentId = id.parse(val(data, "id"));
-    const where = { id: documentId, organization: { slug: org } };
-    const row =
-      kind === "requests"
-        ? await db.purchaseRequest.findFirstOrThrow({ where })
-        : kind === "orders"
-          ? await db.purchaseOrder.findFirstOrThrow({ where })
-          : kind === "receipts"
-            ? await db.goodsReceipt.findFirstOrThrow({ where })
-            : await db.stockTransfer.findFirstOrThrow({ where });
-    const ctx = await requireProjectContext(org, row.projectId);
-    assertPermission(ctx, documentKinds[kind].permission);
-    if ("toProjectId" in row) {
-      const dest = await requireProjectContext(org, row.toProjectId);
-      assertPermission(dest, "inventory.transfer");
-    }
-    await db.$transaction((tx) => submitDocument(tx, ctx, kind, documentId), {
-      timeout: 20000,
-    });
-  });
+  return typedAction(
+    documentSubmissionInput,
+    async ({ kind, id: documentId }) => {
+      const where = { id: documentId, organization: { slug: org } };
+      const row =
+        kind === "requests"
+          ? await db.purchaseRequest.findFirstOrThrow({ where })
+          : kind === "orders"
+            ? await db.purchaseOrder.findFirstOrThrow({ where })
+            : kind === "receipts"
+              ? await db.goodsReceipt.findFirstOrThrow({ where })
+              : await db.stockTransfer.findFirstOrThrow({ where });
+      const ctx = await requireProjectContext(org, row.projectId);
+      assertPermission(ctx, documentKinds[kind].permission);
+      if ("toProjectId" in row) {
+        const dest = await requireProjectContext(org, row.toProjectId);
+        assertPermission(dest, "inventory.transfer");
+      }
+      await db.$transaction((tx) => submitDocument(tx, ctx, kind, documentId), {
+        timeout: 20000,
+      });
+      return undefined;
+    },
+  )(input);
 }
 export async function attachProformaAction(
   org: string,

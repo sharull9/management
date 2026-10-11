@@ -1,4 +1,8 @@
-import type { PickerItem } from "@/components/shared/item-picker";
+import type {
+  ItemVariantValue,
+  PickerItem,
+} from "@/components/shared/form/item-variant-value";
+export type ProcurementItem = PickerItem & { uomIds: string[] };
 export type DraftLine = {
   itemId: string;
   levels: (string | null)[];
@@ -19,7 +23,7 @@ export type DraftLine = {
 export type Choice = { id: string; name: string; projectId?: string };
 export type ProcurementFormData = {
   projects: { id: string; name: string; currency: string }[];
-  items: PickerItem[];
+  items: ProcurementItem[];
   uoms: Choice[];
   vendors: Choice[];
   groups: { id: string; name: string; scope: string }[];
@@ -32,6 +36,13 @@ export type ProcurementFormData = {
     id: string;
     name: string;
     projectId: string;
-    lines: { id: string; name: string; uomId: string; pending: string }[];
+    lines: {
+      id: string;
+      name: string;
+      itemId: string;
+      item: ItemVariantValue;
+      uomId: string;
+      pending: string;
+    }[];
   }[];
 };

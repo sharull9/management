@@ -1,11 +1,10 @@
-import Link from "next/link";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
-import { Badge } from "@/components/ui/badge";
 import { db } from "@/core/db";
 import { type DocumentKind, documentKinds } from "../../server/approval";
 import { moduleProjectWhere, procurementData } from "../../server/queries";
 import { formData } from "../../util";
+import { DocumentsTable } from "../components/documents-table";
 import { ProcurementForm } from "../components/procurement-form";
 
 const titles = {
@@ -43,52 +42,23 @@ export async function ProcurementList({
         description="Draft, submit, and follow approval and receipt progress."
       />
       <FormCard title="Documents">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr>
-                <th className="p-2">Number</th>
-                <th className="p-2">Project</th>
-                <th className="p-2">Status</th>
-                <th className="p-2">Total / destination</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-t">
-                  <td className="p-2">
-                    <Link
-                      className="underline"
-                      href={`/${org}/${kind === "transfers" ? "inventory" : "procurement"}/${kind}/${r.id}`}
-                    >
-                      {r.code}
-                    </Link>
-                  </td>
-                  <td className="p-2">{r.project.name}</td>
-                  <td className="p-2">
-                    <Badge variant="secondary">
-                      {r.status.replaceAll("_", " ")}
-                    </Badge>
-                  </td>
-                  <td className="p-2">
-                    {"grandTotal" in r
-                      ? r.grandTotal.toFixed(2)
-                      : "estimatedTotal" in r
-                        ? r.estimatedTotal.toFixed(2)
-                        : "toProject" in r
-                          ? r.toProject.name
-                          : ""}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {!rows.length && (
-          <p className="mt-3 text-sm text-muted-foreground">
-            No documents yet.
-          </p>
-        )}
+        <DocumentsTable
+          data={rows.map((r) => ({
+            id: r.id,
+            code: r.code,
+            project: r.project.name,
+            status: r.status,
+            date: r.createdAt.toISOString(),
+            total:
+              "grandTotal" in r
+                ? r.grandTotal.toString()
+                : "estimatedTotal" in r
+                  ? r.estimatedTotal.toString()
+                  : null,
+            destination: "toProject" in r ? r.toProject.name : "",
+            href: `/${org}/${kind === "transfers" ? "inventory" : "procurement"}/${kind}/${r.id}`,
+          }))}
+        />
       </FormCard>
       {!!writable.length && (
         <FormCard

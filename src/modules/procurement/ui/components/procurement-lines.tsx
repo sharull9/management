@@ -1,285 +1,348 @@
 "use client";
-import { useState } from "react";
-import { Field, SelectField } from "@/components/shared/fields";
-import { ItemPicker, type PickerItem } from "@/components/shared/item-picker";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { type UseFormReturn, useFieldArray, useWatch } from "react-hook-form";
+import type { z } from "zod";
+import {
+  ItemVariantField,
+  NumberField,
+  SelectField,
+  TextField,
+} from "@/components/shared/form";
+import { toOptions } from "@/components/shared/form/enum-options";
 import { Button } from "@/components/ui/button";
+import type { procurementFormInput } from "../../schema";
+import {
+  findProcurementChoices,
+  procurementSource,
+} from "../../server/picker-actions";
+import type { ProcurementFormData, ProcurementItem } from "../../type";
+import { lineDefaults } from "./form-defaults";
 
-type Choice = { id: string; name: string };
-
-import type { DraftLine } from "../../type";
-
-const emptyLine: DraftLine = {
-  itemId: "",
-  levels: [],
-  qty: "1",
-  uomId: "",
-  description: "",
-  estimatedRate: "0",
-  rate: "0",
-  discountPercent: "0",
-  taxGroupId: null,
-  prLineId: null,
-  receivedQty: "1",
-  acceptedQty: "1",
-  rejectedQty: "0",
-  remarks: "",
+type FormInput = z.input<typeof procurementFormInput>;
+type Props = {
+  form: UseFormReturn<FormInput, unknown, FormInput>;
+  org: string;
+  kind: FormInput["kind"];
+  projectId: string | null;
+  data: ProcurementFormData;
+  poId: string | null;
+  items: ProcurementItem[];
+  loadItems: (query: string) => Promise<ProcurementItem[]>;
 };
-export function ProcurementLines({
-  kind,
-  items,
-  uoms,
-  groups,
-  prLines = [],
-  poLines = [],
-  initialLines,
-}: {
-  kind: "requests" | "orders" | "receipts" | "consumption" | "transfers";
-  items: PickerItem[];
-  uoms: Choice[];
-  groups: Choice[];
-  prLines?: { id: string; name: string; line: DraftLine }[];
-  poLines?: { id: string; name: string; uomId: string; pending: string }[];
-  initialLines?: DraftLine[];
-}) {
-  const [lines, setLines] = useState(
-    (initialLines ?? [{ ...emptyLine }]).map((line, i) => ({ key: i, line })),
+type PoLine = {
+  id: string;
+  name: string;
+  itemId: string;
+  item: FormInput["lines"][number]["item"];
+  uomId: string;
+  pending: string;
+};
+export function ProcurementLines(props: Props) {
+  const { form, org, kind, projectId, poId, data } = props;
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "lines",
+  });
+  const [poLines, setPoLines] = useState<PoLine[]>(
+    data.orders.find((o) => o.id === poId)?.lines ?? [],
   );
-  const [serial, setSerial] = useState(lines.length);
-  const update = (key: number, field: string, value: string) =>
-    setLines((rows) =>
-      rows.map((row) => {
-        if (row.key !== key) return row;
-        const next = { ...row.line };
-        if (field.startsWith("level")) {
-          next.levels = [...next.levels];
-          next.levels[Number(field.slice(5)) - 1] = value || null;
-        } else if (field === "prLineId" && value) {
-          const source = prLines.find((l) => l.id === value);
-          return {
-            ...row,
-            line: { ...source?.line, prLineId: value } as DraftLine,
-          };
-        } else if (field === "poLineId") {
-          const source = poLines.find((l) => l.id === value);
-          return {
-            ...row,
-            line: {
-              ...next,
-              poLineId: value,
-              uomId: source?.uomId ?? "",
-              receivedQty: source?.pending ?? "1",
-              acceptedQty: source?.pending ?? "1",
-              rejectedQty: "0",
-            },
-          };
-        } else {
-          Object.assign(next, {
-            [field]:
-              value ||
-              (field === "taxGroupId" || field === "prLineId" ? null : ""),
-          });
-          if (field === "itemId") {
-            next.levels = [];
-            const item = items.find((i) => i.id === value);
-            next.uomId =
-              (kind === "consumption" || kind === "transfers"
-                ? item?.stockUomId
-                : (item?.purchaseUomId ?? item?.stockUomId)) ?? "";
-            next.taxGroupId = item?.defaultTaxGroupId ?? null;
-            next.prLineId = null;
-          }
+  const [sourceError, setSourceError] = useState("");
+  const previousPo = useRef(poId);
+  useEffect(() => {
+    setSourceError("");
+    if (previousPo.current !== poId) {
+      form.setValue("lines", [lineDefaults()]);
+      previousPo.current = poId;
+    }
+    if (kind !== "receipts" || !poId || !projectId) {
+      setPoLines([]);
+      return;
+    }
+    let active = true;
+    procurementSource(org, kind, projectId, poId)
+      .then((source) => {
+        if (active) setPoLines(source.poLines);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setPoLines([]);
+          setSourceError(
+            error instanceof Error
+              ? error.message
+              : "Could not load order lines.",
+          );
         }
-        return { ...row, line: next };
-      }),
-    );
+      });
+    return () => {
+      active = false;
+    };
+  }, [org, kind, projectId, poId, form]);
   return (
     <div className="space-y-4">
-      <input
-        type="hidden"
-        name="lines"
-        value={JSON.stringify(lines.map((r) => r.line))}
-      />
-      {lines.map(({ key, line }, index) => (
-        <fieldset
-          key={`${key}:${line.prLineId ?? ""}`}
-          className="space-y-4 rounded-md border p-4"
-          onChange={(e) => {
-            const target = e.target;
-            if (
-              target instanceof HTMLInputElement ||
-              target instanceof HTMLSelectElement
-            )
-              update(key, target.name.replace(`line${key}.`, ""), target.value);
-          }}
-        >
-          <legend className="px-2 text-sm font-medium">Line {index + 1}</legend>
-          {kind === "orders" && (
-            <SelectField
-              label="Approved PR line (optional)"
-              name={`line${key}.prLineId`}
-              value={line.prLineId ?? ""}
-              onChange={() => {}}
-            >
-              <option value="">Direct purchase</option>
-              {prLines.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </SelectField>
-          )}
-          {kind === "receipts" ? (
-            <SelectField
-              label="PO line"
-              name={`line${key}.poLineId`}
-              value={line.poLineId ?? ""}
-              onChange={() => {}}
-              required
-            >
-              <option value="">Select PO line</option>
-              {poLines.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name} · pending {l.pending}
-                </option>
-              ))}
-            </SelectField>
-          ) : (
-            <ItemPicker
-              key={`${key}:${line.itemId}`}
-              items={items}
-              prefix={`line${key}.`}
-              defaultItemId={line.itemId}
-              defaultLevels={line.levels}
-            />
-          )}
-          <div className="grid gap-3 sm:grid-cols-3">
-            <SelectField
-              label="UOM"
-              name={`line${key}.uomId`}
-              value={line.uomId}
-              onChange={() => {}}
-              required
-            >
-              <option value="">Select unit</option>
-              {uoms.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </SelectField>
-            {kind === "receipts" ? (
-              <>
-                <Field
-                  label="Received quantity"
-                  name={`line${key}.receivedQty`}
-                  value={line.receivedQty ?? "1"}
-                  onChange={() => {}}
-                  required
-                />
-                <Field
-                  label="Accepted quantity"
-                  name={`line${key}.acceptedQty`}
-                  value={line.acceptedQty ?? "1"}
-                  onChange={() => {}}
-                  required
-                />
-                <Field
-                  label="Rejected quantity"
-                  name={`line${key}.rejectedQty`}
-                  value={line.rejectedQty ?? "0"}
-                  onChange={() => {}}
-                  required
-                />
-                <Field
-                  label="Remarks"
-                  name={`line${key}.remarks`}
-                  value={line.remarks ?? ""}
-                  onChange={() => {}}
-                />
-              </>
-            ) : (
-              <Field
-                label="Quantity"
-                name={`line${key}.qty`}
-                value={line.qty}
-                onChange={() => {}}
-                required
-              />
-            )}
-            {kind === "requests" && (
-              <Field
-                label="Estimated rate"
-                name={`line${key}.estimatedRate`}
-                value={line.estimatedRate ?? "0"}
-                onChange={() => {}}
-                required
-              />
-            )}
-            {kind === "orders" && (
-              <>
-                <Field
-                  label="Rate"
-                  name={`line${key}.rate`}
-                  value={line.rate ?? "0"}
-                  onChange={() => {}}
-                  required
-                />
-                <Field
-                  label="Discount %"
-                  name={`line${key}.discountPercent`}
-                  value={line.discountPercent ?? "0"}
-                  onChange={() => {}}
-                  required
-                />
-                <SelectField
-                  label="Tax group"
-                  name={`line${key}.taxGroupId`}
-                  value={line.taxGroupId ?? ""}
-                  onChange={() => {}}
-                >
-                  <option value="">No tax</option>
-                  {groups.map((g) => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </SelectField>
-              </>
-            )}
-            {(kind === "requests" || kind === "orders") && (
-              <Field
-                label="Description"
-                name={`line${key}.description`}
-                value={line.description ?? ""}
-                onChange={() => {}}
-              />
-            )}
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={lines.length === 1}
-            onClick={() =>
-              setLines((rows) => rows.filter((r) => r.key !== key))
-            }
-          >
-            Remove line
-          </Button>
-        </fieldset>
+      {sourceError && (
+        <p role="alert" className="text-sm text-destructive">
+          {sourceError}
+        </p>
+      )}
+      {fields.map((field, index) => (
+        <Line
+          key={field.id}
+          {...props}
+          index={index}
+          poLines={poLines}
+          remove={() => remove(index)}
+          canRemove={fields.length > 1}
+        />
       ))}
       <Button
         type="button"
         variant="outline"
-        onClick={() => {
-          setLines((rows) => [
-            ...rows,
-            { key: serial, line: { ...emptyLine } },
-          ]);
-          setSerial((n) => n + 1);
-        }}
+        disabled={fields.length >= 100}
+        onClick={() => append(lineDefaults())}
       >
         Add line
       </Button>
     </div>
+  );
+}
+function Line({
+  form,
+  org,
+  kind,
+  projectId,
+  data,
+  index,
+  items,
+  loadItems,
+  poLines,
+  remove,
+  canRemove,
+}: Props & {
+  index: number;
+  poLines: PoLine[];
+  remove: () => void;
+  canRemove: boolean;
+}) {
+  const line = useWatch({ control: form.control, name: `lines.${index}` });
+  const itemId = line?.item?.itemId;
+  const prLineId = line?.prLineId;
+  const poLineId = line?.poLineId;
+  const previousItem = useRef(itemId);
+  const previousPr = useRef(prLineId);
+  const previousPoLine = useRef(poLineId);
+  const [sourceError, setSourceError] = useState("");
+  useEffect(() => {
+    if (kind === "receipts" || previousItem.current === itemId) return;
+    previousItem.current = itemId;
+    const item = items.find((i) => i.id === itemId);
+    form.setValue(
+      `lines.${index}.uomId`,
+      (kind === "consumption" || kind === "transfers"
+        ? item?.stockUomId
+        : (item?.purchaseUomId ?? item?.stockUomId)) ?? null,
+    );
+    form.setValue(`lines.${index}.taxGroupId`, item?.defaultTaxGroupId ?? null);
+    form.setValue(`lines.${index}.prLineId`, null);
+  }, [itemId, items, kind, index, form]);
+  useEffect(() => {
+    if (previousPr.current === prLineId) return;
+    previousPr.current = prLineId;
+    if (!prLineId || !projectId) return;
+    let active = true;
+    setSourceError("");
+    form.setValue(`lines.${index}.uomId`, null);
+    procurementSource(org, "orders", projectId, prLineId)
+      .then(({ prLine }) => {
+        if (!active || !prLine) return;
+        const next = lineDefaults(prLine);
+        previousItem.current = next.item.itemId;
+        form.setValue(`lines.${index}`, next, { shouldValidate: true });
+      })
+      .catch((error: unknown) => {
+        if (active)
+          setSourceError(
+            error instanceof Error
+              ? error.message
+              : "Could not load request line.",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [prLineId, org, projectId, index, form]);
+  useEffect(() => {
+    if (previousPoLine.current === poLineId) return;
+    const source = poLines.find((l) => l.id === poLineId);
+    if (!source) return;
+    previousPoLine.current = poLineId;
+    form.setValue(`lines.${index}.item`, source.item);
+    form.setValue(`lines.${index}.uomId`, source.uomId);
+    form.setValue(`lines.${index}.receivedQty`, Number(source.pending));
+    form.setValue(`lines.${index}.acceptedQty`, Number(source.pending));
+    form.setValue(`lines.${index}.rejectedQty`, 0);
+  }, [poLineId, poLines, index, form]);
+  const selectedItem = items.find(
+    (i) =>
+      i.id ===
+      (kind === "receipts"
+        ? poLines.find((l) => l.id === poLineId)?.itemId
+        : itemId),
+  );
+  const loadPrLines = useMemo(
+    () =>
+      findProcurementChoices.bind(null, org, kind, projectId ?? "", "prLines"),
+    [org, kind, projectId],
+  );
+  const control = form.control;
+  return (
+    <fieldset className="space-y-4 rounded-md border p-4">
+      <legend className="px-2 text-sm font-medium">Line {index + 1}</legend>
+      {sourceError && (
+        <p role="alert" className="text-sm text-destructive">
+          {sourceError}
+        </p>
+      )}
+      {kind === "orders" && (
+        <SelectField
+          control={control}
+          name={`lines.${index}.prLineId`}
+          label="Approved PR line (optional)"
+          clearable
+          options={toOptions(
+            data.prLines.filter((l) => l.projectId === projectId),
+          )}
+          loadOptions={projectId ? loadPrLines : undefined}
+        />
+      )}
+      {kind === "receipts" ? (
+        <SelectField
+          control={control}
+          name={`lines.${index}.poLineId`}
+          label="PO line"
+          options={poLines
+            .filter((l) => Number(l.pending) > 0 || l.id === poLineId)
+            .map((l) => ({
+              value: l.id,
+              label: l.name,
+              description: `Pending ${l.pending}`,
+            }))}
+        />
+      ) : (
+        <ItemVariantField
+          control={control}
+          name={`lines.${index}.item`}
+          items={items}
+          loadItems={loadItems}
+        />
+      )}
+      {kind === "receipts" && (
+        <ItemVariantField
+          control={control}
+          name={`lines.${index}.item`}
+          items={items}
+          label="PO item"
+          disabled
+        />
+      )}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <SelectField
+          control={control}
+          name={`lines.${index}.uomId`}
+          label="UOM"
+          options={toOptions(
+            data.uoms.filter((u) => selectedItem?.uomIds.includes(u.id)),
+          )}
+        />
+        {kind === "receipts" ? (
+          <>
+            <NumberField
+              control={control}
+              name={`lines.${index}.receivedQty`}
+              label="Received quantity"
+              min={0}
+              step="0.0001"
+            />
+            <NumberField
+              control={control}
+              name={`lines.${index}.acceptedQty`}
+              label="Accepted quantity"
+              min={0}
+              step="0.0001"
+            />
+            <NumberField
+              control={control}
+              name={`lines.${index}.rejectedQty`}
+              label="Rejected quantity"
+              min={0}
+              step="0.0001"
+            />
+            <TextField
+              control={control}
+              name={`lines.${index}.remarks`}
+              label="Remarks"
+            />
+          </>
+        ) : (
+          <NumberField
+            control={control}
+            name={`lines.${index}.qty`}
+            label="Quantity"
+            min={0}
+            step="0.0001"
+          />
+        )}
+        {kind === "requests" && (
+          <NumberField
+            control={control}
+            name={`lines.${index}.estimatedRate`}
+            label="Estimated rate"
+            min={0}
+            step="0.0001"
+          />
+        )}
+        {kind === "orders" && (
+          <>
+            <NumberField
+              control={control}
+              name={`lines.${index}.rate`}
+              label="Rate"
+              min={0}
+              step="0.0001"
+            />
+            <NumberField
+              control={control}
+              name={`lines.${index}.discountPercent`}
+              label="Discount %"
+              min={0}
+              max={100}
+              step="0.0001"
+            />
+            <SelectField
+              control={control}
+              name={`lines.${index}.taxGroupId`}
+              label="Tax group"
+              clearable
+              options={toOptions(data.groups)}
+            />
+          </>
+        )}
+        {(kind === "requests" || kind === "orders") && (
+          <TextField
+            control={control}
+            name={`lines.${index}.description`}
+            label="Description"
+          />
+        )}
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={!canRemove}
+        onClick={remove}
+      >
+        Remove line
+      </Button>
+    </fieldset>
   );
 }

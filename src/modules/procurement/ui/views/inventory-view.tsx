@@ -1,11 +1,15 @@
 import Link from "next/link";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FormCard } from "@/components/shared/form-card";
 import { MaterialCostRecognitionBadge } from "@/components/shared/material-cost-recognition-badge";
 import { PageHeading } from "@/components/shared/page-heading";
+import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { db } from "@/core/db";
 import { moduleProjectWhere, procurementData } from "../../server/queries";
 import { formData } from "../../util";
+import { ConsumptionTable } from "../components/consumption-table";
 import { ProcurementForm } from "../components/procurement-form";
+import { StockTable } from "../components/stock-table";
 export async function InventoryView({
   org,
   kind,
@@ -61,98 +65,66 @@ export async function InventoryView({
               </Link>
             ))}
           </div>
-          <ul className="mt-4 space-y-2 text-sm">
+          <ItemGroup className="mt-4">
             {[
               ...d.requests.map((r) => ({ ...r, kind: "requests" })),
               ...d.orders.map((r) => ({ ...r, kind: "orders" })),
               ...d.receipts.map((r) => ({ ...r, kind: "receipts" })),
             ].map((r) => (
-              <li key={r.id}>
-                <Link
-                  className="underline"
-                  href={`/${org}/procurement/${r.kind}/${r.id}`}
-                >
-                  {r.code}
-                </Link>{" "}
-                · {r.status}
-              </li>
+              <Item key={r.id} variant="outline">
+                <ItemContent>
+                  <ItemTitle>
+                    <Link
+                      className="underline"
+                      href={`/${org}/procurement/${r.kind}/${r.id}`}
+                    >
+                      {r.code}
+                    </Link>{" "}
+                    · {r.status}
+                  </ItemTitle>
+                </ItemContent>
+              </Item>
             ))}
-          </ul>
+          </ItemGroup>
+          {!d.requests.length && !d.orders.length && !d.receipts.length && (
+            <EmptyState title="No procurement documents yet." />
+          )}
         </FormCard>
       )}
       {kind !== "consumption" && (
         <FormCard title="Stock on hand">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr>
-                  {[
-                    "Project",
-                    "Item variant",
-                    "Quantity",
-                    "UOM",
-                    "Average cost",
-                    "Value",
-                  ].map((h) => (
-                    <th key={h} className="p-2">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {d.stock.map((s) => (
-                  <tr
-                    key={`${s.projectId}:${s.variantId}`}
-                    className="border-t"
-                  >
-                    <td className="p-2">
-                      {d.projects.find((p) => p.id === s.projectId)?.name}
-                    </td>
-                    <td className="p-2">{s.name}</td>
-                    <td className="p-2">{s.qty}</td>
-                    <td className="p-2">{s.uom}</td>
-                    <td className="p-2">{s.avgCost}</td>
-                    <td className="p-2">{s.value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {!d.stock.length && (
-            <p className="mt-3 text-sm text-muted-foreground">
-              No stock movements yet.
-            </p>
-          )}
+          <StockTable
+            data={d.stock.map((s) => ({
+              id: `${s.projectId}:${s.variantId}`,
+              project: d.projects.find((p) => p.id === s.projectId)?.name ?? "",
+              name: s.name,
+              qty: s.qty,
+              uom: s.uom,
+              avgCost: s.avgCost,
+              value: s.value,
+            }))}
+          />
         </FormCard>
       )}
       {kind !== "stock" && (
         <>
           <FormCard title="Consumption history">
-            <ul className="space-y-4 text-sm">
-              {d.consumptions.map((c) => (
-                <li key={c.id}>
-                  <p className="font-medium">
-                    {c.code} · {c.project.name} ·{" "}
-                    {c.date.toISOString().slice(0, 10)} ·{" "}
-                    {c.stage?.name ?? "Unallocated"} · {c.task?.title ?? ""}
-                  </p>
-                  <ul>
-                    {c.lines.map((l) => (
-                      <li key={l.id}>
-                        {l.variant.name} · {l.qty.toString()} {l.uom.code} ·
-                        Stock value {l.totalCost.toFixed(2)}
-                      </li>
-                    ))}
-                  </ul>
-                </li>
-              ))}
-            </ul>
-            {!d.consumptions.length && (
-              <p className="text-sm text-muted-foreground">
-                No consumption yet.
-              </p>
-            )}
+            <ConsumptionTable
+              data={d.consumptions.flatMap((c) =>
+                c.lines.map((l) => ({
+                  id: l.id,
+                  code: c.code,
+                  project: c.project.name,
+                  date: c.date.toISOString(),
+                  stage: c.stage?.name ?? "Unallocated",
+                  task: c.task?.title ?? "",
+                  item: l.variant.name,
+                  qty: l.qty.toString(),
+                  uom: l.uom.code,
+                  value: l.totalCost.toString(),
+                })),
+              )}
+            />
           </FormCard>
           {!!writable.length && (
             <FormCard title="Record material consumption">

@@ -1,10 +1,27 @@
 "use client";
-import { useState } from "react";
-import { ActionForm } from "@/components/shared/action-form";
-import { Field, SelectField } from "@/components/shared/fields";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useWatch } from "react-hook-form";
+import {
+  ActionFormShell,
+  DateField,
+  NumberField,
+  SelectField,
+  TextField,
+  useZodForm,
+} from "@/components/shared/form";
+import { toOptions } from "@/components/shared/form/enum-options";
+import { procurementFormSchema } from "../../schema";
 import { saveProcurementAction } from "../../server/actions";
-import type { Choice, DraftLine, ProcurementFormData } from "../../type";
+import {
+  findProcurementChoices,
+  findProcurementItems,
+  findProcurementProjects,
+} from "../../server/picker-actions";
+import type { DraftLine, ProcurementFormData } from "../../type";
+import { lineDefaults } from "./form-defaults";
 import { ProcurementLines } from "./procurement-lines";
+
 export function ProcurementForm({
   org,
   kind,
@@ -22,23 +39,117 @@ export function ProcurementForm({
   initialLines?: DraftLine[];
   initial?: Record<string, string>;
 }) {
-  const [projectId, setProjectId] = useState(
-    initialProjectId ?? data.projects[0]?.id ?? "",
+  const today = new Date().toISOString().slice(0, 10);
+  const [items, setItems] = useState(data.items);
+  const [projects, setProjects] = useState(data.projects);
+  const schema = useMemo(() => procurementFormSchema(items), [items]);
+  const form = useZodForm(schema, {
+    kind,
+    id: id ?? null,
+    projectId: initialProjectId ?? data.projects[0]?.id ?? null,
+    stageId: initial.stageId || null,
+    taskId: initial.taskId || null,
+    neededBy: initial.neededBy || null,
+    vendorPartyId: initial.vendorPartyId || null,
+    siteId: initial.siteId || null,
+    date: initial.date ?? today,
+    receivedDate: initial.receivedDate ?? today,
+    paymentTerms:
+      (initial.paymentTerms as "CREDIT" | "CASH" | "ADVANCE") ?? "CREDIT",
+    paymentDays: Number(initial.paymentDays ?? 0),
+    currency:
+      initial.currency ??
+      data.projects.find(
+        (p) => p.id === (initialProjectId ?? data.projects[0]?.id),
+      )?.currency ??
+      "INR",
+    receiptTolerancePercent: Number(initial.receiptTolerancePercent ?? 0),
+    poId: initial.poId || null,
+    challanNumber: initial.challanNumber ?? "",
+    vehicleNumber: initial.vehicleNumber ?? "",
+    toProjectId: initial.toProjectId || null,
+    lines: (initialLines ?? [undefined]).map(lineDefaults),
+  });
+  const projectId = useWatch({ control: form.control, name: "projectId" });
+  const vendorId = useWatch({ control: form.control, name: "vendorPartyId" });
+  const poId = useWatch({ control: form.control, name: "poId" });
+  const loadItems = useCallback(
+    async (query: string) => {
+      if (!projectId) return [];
+      const loaded = await findProcurementItems(org, kind, projectId, query);
+      setItems((previous) => [
+        ...new Map(
+          [...previous, ...loaded].map((item) => [item.id, item]),
+        ).values(),
+      ]);
+      return loaded;
+    },
+    [org, kind, projectId],
   );
-  const [vendorId, setVendorId] = useState(initial.vendorPartyId ?? "");
-  const [poId, setPoId] = useState(initial.poId ?? "");
-  const project = data.projects.find((p) => p.id === projectId);
+  const previousProject = useRef(projectId);
+  useEffect(() => {
+    if (previousProject.current === projectId) return;
+    previousProject.current = projectId;
+    form.setValue("poId", null);
+    form.setValue("siteId", null);
+    form.setValue("stageId", null);
+    form.setValue("taskId", null);
+    form.setValue("lines", [lineDefaults()]);
+    if (!id)
+      form.setValue(
+        "currency",
+        projects.find((p) => p.id === projectId)?.currency ?? "INR",
+      );
+  }, [projectId, form, projects, id]);
+  const loadProjects = useCallback(
+    async (query: string) => {
+      const loaded = await findProcurementProjects(org, kind, query);
+      setProjects((previous) => [
+        ...new Map(
+          [
+            ...previous,
+            ...loaded.map((option) => ({
+              id: option.value,
+              name: option.label,
+              currency: option.description ?? "INR",
+            })),
+          ].map((project) => [project.id, project]),
+        ).values(),
+      ]);
+      return loaded;
+    },
+    [org, kind],
+  );
+  const loadDestinations = useCallback(
+    async (query: string) =>
+      (await loadProjects(query)).filter(
+        (option) => option.value !== projectId,
+      ),
+    [loadProjects, projectId],
+  );
+  const loaders = useMemo(
+    () =>
+      Object.fromEntries(
+        (["vendors", "sites", "stages", "tasks", "orders"] as const).map(
+          (field) => [
+            field,
+            findProcurementChoices.bind(
+              null,
+              org,
+              kind,
+              projectId ?? "",
+              field,
+            ),
+          ],
+        ),
+      ),
+    [org, kind, projectId],
+  );
   const scope =
     data.taxSuggestions.find((s) => s.vendorId === vendorId)?.scope ?? "ANY";
-  const options = (rows: Choice[]) =>
-    rows.map((r) => (
-      <option key={r.id} value={r.id}>
-        {r.name}
-      </option>
-    ));
-  const date = new Date().toISOString().slice(0, 10);
   return (
-    <ActionForm
+    <ActionFormShell
+      form={form}
       action={saveProcurementAction.bind(null, org)}
       submit={
         kind === "consumption"
@@ -48,147 +159,131 @@ export function ProcurementForm({
             : "Create draft"
       }
     >
-      <input type="hidden" name="kind" value={kind} />
-      {id && <input type="hidden" name="id" value={id} />}
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField
-          label="Project"
+          control={form.control}
           name="projectId"
-          value={projectId}
-          onChange={(e) => {
-            setProjectId(e.target.value);
-            setPoId("");
-          }}
-          required
+          label="Project"
+          options={toOptions(projects)}
+          loadOptions={loadProjects}
           disabled={!!id}
-        >
-          <option value="">Select project</option>
-          {options(data.projects)}
-        </SelectField>
-        {id && <input type="hidden" name="projectId" value={projectId} />}
+        />
         {(kind === "requests" || kind === "consumption") && (
           <>
             <SelectField
-              label="Stage"
+              control={form.control}
               name="stageId"
-              defaultValue={initial.stageId ?? ""}
-            >
-              <option value="">Unallocated</option>
-              {options(data.stages.filter((s) => s.projectId === projectId))}
-            </SelectField>
+              label="Stage"
+              clearable
+              options={toOptions(
+                data.stages.filter((s) => s.projectId === projectId),
+              )}
+              loadOptions={projectId ? loaders.stages : undefined}
+            />
             <SelectField
-              label="Task"
+              control={form.control}
               name="taskId"
-              defaultValue={initial.taskId ?? ""}
-            >
-              <option value="">Unallocated</option>
-              {options(data.tasks.filter((t) => t.projectId === projectId))}
-            </SelectField>
+              label="Task"
+              clearable
+              options={toOptions(
+                data.tasks.filter((t) => t.projectId === projectId),
+              )}
+              loadOptions={projectId ? loaders.tasks : undefined}
+            />
           </>
         )}
         {kind === "requests" ? (
-          <Field
-            label="Needed by"
-            name="neededBy"
-            type="date"
-            defaultValue={initial.neededBy}
-          />
+          <DateField control={form.control} name="neededBy" label="Needed by" />
         ) : (
-          <Field
-            label={kind === "receipts" ? "Received date" : "Date"}
+          <DateField
+            control={form.control}
             name={kind === "receipts" ? "receivedDate" : "date"}
-            type="date"
-            defaultValue={initial.date ?? initial.receivedDate ?? date}
-            required
+            label={kind === "receipts" ? "Received date" : "Date"}
           />
         )}
         {(kind === "orders" || kind === "receipts") && (
           <SelectField
-            label="Delivery site"
+            control={form.control}
             name="siteId"
-            defaultValue={initial.siteId ?? ""}
-          >
-            <option value="">No site</option>
-            {options(data.sites.filter((s) => s.projectId === projectId))}
-          </SelectField>
+            label="Delivery site"
+            clearable
+            options={toOptions(
+              data.sites.filter((s) => s.projectId === projectId),
+            )}
+            loadOptions={projectId ? loaders.sites : undefined}
+          />
         )}
         {kind === "orders" && (
           <>
             <SelectField
-              label="Vendor"
+              control={form.control}
               name="vendorPartyId"
-              value={vendorId}
-              onChange={(e) => setVendorId(e.target.value)}
-              required
-            >
-              <option value="">Select vendor</option>
-              {options(data.vendors)}
-            </SelectField>
+              label="Vendor"
+              options={toOptions(data.vendors)}
+              loadOptions={projectId ? loaders.vendors : undefined}
+            />
             <SelectField
-              label="Payment terms"
+              control={form.control}
               name="paymentTerms"
-              defaultValue={initial.paymentTerms ?? "CREDIT"}
-            >
-              {["CREDIT", "CASH", "ADVANCE"].map((t) => (
-                <option key={t}>{t}</option>
-              ))}
-            </SelectField>
-            <Field
-              label="Payment days"
+              label="Payment terms"
+              options={[
+                { value: "CREDIT", label: "Credit" },
+                { value: "CASH", label: "Cash" },
+                { value: "ADVANCE", label: "Advance" },
+              ]}
+            />
+            <NumberField
+              control={form.control}
               name="paymentDays"
-              type="number"
-              min="0"
-              defaultValue={initial.paymentDays ?? "0"}
+              label="Payment days"
+              min={0}
             />
-            <Field
-              key={projectId}
-              label="Currency"
+            <TextField
+              control={form.control}
               name="currency"
-              defaultValue={initial.currency ?? project?.currency ?? "INR"}
-              required
+              label="Currency"
             />
-            <Field
-              label="Receipt tolerance %"
+            <NumberField
+              control={form.control}
               name="receiptTolerancePercent"
-              defaultValue={initial.receiptTolerancePercent ?? "0"}
-              required
+              label="Receipt tolerance %"
+              min={0}
+              max={100}
+              step="0.0001"
             />
           </>
         )}
         {kind === "receipts" && (
           <>
             <SelectField
-              label="Approved purchase order"
+              control={form.control}
               name="poId"
-              value={poId}
-              onChange={(e) => setPoId(e.target.value)}
-              required
-            >
-              <option value="">Select PO</option>
-              {options(data.orders.filter((o) => o.projectId === projectId))}
-            </SelectField>
-            <Field
-              label="Challan / delivery note"
-              name="challanNumber"
-              defaultValue={initial.challanNumber}
+              label="Approved purchase order"
+              options={toOptions(
+                data.orders.filter((o) => o.projectId === projectId),
+              )}
+              loadOptions={projectId ? loaders.orders : undefined}
             />
-            <Field
-              label="Vehicle number"
+            <TextField
+              control={form.control}
+              name="challanNumber"
+              label="Challan / delivery note"
+            />
+            <TextField
+              control={form.control}
               name="vehicleNumber"
-              defaultValue={initial.vehicleNumber}
+              label="Vehicle number"
             />
           </>
         )}
         {kind === "transfers" && (
           <SelectField
-            label="Destination project"
+            control={form.control}
             name="toProjectId"
-            defaultValue={initial.toProjectId ?? ""}
-            required
-          >
-            <option value="">Select destination</option>
-            {options(data.projects.filter((p) => p.id !== projectId))}
-          </SelectField>
+            label="Destination project"
+            options={toOptions(projects.filter((p) => p.id !== projectId))}
+            loadOptions={loadDestinations}
+          />
         )}
       </div>
       {kind === "orders" && (
@@ -198,15 +293,15 @@ export function ProcurementForm({
         </p>
       )}
       <ProcurementLines
-        key={`${projectId}:${poId}`}
+        form={form}
+        org={org}
         kind={kind}
-        items={data.items}
-        uoms={data.uoms}
-        groups={data.groups}
-        prLines={data.prLines.filter((p) => p.projectId === projectId)}
-        poLines={data.orders.find((o) => o.id === poId)?.lines ?? []}
-        initialLines={initialLines}
+        projectId={projectId}
+        data={data}
+        poId={poId}
+        items={items}
+        loadItems={loadItems}
       />
-    </ActionForm>
+    </ActionFormShell>
   );
 }

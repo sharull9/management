@@ -1,21 +1,30 @@
 import Link from "next/link";
 import { ActionForm } from "@/components/shared/action-form";
 import { ApprovalTimeline } from "@/components/shared/approval-timeline";
-import { Field } from "@/components/shared/fields";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
 import { Badge } from "@/components/ui/badge";
+import { Field, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { db } from "@/core/db";
 import { Decimal } from "@/core/decimal";
-import {
-  attachProformaAction,
-  submitProcurementAction,
-} from "../../server/actions";
+import { attachProformaAction } from "../../server/actions";
 import { type DocumentKind, documentKinds } from "../../server/approval";
 import { documentDetail, procurementData } from "../../server/queries";
 import type { DraftLine } from "../../type";
 import { formData, selectedLevels } from "../../util";
 import { ProcurementForm } from "../components/procurement-form";
+import { SubmitProcurementForm } from "../components/submit-procurement-form";
 
 const titles = {
   requests: "Purchase requests",
@@ -91,8 +100,8 @@ export async function ProcurementDetail({
         vehicleNumber: row.vehicleNumber ?? "",
       });
       initialLines = row.lines.map((l) => ({
-        itemId: "",
-        levels: [],
+        itemId: l.poLine.variant.itemId,
+        levels: selectedLevels(l.poLine.variant),
         qty: "1",
         uomId: l.uomId,
         poLineId: l.poLineId,
@@ -113,6 +122,29 @@ export async function ProcurementDetail({
         uomId: l.uomId,
       }));
     }
+  }
+  const inputs = d ? formData(d) : null;
+  if (inputs && isReceipt && !inputs.orders.some((o) => o.id === row.poId)) {
+    inputs.orders.push({
+      id: row.poId,
+      name: row.order.code,
+      projectId: row.projectId,
+      lines: row.lines.map((l) => ({
+        id: l.poLineId,
+        name: l.poLine.variant.name,
+        itemId: l.poLine.variant.itemId,
+        item: {
+          itemId: l.poLine.variant.itemId,
+          level1: l.poLine.variant.level1Id,
+          level2: l.poLine.variant.level2Id,
+          level3: l.poLine.variant.level3Id,
+          level4: l.poLine.variant.level4Id,
+          level5: l.poLine.variant.level5Id,
+        },
+        uomId: l.uomId,
+        pending: "0",
+      })),
+    });
   }
   const lines = row.lines.map((l) => {
     const receipt = "poLine" in l;
@@ -207,9 +239,9 @@ export async function ProcurementDetail({
       </p>
       <FormCard title="Lines">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr>
+          <Table>
+            <TableHeader>
+              <TableRow>
                 {[
                   "Item variant",
                   "Quantity",
@@ -222,15 +254,13 @@ export async function ProcurementDetail({
                   "Rejected",
                   "Pending",
                 ].map((h) => (
-                  <th key={h} className="p-2">
-                    {h}
-                  </th>
+                  <TableHead key={h}>{h}</TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {lines.map((l) => (
-                <tr key={l.id} className="border-t">
+                <TableRow key={l.id}>
                   {[
                     l.name,
                     l.qty,
@@ -243,18 +273,18 @@ export async function ProcurementDetail({
                     l.rejected,
                     l.pending,
                   ].map((cell, i) => (
-                    <td
+                    <TableCell
                       key={`${l.id}:${i}`}
                       className="p-2"
                       title={i === 0 ? l.description : undefined}
                     >
                       {cell}
-                    </td>
+                    </TableCell>
                   ))}
-                </tr>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </FormCard>
       {isRequest && (
@@ -264,17 +294,21 @@ export async function ProcurementDetail({
       )}
       {isOrder && (
         <FormCard title="Tax snapshot and totals">
-          <ul className="space-y-2 text-sm">
+          <ItemGroup>
             {row.lines.flatMap((l) =>
               l.taxes.map((t) => (
-                <li key={t.id}>
-                  {l.variant.name} · {t.name} {t.rate.toString()}%
-                  {t.isWithholding ? " (withholding)" : ""}:{" "}
-                  {t.amount.toFixed(2)}
-                </li>
+                <Item key={t.id} variant="outline">
+                  <ItemContent>
+                    <ItemTitle>
+                      {l.variant.name} · {t.name} {t.rate.toString()}%
+                      {t.isWithholding ? " (withholding)" : ""}:{" "}
+                      {t.amount.toFixed(2)}
+                    </ItemTitle>
+                  </ItemContent>
+                </Item>
               )),
             )}
-          </ul>
+          </ItemGroup>
           <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
             <dt>Taxable subtotal</dt>
             <dd>{row.subtotal.toFixed(2)}</dd>
@@ -287,31 +321,42 @@ export async function ProcurementDetail({
               {row.grandTotal.toFixed(2)} {row.currency}
             </dd>
           </dl>
-          <div className="mt-4 space-y-2">
+          <ItemGroup className="mt-4">
             {relatedReceipts.map((r) => (
-              <p key={r.id}>
-                <Link
-                  className="underline"
-                  href={`/${org}/procurement/receipts/${r.id}`}
-                >
-                  {r.code}
-                </Link>{" "}
-                · {r.status}
-              </p>
+              <Item key={r.id} variant="outline">
+                <ItemContent>
+                  <ItemTitle>
+                    <Link
+                      className="underline"
+                      href={`/${org}/procurement/receipts/${r.id}`}
+                    >
+                      {r.code}
+                    </Link>{" "}
+                    · {r.status}
+                  </ItemTitle>
+                </ItemContent>
+              </Item>
             ))}
             {attachments.map((a) => (
-              <p key={a.id}>
-                <a
-                  className="underline"
-                  href={`/api/attachments/${a.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {a.filename}
-                </a>
-              </p>
+              <Item key={a.id} variant="outline">
+                <ItemContent>
+                  <ItemTitle>
+                    <a
+                      className="underline"
+                      href={`/api/attachments/${a.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {a.filename}
+                    </a>
+                  </ItemTitle>
+                </ItemContent>
+              </Item>
             ))}
-          </div>
+          </ItemGroup>
+          {!relatedReceipts.length && !attachments.length && (
+            <EmptyState title="No receipts or attachments yet." />
+          )}
           {canEdit && (
             <div className="mt-4 print:hidden">
               <ActionForm
@@ -319,38 +364,37 @@ export async function ProcurementDetail({
                 submit="Attach proforma"
               >
                 <input type="hidden" name="id" value={row.id} />
-                <Field
-                  label="Proforma (PDF / image, max 900 KB)"
-                  name="file"
-                  type="file"
-                  accept="application/pdf,image/png,image/jpeg"
-                  required
-                />
+                <Field>
+                  <FieldLabel htmlFor="proforma-file">
+                    Proforma (PDF / image, max 900 KB)
+                  </FieldLabel>
+                  <Input
+                    id="proforma-file"
+                    name="file"
+                    type="file"
+                    accept="application/pdf,image/png,image/jpeg"
+                    required
+                  />
+                </Field>
               </ActionForm>
             </div>
           )}
         </FormCard>
       )}
-      {d && (
+      {inputs && (
         <div className="space-y-6 print:hidden">
           <FormCard title="Edit draft">
             <ProcurementForm
               org={org}
               kind={kind}
-              data={formData(d)}
+              data={inputs}
               id={row.id}
               projectId={row.projectId}
               initial={initial}
               initialLines={initialLines}
             />
           </FormCard>
-          <ActionForm
-            action={submitProcurementAction.bind(null, org)}
-            submit="Submit for approval"
-          >
-            <input type="hidden" name="kind" value={kind} />
-            <input type="hidden" name="id" value={row.id} />
-          </ActionForm>
+          <SubmitProcurementForm org={org} kind={kind} id={row.id} />
         </div>
       )}
       <ApprovalTimeline org={org} approvals={approvals} variant="procurement" />

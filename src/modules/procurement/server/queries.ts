@@ -151,7 +151,16 @@ export async function procurementData(
   return {
     ctx,
     projects,
-    items,
+    items: items.map((item) => ({
+      ...item,
+      uomIds: uoms
+        .filter(
+          (uom) =>
+            uom.groupId ===
+            uoms.find((unit) => unit.id === item.stockUomId)?.groupId,
+        )
+        .map((uom) => uom.id),
+    })),
     uoms,
     vendors,
     groups,

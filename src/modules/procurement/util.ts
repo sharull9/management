@@ -64,14 +64,21 @@ export function formData(d: Data): ProcurementFormData {
         id: o.id,
         name: `${o.code} · ${o.vendor.displayName}`,
         projectId: o.projectId,
-        lines: o.lines
-          .filter((l) => l.receivedQty.lt(l.qty))
-          .map((l) => ({
-            id: l.id,
-            name: l.variant.name,
-            uomId: l.uomId,
-            pending: l.qty.sub(l.receivedQty).toString(),
-          })),
+        lines: o.lines.map((l) => ({
+          id: l.id,
+          name: l.variant.name,
+          itemId: l.variant.itemId,
+          item: {
+            itemId: l.variant.itemId,
+            level1: l.variant.level1Id,
+            level2: l.variant.level2Id,
+            level3: l.variant.level3Id,
+            level4: l.variant.level4Id,
+            level5: l.variant.level5Id,
+          },
+          uomId: l.uomId,
+          pending: l.qty.sub(l.receivedQty).toString(),
+        })),
       })),
   };
 }
