@@ -50,13 +50,18 @@ export async function linksSmoke(
     // Check server-rendered markup, excluding serialized component payloads.
     const markup = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, "");
     assert.ok(markup.includes(expected), `${path} content: ${expected}`);
-    return markup;
+    return { markup, html };
   }
   const inbox = await render(`/${org.slug}/approvals`, "Your pending steps");
   for (const r of requests) {
     const link = links.get(r.id);
     assert.ok(link, `${r.documentType} destination`);
-    assert.ok(inbox.includes(`href="${link}"`), `${r.documentType} inbox link`);
+    // R3 paginates history: later links are in serialized table rows until navigation.
+    assert.ok(
+      inbox.markup.includes(`href="${link}"`) ||
+        inbox.html.includes(`\\"href\\":\\"${link}\\"`),
+      `${r.documentType} inbox link`,
+    );
     const expected = r.documentType.startsWith("TASK_")
       ? "Smoke task"
       : r.documentType === "EXPENSE"
