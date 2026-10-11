@@ -1,34 +1,22 @@
 "use server";
 
-import { type ActionState, runAction } from "@/core/action-result";
+import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
-
 import {
   assertTenantAdmin,
   requireOrgContext,
   requireUser,
 } from "@/core/context";
 import { db } from "@/core/db";
-import { optional } from "@/core/form-data";
+import { typedAction } from "@/core/typed-action";
 
 import { orgInput } from "../schema";
 export async function saveOrganizationAction(
   orgSlug: string | null,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof orgInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(orgInput, async (input) => {
     const user = await requireUser();
-    const input = orgInput.parse({
-      ...Object.fromEntries(data),
-      legalName: optional(data, "legalName"),
-      countryId: optional(data, "countryId"),
-      stateId: optional(data, "stateId"),
-      cityId: optional(data, "cityId"),
-      addressLine1: optional(data, "addressLine1"),
-      addressLine2: optional(data, "addressLine2"),
-      postalCode: optional(data, "postalCode"),
-    });
     let currentOrgId: string | undefined;
     if (orgSlug) {
       const ctx = await requireOrgContext(orgSlug);
@@ -67,7 +55,7 @@ export async function saveOrganizationAction(
       }))
     )
       throw new Error("Select a city in the selected state.");
-    const orgId = optional(data, "id");
+    const { id: orgId, ...organizationData } = input;
     const org = await db.$transaction(async (tx) => {
       if (
         orgId &&
@@ -77,10 +65,13 @@ export async function saveOrganizationAction(
       )
         throw new Error("Organization not found.");
       const saved = orgId
-        ? await tx.organization.update({ where: { id: orgId }, data: input })
+        ? await tx.organization.update({
+            where: { id: orgId },
+            data: organizationData,
+          })
         : await tx.organization.create({
             data: {
-              ...input,
+              ...organizationData,
               members: { create: { userId: user.id, role: "owner" } },
             },
           });
@@ -100,5 +91,5 @@ export async function saveOrganizationAction(
     return !orgSlug || (orgSlug !== org.slug && orgId === currentOrgId)
       ? `/${org.slug}`
       : undefined;
-  });
+  })(input);
 }

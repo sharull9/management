@@ -1,21 +1,19 @@
 "use server";
 
-import { type ActionState, runAction } from "@/core/action-result";
+import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
-
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
+import { typedAction } from "@/core/typed-action";
 
 import { saveSeriesInput } from "../schema";
 export async function saveSeriesAction(
   orgSlug: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof saveSeriesInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(saveSeriesInput, async (input) => {
     const ctx = await requireOrgContext(orgSlug);
     assertPermission(ctx, "settings.manage");
-    const input = saveSeriesInput.parse(Object.fromEntries(data));
     await db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`series:${ctx.org.id}:${input.type}`}))::text`;
       await tx.$queryRaw`SELECT id FROM document_series WHERE "organizationId" = ${ctx.org.id} AND type = ${input.type} FOR UPDATE`;
@@ -46,5 +44,5 @@ export async function saveSeriesAction(
       );
     });
     return undefined;
-  });
+  })(input);
 }

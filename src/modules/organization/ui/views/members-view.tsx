@@ -1,22 +1,10 @@
-import { ActionForm } from "@/components/shared/action-form";
-import { Field, SelectField } from "@/components/shared/fields";
+import { toOptions } from "@/components/shared/form/enum-options";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
-import {
-  removeMemberAction,
-  saveMemberAction,
-} from "../../server/member-actions";
-
+import { MemberForm } from "../components/member-form";
+import { type MemberRow, MembersTable } from "../components/members-table";
 export async function MembersView({ org }: { org: string }) {
   const ctx = await requireOrgContext(org);
   assertPermission(ctx, "members.manage");
@@ -34,6 +22,7 @@ export async function MembersView({ org }: { org: string }) {
       orderBy: { name: "asc" },
     }),
   ]);
+  const roleOptions = toOptions(roles);
   return (
     <>
       <PageHeading
@@ -41,117 +30,21 @@ export async function MembersView({ org }: { org: string }) {
         description="Add an existing account by email, or create a new account with a temporary password. Base roles grant administrator access; custom roles grant individual permissions."
       />
       <FormCard title="Organization members">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Member</TableHead>
-              <TableHead>Base role</TableHead>
-              <TableHead>Custom role</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {members.map((member) => (
-              <TableRow key={member.id}>
-                <TableCell>
-                  {member.user.name}
-                  <span className="block text-xs text-muted-foreground">
-                    {member.user.email}
-                  </span>
-                </TableCell>
-                <TableCell>{member.role}</TableCell>
-                <TableCell>{member.customRole?.name ?? "None"}</TableCell>
-                <TableCell>
-                  <details>
-                    <summary className="cursor-pointer text-sm">
-                      Edit access
-                    </summary>
-                    <div className="min-w-56 space-y-4 pt-4">
-                      <ActionForm
-                        action={saveMemberAction.bind(null, org)}
-                        submit="Update member"
-                      >
-                        <input
-                          type="hidden"
-                          name="email"
-                          value={member.user.email}
-                        />
-                        <input
-                          type="hidden"
-                          name="name"
-                          value={member.user.name}
-                        />
-                        <input type="hidden" name="password" value="" />
-                        <SelectField
-                          label="Base role"
-                          name="role"
-                          defaultValue={member.role}
-                        >
-                          <option value="member">Member</option>
-                          <option value="admin">Admin</option>
-                          <option value="owner">Owner</option>
-                        </SelectField>
-                        <SelectField
-                          label="Custom role"
-                          name="roleId"
-                          defaultValue={member.roleId ?? ""}
-                        >
-                          <option value="">None</option>
-                          {roles.map((r) => (
-                            <option key={r.id} value={r.id}>
-                              {r.name}
-                            </option>
-                          ))}
-                        </SelectField>
-                      </ActionForm>
-                      <ActionForm
-                        action={removeMemberAction.bind(null, org)}
-                        submit="Remove member"
-                        destructive
-                      >
-                        <input type="hidden" name="id" value={member.id} />
-                      </ActionForm>
-                    </div>
-                  </details>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <MembersTable
+          org={org}
+          roles={roleOptions}
+          data={members.map((member) => ({
+            id: member.id,
+            name: member.user.name,
+            email: member.user.email,
+            role: member.role as MemberRow["role"],
+            roleId: member.roleId,
+            customRole: member.customRole?.name ?? null,
+          }))}
+        />
       </FormCard>
       <FormCard title="Add member">
-        <ActionForm
-          action={saveMemberAction.bind(null, org)}
-          submit="Add member"
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Email" name="email" type="email" required />
-            <Field label="Full name (new users)" name="name" />
-            <Field
-              label="Temporary password (new users)"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-            />
-            <SelectField label="Base role" name="role" defaultValue="member">
-              <option value="member">Member</option>
-              <option value="admin">Admin</option>
-              <option value="owner">Owner</option>
-            </SelectField>
-            <SelectField label="Custom role" name="roleId" defaultValue="">
-              <option value="">None</option>
-              {roles.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </SelectField>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            New users need a name and a password of at least 12 characters.
-            Existing passwords are kept.
-          </p>
-        </ActionForm>
+        <MemberForm org={org} customRoles={roleOptions} />
       </FormCard>
     </>
   );

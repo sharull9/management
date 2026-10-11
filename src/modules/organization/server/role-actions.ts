@@ -1,25 +1,19 @@
 "use server";
 
-import { type ActionState, runAction } from "@/core/action-result";
+import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
-
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
-import { optional } from "@/core/form-data";
-import { id, saveRoleInput } from "../schema";
+import { typedAction } from "@/core/typed-action";
+import { recordIdInput, saveRoleInput } from "../schema";
 export async function saveRoleAction(
   orgSlug: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof saveRoleInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(saveRoleInput, async (input) => {
     const ctx = await requireOrgContext(orgSlug);
     assertPermission(ctx, "roles.manage");
-    const input = saveRoleInput.parse({
-      ...Object.fromEntries(data),
-      permissions: data.getAll("permissions"),
-    });
-    const roleId = optional(data, "id");
+    const { id: roleId, ...roleData } = input;
     if (!ctx.isAdmin && input.permissions.some((p) => !ctx.permissions.has(p)))
       throw new Error("You may only grant permissions you hold.");
     await db.$transaction(async (tx) => {
@@ -32,8 +26,10 @@ export async function saveRoleAction(
           throw new Error("Only administrators can edit assigned roles.");
       }
       const role = roleId
-        ? await tx.role.update({ where: { id: roleId }, data: input })
-        : await tx.role.create({ data: { ...input, tenantId: ctx.tenant.id } });
+        ? await tx.role.update({ where: { id: roleId }, data: roleData })
+        : await tx.role.create({
+            data: { ...roleData, tenantId: ctx.tenant.id },
+          });
       await writeAudit(
         {
           tenantId: ctx.tenant.id,
@@ -47,17 +43,16 @@ export async function saveRoleAction(
       );
     });
     return undefined;
-  });
+  })(input);
 }
 export async function deleteRoleAction(
   orgSlug: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof recordIdInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(recordIdInput, async (input) => {
     const ctx = await requireOrgContext(orgSlug);
     assertPermission(ctx, "roles.manage");
-    const roleId = id.parse(data.get("id"));
+    const roleId = input.id;
     await db.$transaction(async (tx) => {
       const role = await tx.role.findFirstOrThrow({
         where: { id: roleId, tenantId: ctx.tenant.id },
@@ -79,5 +74,5 @@ export async function deleteRoleAction(
       );
     });
     return undefined;
-  });
+  })(input);
 }

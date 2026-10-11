@@ -36,10 +36,31 @@ export async function OrganizationsView({ org: slug }: { org: string }) {
                 <OrganizationForm
                   tenantId={ctx.tenant.id}
                   orgSlug={slug}
-                  org={org}
-                  countries={countries}
-                  states={states}
-                  cities={cities}
+                  org={{
+                    id: org.id,
+                    tenantId: org.tenantId,
+                    name: org.name,
+                    slug: org.slug,
+                    legalName: org.legalName,
+                    baseCurrency: org.baseCurrency,
+                    countryId: org.countryId,
+                    stateId: org.stateId,
+                    cityId: org.cityId,
+                    addressLine1: org.addressLine1,
+                    addressLine2: org.addressLine2,
+                    postalCode: org.postalCode,
+                  }}
+                  countries={countries.map(({ id, name, code }) => ({
+                    id,
+                    name,
+                    code,
+                  }))}
+                  states={states.map(({ id, name, countryId }) => ({
+                    id,
+                    name,
+                    countryId,
+                  }))}
+                  cities={cities.map(({ id, name }) => ({ id, name }))}
                 />
               </div>
             </details>
@@ -50,9 +71,17 @@ export async function OrganizationsView({ org: slug }: { org: string }) {
         <OrganizationForm
           tenantId={ctx.tenant.id}
           orgSlug={slug}
-          countries={countries}
-          states={states}
-          cities={cities}
+          countries={countries.map(({ id, name, code }) => ({
+            id,
+            name,
+            code,
+          }))}
+          states={states.map(({ id, name, countryId }) => ({
+            id,
+            name,
+            countryId,
+          }))}
+          cities={cities.map(({ id, name }) => ({ id, name }))}
         />
       </FormCard>
     </>

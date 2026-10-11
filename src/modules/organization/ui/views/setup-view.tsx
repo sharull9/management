@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-import { ActionForm } from "@/components/shared/action-form";
-import { Field } from "@/components/shared/fields";
 import { FormCard } from "@/components/shared/form-card";
 import { db } from "@/core/db";
-import { setupAction } from "@/modules/organization-auth/server/actions";
+import { SetupForm } from "@/modules/organization-auth/ui/components/setup-form";
 
 export async function SetupView() {
   await connection();
@@ -16,24 +14,7 @@ export async function SetupView() {
           Create the first platform administrator. Tenant owners and members are
           added after setup.
         </p>
-        <ActionForm action={setupAction} submit="Create administrator">
-          <Field label="Full name" name="name" required autoComplete="name" />
-          <Field
-            label="Email"
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-          />
-          <Field
-            label="Password"
-            name="password"
-            type="password"
-            minLength={12}
-            required
-            autoComplete="new-password"
-          />
-        </ActionForm>
+        <SetupForm />
       </FormCard>
     </main>
   );

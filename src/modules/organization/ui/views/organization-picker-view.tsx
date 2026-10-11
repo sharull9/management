@@ -1,8 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ActionForm } from "@/components/shared/action-form";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "@/components/ui/item";
 import { listAccessibleOrgs, requireUser } from "@/core/context";
 import { db } from "@/core/db";
 import { signOutAction } from "@/modules/organization-auth/server/actions";
@@ -36,25 +44,25 @@ export async function OrganizationPickerView() {
           </Link>
         )}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <ItemGroup>
         {orgs.map((org) => (
-          <Link
-            key={org.id}
-            href={`/${org.slug}`}
-            className="rounded-xl border p-6 transition-colors hover:bg-muted"
-          >
-            <h2 className="font-semibold">{org.name}</h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {org.tenant.name} · {org.baseCurrency}
-            </p>
-          </Link>
+          <Item key={org.id} variant="outline" asChild>
+            <Link href={`/${org.slug}`}>
+              <ItemContent>
+                <ItemTitle>{org.name}</ItemTitle>
+                <ItemDescription>
+                  {org.tenant.name} &middot; {org.baseCurrency}
+                </ItemDescription>
+              </ItemContent>
+            </Link>
+          </Item>
         ))}
-      </div>
+      </ItemGroup>
       {!orgs.length && (
-        <p className="my-6 text-muted-foreground">
-          No active organizations are available. Ask your tenant administrator
-          for access.
-        </p>
+        <EmptyState
+          title="No active organizations are available."
+          description="Ask your tenant administrator for access."
+        />
       )}
       <div className="mt-8 space-y-6">
         {memberships
@@ -68,8 +76,16 @@ export async function OrganizationPickerView() {
             >
               <OrganizationForm
                 tenantId={m.tenantId}
-                countries={countries}
-                states={states}
+                countries={countries.map(({ id, name, code }) => ({
+                  id,
+                  name,
+                  code,
+                }))}
+                states={states.map(({ id, name, countryId }) => ({
+                  id,
+                  name,
+                  countryId,
+                }))}
               />
             </FormCard>
           ))}

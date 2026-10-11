@@ -1,17 +1,18 @@
 "use server";
 
-import { type ActionState, runAction } from "@/core/action-result";
+import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
-
 import { requireSuperAdmin } from "@/core/context";
 import { db } from "@/core/db";
+import { typedAction } from "@/core/typed-action";
 
 import { provisionUser } from "@/modules/organization/server/provision-user";
 import { createTenantInput, credentials, tenantStatusInput } from "../schema";
-export async function createTenantAction(_: ActionState, data: FormData) {
-  return runAction(async () => {
+export async function createTenantAction(
+  input: z.input<typeof createTenantInput>,
+) {
+  return typedAction(createTenantInput, async (input) => {
     const actor = await requireSuperAdmin();
-    const input = createTenantInput.parse(Object.fromEntries(data));
     await db.$transaction(async (tx) => {
       const existing = await tx.user.findUnique({
         where: { email: input.email },
@@ -46,12 +47,13 @@ export async function createTenantAction(_: ActionState, data: FormData) {
       );
     });
     return undefined;
-  });
+  })(input);
 }
-export async function tenantStatusAction(_: ActionState, data: FormData) {
-  return runAction(async () => {
+export async function tenantStatusAction(
+  input: z.input<typeof tenantStatusInput>,
+) {
+  return typedAction(tenantStatusInput, async (input) => {
     const actor = await requireSuperAdmin();
-    const input = tenantStatusInput.parse(Object.fromEntries(data));
     await db.$transaction(async (tx) => {
       await tx.tenant.update({
         where: { id: input.tenantId },
@@ -69,5 +71,5 @@ export async function tenantStatusAction(_: ActionState, data: FormData) {
       );
     });
     return undefined;
-  });
+  })(input);
 }

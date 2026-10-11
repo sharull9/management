@@ -1,12 +1,18 @@
-import { ActionForm } from "@/components/shared/action-form";
-import { Field, SelectField } from "@/components/shared/fields";
-import type {
-  City,
-  Country,
-  Organization,
-  State,
-} from "@/generated/prisma/client";
+"use client";
+import type { z } from "zod";
+import {
+  ActionFormShell,
+  SelectField,
+  TextField,
+  useZodForm,
+} from "@/components/shared/form";
+import { toOptions } from "@/components/shared/form/enum-options";
+import { orgInput } from "../../schema";
 import { saveOrganizationAction } from "../../server/actions";
+export type OrganizationFormData = Omit<z.input<typeof orgInput>, "id"> & {
+  id: string;
+};
+type Location = { id: string; name: string };
 export function OrganizationForm({
   tenantId,
   orgSlug = null,
@@ -17,96 +23,93 @@ export function OrganizationForm({
 }: {
   tenantId: string;
   orgSlug?: string | null;
-  org?: Organization;
-  countries: Country[];
-  states: State[];
-  cities?: City[];
+  org?: OrganizationFormData;
+  countries: (Location & { code: string })[];
+  states: (Location & { countryId: string })[];
+  cities?: Location[];
 }) {
+  const form = useZodForm(orgInput, {
+    id: org?.id ?? null,
+    tenantId,
+    name: org?.name ?? "",
+    slug: org?.slug ?? "",
+    legalName: org?.legalName ?? "",
+    baseCurrency: org?.baseCurrency ?? "INR",
+    countryId: org?.countryId ?? null,
+    stateId: org?.stateId ?? null,
+    cityId: org?.cityId ?? null,
+    postalCode: org?.postalCode ?? "",
+    addressLine1: org?.addressLine1 ?? "",
+    addressLine2: org?.addressLine2 ?? "",
+  });
   return (
-    <ActionForm
+    <ActionFormShell
+      form={form}
       action={saveOrganizationAction.bind(null, orgSlug)}
       submit={org ? "Save organization" : "Create organization"}
     >
-      <input type="hidden" name="tenantId" value={tenantId} />
-      {org && <input type="hidden" name="id" value={org.id} />}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="Organization name"
+        <TextField
+          control={form.control}
           name="name"
-          defaultValue={org?.name}
+          label="Organization name"
           required
         />
-        <Field
-          label="URL slug"
+        <TextField
+          control={form.control}
           name="slug"
-          defaultValue={org?.slug}
+          label="URL slug"
           placeholder="acme-builders"
           required
         />
-        <Field
-          label="Legal name"
-          name="legalName"
-          defaultValue={org?.legalName ?? ""}
-        />
-        <Field
-          label="Base currency"
+        <TextField control={form.control} name="legalName" label="Legal name" />
+        <TextField
+          control={form.control}
           name="baseCurrency"
-          defaultValue={org?.baseCurrency ?? "INR"}
+          label="Base currency"
           maxLength={3}
           required
         />
         <SelectField
-          label="Country"
+          control={form.control}
           name="countryId"
-          defaultValue={org?.countryId ?? ""}
-        >
-          <option value="">Select country</option>
-          {countries.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </SelectField>
+          label="Country"
+          options={toOptions(countries)}
+          clearable
+        />
         <SelectField
-          label="State"
+          control={form.control}
           name="stateId"
-          defaultValue={org?.stateId ?? ""}
-        >
-          <option value="">Select state</option>
-          {states.map((s) => (
-            <option key={s.id} value={s.id}>
-              {countries.find((c) => c.id === s.countryId)?.code} · {s.name}
-            </option>
-          ))}
-        </SelectField>
+          label="State"
+          options={states.map((s) => ({
+            value: s.id,
+            label: `${countries.find((c) => c.id === s.countryId)?.code ?? ""} \u00b7 ${s.name}`,
+          }))}
+          clearable
+        />
         <SelectField
-          label="City"
+          control={form.control}
           name="cityId"
-          defaultValue={org?.cityId ?? ""}
-        >
-          <option value="">Select city</option>
-          {cities.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </SelectField>
-        <Field
-          label="Postal code"
+          label="City"
+          options={toOptions(cities)}
+          clearable
+        />
+        <TextField
+          control={form.control}
           name="postalCode"
-          defaultValue={org?.postalCode ?? ""}
+          label="Postal code"
         />
-        <Field
-          label="Address line 1"
+        <TextField
+          control={form.control}
           name="addressLine1"
-          defaultValue={org?.addressLine1 ?? ""}
+          label="Address line 1"
         />
-        <Field
-          label="Address line 2"
+        <TextField
+          control={form.control}
           name="addressLine2"
-          defaultValue={org?.addressLine2 ?? ""}
+          label="Address line 2"
         />
       </div>
-    </ActionForm>
+    </ActionFormShell>
   );
 }

@@ -1,25 +1,19 @@
 "use server";
 
-import { type ActionState, runAction } from "@/core/action-result";
+import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
-
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
-import { optional } from "@/core/form-data";
-import { credentials, id, saveMemberInput } from "../schema";
+import { typedAction } from "@/core/typed-action";
+import { credentials, recordIdInput, saveMemberInput } from "../schema";
 import { provisionUser } from "./provision-user";
 export async function saveMemberAction(
   orgSlug: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof saveMemberInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(saveMemberInput, async (input) => {
     const ctx = await requireOrgContext(orgSlug);
     assertPermission(ctx, "members.manage");
-    const input = saveMemberInput.parse({
-      ...Object.fromEntries(data),
-      roleId: optional(data, "roleId"),
-    });
     if (!ctx.isAdmin && (input.role !== "member" || input.roleId))
       throw new Error(
         "Only administrators can assign privileged or custom roles.",
@@ -96,17 +90,16 @@ export async function saveMemberAction(
       );
     });
     return undefined;
-  });
+  })(input);
 }
 export async function removeMemberAction(
   orgSlug: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof recordIdInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(recordIdInput, async (input) => {
     const ctx = await requireOrgContext(orgSlug);
     assertPermission(ctx, "members.manage");
-    const memberId = id.parse(data.get("id"));
+    const memberId = input.id;
     await db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${ctx.org.id} FOR UPDATE`;
       const member = await tx.member.findFirstOrThrow({
@@ -155,5 +148,5 @@ export async function removeMemberAction(
       );
     });
     return undefined;
-  });
+  })(input);
 }

@@ -22,29 +22,46 @@ export const credentials = z.object({
     .min(12, "Temporary passwords need at least 12 characters.")
     .max(128),
 });
+const optionalText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .nullable()
+    .transform((value) => value || null);
+const optionalId = z
+  .string()
+  .trim()
+  .max(100)
+  .nullable()
+  .transform((value) => value || null);
+export const recordIdInput = z.object({ id });
 export const orgInput = z.object({
+  id: optionalId,
   tenantId: id,
   name,
   slug,
-  legalName: z.string().max(200).nullable(),
+  legalName: optionalText(200),
   baseCurrency: z
     .string()
     .regex(/^[A-Z]{3}$/, "Use a three-letter currency code."),
-  countryId: id.nullable(),
-  stateId: id.nullable(),
-  cityId: id.nullable(),
-  addressLine1: z.string().max(250).nullable(),
-  addressLine2: z.string().max(250).nullable(),
-  postalCode: z.string().max(30).nullable(),
+  countryId: optionalId,
+  stateId: optionalId,
+  cityId: optionalId,
+  addressLine1: optionalText(250),
+  addressLine2: optionalText(250),
+  postalCode: optionalText(30),
 });
 export const saveMemberInput = z.object({
+  existingEmail: z.email().nullable().optional(),
   email: z.email().trim().toLowerCase(),
   name: z.string().max(150),
   password: z.string().max(128),
   role: z.enum(["owner", "admin", "member"]),
-  roleId: id.nullable(),
+  roleId: optionalId,
 });
 export const saveRoleInput = z.object({
+  id: optionalId,
   name,
   description: z.string().max(500),
   permissions: z.array(
@@ -57,6 +74,6 @@ export const saveSeriesInput = z.object({
     .regex(/^[A-Z_]+$/)
     .max(60),
   prefix: z.string().max(40),
-  padding: z.coerce.number().int().min(1).max(12),
-  nextNumber: z.coerce.number().int().min(1).max(2147483646),
+  padding: z.number().int().min(1).max(12),
+  nextNumber: z.number().int().min(1).max(2147483646),
 });

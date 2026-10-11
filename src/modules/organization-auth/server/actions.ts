@@ -7,9 +7,8 @@ import { auth, createAuth } from "@/core/auth/auth";
 import { db } from "@/core/db";
 import { typedAction } from "@/core/typed-action";
 import { credentials, signInInput } from "../schema";
-export async function setupAction(_: ActionState, data: FormData) {
-  return runAction(async () => {
-    const input = credentials.parse(Object.fromEntries(data));
+export async function setupAction(input: z.input<typeof credentials>) {
+  return typedAction(credentials, async (input) => {
     await db.$transaction(
       async (tx) => {
         await tx.$queryRaw`SELECT pg_advisory_xact_lock(73194001)::text`;
@@ -31,7 +30,7 @@ export async function setupAction(_: ActionState, data: FormData) {
       { timeout: 30000 },
     );
     return "/sign-in";
-  });
+  })(input);
 }
 export async function signInAction(input: z.input<typeof signInInput>) {
   return typedAction(signInInput, async (input) => {
