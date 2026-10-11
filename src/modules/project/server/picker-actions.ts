@@ -14,6 +14,7 @@ async function pickerContext(
   projectId: string | null,
   purpose: "project" | "stage" | "site" | "team" = "project",
 ) {
+  z.enum(["project", "stage", "site", "team"]).parse(purpose);
   const ctx = projectId
     ? await requireProjectContext(org, projectId)
     : await requireOrgContext(org);
