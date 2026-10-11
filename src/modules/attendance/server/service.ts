@@ -3,7 +3,7 @@ import { type ActionState, runAction } from "@/core/action-result";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { value } from "@/core/form-data";
-import { audit } from "@/modules/project";
+import { audit } from "@/modules/project/server/action-helpers";
 import { attendanceRows, date } from "../schema";
 import { attendanceCost } from "./costing";
 

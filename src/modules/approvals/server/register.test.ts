@@ -2,8 +2,14 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
-test("eager approval registration works from every feature entry point", () => {
-  for (const entry of ["procurement", "payment", "project-task", "approvals"]) {
+test("eager approval registration works after concrete feature entry points", () => {
+  for (const entry of [
+    "procurement/server/submission",
+    "payment/server/submission",
+    "project-task/server/work-service",
+    "approvals/server/service",
+    "approvals/server/register",
+  ]) {
     const result = spawnSync(
       process.execPath,
       [
@@ -19,7 +25,8 @@ test("eager approval registration works from every feature entry point", () => {
           ? { ...result, url: result.url.replace('index.js', 'empty.js') } : result;
       }});
       await import('@/modules/${entry}');
-      const { getApprovalHandler } = await import('@/modules/approvals');
+      ${entry.startsWith("approvals/") ? "" : "await import('@/modules/approvals/server/register');"}
+      const { getApprovalHandler } = await import('@/modules/approvals/server/handlers');
       for (const type of ['TASK_SUBMISSION', 'TASK_DELAY', 'EXPENSE', 'PURCHASE_REQUEST',
         'PURCHASE_ORDER', 'GRN', 'STOCK_TRANSFER', 'VENDOR_BILL', 'PAYMENT_REQUEST', 'SALES_INVOICE']) {
         const handler = getApprovalHandler(type);

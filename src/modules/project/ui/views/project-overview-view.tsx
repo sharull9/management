@@ -6,7 +6,8 @@ import { MaterialCostRecognitionBadge } from "@/components/shared/material-cost-
 import { Progress } from "@/components/ui/progress";
 import type { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
-import { budgetUsage, projectSpent } from "@/modules/project-cost";
+import { budgetUsage } from "@/modules/project-cost/server/budget-usage";
+import { projectSpent } from "@/modules/project-cost/server/queries";
 import { projectUsers } from "../../server/queries";
 import { ProjectForm } from "../components/project-form";
 export async function ProjectOverviewView({

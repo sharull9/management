@@ -1,6 +1,6 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
-import { variantIdentity } from "@/modules/item-variant";
+import { variantIdentity } from "@/modules/item-variant/util";
 
 export async function resolveVariant(
   tx: Prisma.TransactionClient,

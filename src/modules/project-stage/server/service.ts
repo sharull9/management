@@ -9,7 +9,7 @@ import {
   member,
   nullableDate,
   stageInProject,
-} from "@/modules/project";
+} from "@/modules/project/server/action-helpers";
 import { id, stageInput } from "../schema";
 
 export async function saveStage(

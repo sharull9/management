@@ -13,7 +13,7 @@ import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { Prisma } from "@/generated/prisma/client";
 import { CostType } from "@/generated/prisma/enums";
-import { readDate } from "@/modules/project";
+import { readDate } from "@/modules/project/server/queries";
 import { expenseAction } from "../../server/actions";
 export async function CostsView({
   org,

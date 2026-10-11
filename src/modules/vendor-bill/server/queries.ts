@@ -5,7 +5,7 @@ import {
   requireProjectContext,
 } from "@/core/context";
 import { db } from "@/core/db";
-import { moduleProjectWhere } from "@/modules/procurement";
+import { moduleProjectWhere } from "@/modules/procurement/server/queries";
 import { billableReceipts } from "./calculations";
 export async function billOptions(org: string, editingBillId?: string) {
   const ctx = await requireOrgContext(org);

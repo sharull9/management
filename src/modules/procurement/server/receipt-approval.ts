@@ -1,9 +1,9 @@
 import { Decimal } from "@/core/decimal";
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
-import { getProjectCostRecognition } from "@/modules/project-cost";
-import { materialCostEffects } from "@/modules/project-cost-policy";
-import { movingAverage } from "@/modules/stock-valuation";
+import { getProjectCostRecognition } from "@/modules/project-cost/server/cost-recognition";
+import { materialCostEffects } from "@/modules/project-cost-policy/util";
+import { movingAverage } from "@/modules/stock-valuation/util";
 import { auditEffect } from "./approval-audit";
 import { assertReceiptQuantity } from "./calculations";
 import {

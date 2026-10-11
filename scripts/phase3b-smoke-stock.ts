@@ -8,9 +8,30 @@ export async function stockSmoke(
   approve: (id: string) => Promise<void>,
 ) {
   const { projects, ctx, vendor, selection, uom, tax, org, p1, p2 } = fixture;
-  const buying = await import("@/modules/procurement");
+  const { savePurchaseRequest } = await import(
+    "@/modules/procurement/server/request-service"
+  );
+  const {
+    requestInput,
+    orderInput,
+    receiptInput,
+    consumptionInput,
+    transferInput,
+  } = await import("@/modules/procurement/schema");
+  const { submitDocument } = await import(
+    "@/modules/procurement/server/submission"
+  );
+  const { savePurchaseOrder } = await import(
+    "@/modules/procurement/server/order-service"
+  );
+  const { saveGoodsReceipt } = await import(
+    "@/modules/procurement/server/receipt-service"
+  );
+  const { recordConsumption, saveStockTransfer } = await import(
+    "@/modules/procurement/server/inventory/service"
+  );
   const { validateProjectCostRecognitionChange } = await import(
-    "@/modules/project-cost"
+    "@/modules/project-cost/server/cost-recognition"
   );
   const transaction = <T>(fn: (tx: Prisma.TransactionClient) => Promise<T>) =>
     db.$transaction(fn, { timeout: 30000 });
@@ -24,10 +45,10 @@ export async function stockSmoke(
   const orders: { po: { id: string }; poLine: { id: string } }[] = [];
   for (const project of projects) {
     const pr = await transaction((tx) =>
-      buying.savePurchaseRequest(
+      savePurchaseRequest(
         tx,
         ctx,
-        buying.requestInput.parse({
+        requestInput.parse({
           id: null,
           projectId: project.id,
           stageId: null,
@@ -38,20 +59,17 @@ export async function stockSmoke(
       ),
     );
     await approve(
-      (
-        await transaction((tx) =>
-          buying.submitDocument(tx, ctx, "requests", pr.id),
-        )
-      ).id,
+      (await transaction((tx) => submitDocument(tx, ctx, "requests", pr.id)))
+        .id,
     );
     const prLine = await db.purchaseRequestLine.findFirstOrThrow({
       where: { requestId: pr.id },
     });
     const po = await transaction((tx) =>
-      buying.savePurchaseOrder(
+      savePurchaseOrder(
         tx,
         ctx,
-        buying.orderInput.parse({
+        orderInput.parse({
           id: null,
           projectId: project.id,
           vendorPartyId: vendor.id,
@@ -75,20 +93,16 @@ export async function stockSmoke(
       ),
     );
     await approve(
-      (
-        await transaction((tx) =>
-          buying.submitDocument(tx, ctx, "orders", po.id),
-        )
-      ).id,
+      (await transaction((tx) => submitDocument(tx, ctx, "orders", po.id))).id,
     );
     const poLine = await db.purchaseOrderLine.findFirstOrThrow({
       where: { orderId: po.id },
     });
     const grn = await transaction((tx) =>
-      buying.saveGoodsReceipt(
+      saveGoodsReceipt(
         tx,
         ctx,
-        buying.receiptInput.parse({
+        receiptInput.parse({
           id: null,
           projectId: project.id,
           poId: po.id,
@@ -109,11 +123,8 @@ export async function stockSmoke(
       ),
     );
     await approve(
-      (
-        await transaction((tx) =>
-          buying.submitDocument(tx, ctx, "receipts", grn.id),
-        )
-      ).id,
+      (await transaction((tx) => submitDocument(tx, ctx, "receipts", grn.id)))
+        .id,
     );
     assert.equal(
       (await db.purchaseOrder.findUniqueOrThrow({ where: { id: po.id } }))
@@ -129,10 +140,10 @@ export async function stockSmoke(
   );
   for (const project of projects)
     await transaction((tx) =>
-      buying.recordConsumption(
+      recordConsumption(
         tx,
         ctx,
-        buying.consumptionInput.parse({
+        consumptionInput.parse({
           projectId: project.id,
           stageId: null,
           taskId: null,
@@ -144,10 +155,10 @@ export async function stockSmoke(
   assert.equal(await cost(p1.id), "1000.00");
   assert.equal(await cost(p2.id), "200.00");
   const transfer = await transaction((tx) =>
-    buying.saveStockTransfer(
+    saveStockTransfer(
       tx,
       ctx,
-      buying.transferInput.parse({
+      transferInput.parse({
         id: null,
         projectId: p1.id,
         toProjectId: p2.id,
@@ -159,7 +170,7 @@ export async function stockSmoke(
   await approve(
     (
       await transaction((tx) =>
-        buying.submitDocument(tx, ctx, "transfers", transfer.id),
+        submitDocument(tx, ctx, "transfers", transfer.id),
       )
     ).id,
   );

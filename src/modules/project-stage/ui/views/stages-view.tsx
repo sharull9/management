@@ -3,7 +3,7 @@ import { FormCard } from "@/components/shared/form-card";
 import { Badge } from "@/components/ui/badge";
 import { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
-import { projectUsers } from "@/modules/project";
+import { projectUsers } from "@/modules/project/server/queries";
 import { deleteStageAction } from "../../server/actions";
 import { StageForm } from "../components/stage-form";
 export async function StagesView({

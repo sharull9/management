@@ -11,8 +11,8 @@ import {
 } from "@/core/context";
 import { db } from "@/core/db";
 import { Prisma } from "@/generated/prisma/client";
-import { listPendingForUser } from "@/modules/approvals";
-import { budgetUsage } from "@/modules/project-cost";
+import { listPendingForUser } from "@/modules/approvals/server/service";
+import { budgetUsage } from "@/modules/project-cost/server/budget-usage";
 export async function DashboardView({ org }: { org: string }) {
   const ctx = await requireOrgContext(org);
   const access = projectAccessWhere(ctx);

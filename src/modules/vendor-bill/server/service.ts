@@ -4,8 +4,12 @@ import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
 import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
-import { domainAudit, lockDocument, projectScope } from "@/modules/procurement";
-import { suggestTaxScope } from "@/modules/tax";
+import {
+  domainAudit,
+  lockDocument,
+  projectScope,
+} from "@/modules/procurement/server/service";
+import { suggestTaxScope } from "@/modules/tax/util";
 import type { billInput } from "../schema";
 import {
   billableQty,

@@ -5,8 +5,8 @@ import {
   requireProjectContext,
 } from "@/core/context";
 import { db } from "@/core/db";
-import { pickerItems } from "@/modules/masters";
-import { moduleProjectWhere } from "@/modules/procurement";
+import { pickerItems } from "@/modules/masters/server/queries";
+import { moduleProjectWhere } from "@/modules/procurement/server/queries";
 export async function salesData(
   org: string,
   projectId?: string,

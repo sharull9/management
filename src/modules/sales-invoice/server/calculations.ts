@@ -1,5 +1,9 @@
 import { Decimal, money } from "@/core/decimal";
-import { calculateTax, suggestTaxScope, type TaxInput } from "@/modules/tax";
+import {
+  calculateTax,
+  suggestTaxScope,
+  type TaxInput,
+} from "@/modules/tax/util";
 
 export const suggestSalesTaxScope = suggestTaxScope;
 export function isInvoiceOverdue(

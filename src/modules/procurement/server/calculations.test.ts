@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { variantIdentity } from "@/modules/item-variant";
-import { movingAverage } from "@/modules/stock-valuation";
-import { calculateTax, suggestTaxScope } from "@/modules/tax";
-import { convertUom } from "@/modules/uom";
+import { variantIdentity } from "@/modules/item-variant/util";
+import { movingAverage } from "@/modules/stock-valuation/util";
+import { calculateTax, suggestTaxScope } from "@/modules/tax/util";
+import { convertUom } from "@/modules/uom/util";
 import { assertReceiptQuantity } from "./calculations";
 
 test("variant key and readable name respect required, linked and unused levels", () => {

@@ -32,7 +32,9 @@ export async function submitDocument(
       : "grandTotal" in row
         ? row.grandTotal.toString()
         : undefined;
-  const { submitForApproval } = await import("@/modules/approvals");
+  const { submitForApproval } = await import(
+    "@/modules/approvals/server/service"
+  );
   const approval = await submitForApproval(
     {
       orgSlug: ctx.org.slug,

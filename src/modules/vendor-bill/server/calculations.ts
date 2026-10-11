@@ -1,5 +1,5 @@
 import { Decimal, money } from "@/core/decimal";
-import { calculateTax, type TaxInput } from "@/modules/tax";
+import { calculateTax, type TaxInput } from "@/modules/tax/util";
 
 type Numeric = string | InstanceType<typeof Decimal>;
 export function billableQty(

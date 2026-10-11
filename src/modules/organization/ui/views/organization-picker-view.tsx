@@ -5,7 +5,7 @@ import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
 import { listAccessibleOrgs, requireUser } from "@/core/context";
 import { db } from "@/core/db";
-import { signOutAction } from "@/modules/organization-auth";
+import { signOutAction } from "@/modules/organization-auth/server/actions";
 import { OrganizationForm } from "../components/organization-form";
 
 export async function OrganizationPickerView() {

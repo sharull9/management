@@ -1,7 +1,7 @@
 import "server-only";
 import { writeAudit } from "@/core/audit";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
-import type { ApprovalHandler } from "@/modules/approvals";
+import type { ApprovalHandler } from "@/modules/approvals/server/handlers";
 import { validateRequestBills } from "./request-service";
 import { lockSettlement } from "./service";
 

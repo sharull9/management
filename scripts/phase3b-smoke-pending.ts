@@ -5,7 +5,9 @@ export async function pendingSmoke(
   fixture: Awaited<ReturnType<typeof createFixture>>,
 ) {
   const { token, user, org, p1 } = fixture;
-  const approvals = await import("@/modules/approvals");
+  const { submitForApproval } = await import(
+    "@/modules/approvals/server/service"
+  );
   // Finance/procurement types already exist in history. Add the remaining types.
   for (const type of ["TASK_SUBMISSION", "TASK_DELAY", "EXPENSE"] as const) {
     const stage = await db.stage.upsert({
@@ -66,7 +68,7 @@ export async function pendingSmoke(
           },
         })
       ).id;
-    const r = await approvals.submitForApproval({
+    const r = await submitForApproval({
       orgSlug: org.slug,
       documentType: type,
       documentId: id,

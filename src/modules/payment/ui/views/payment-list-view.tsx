@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageHeading } from "@/components/shared/page-heading";
 import { Badge } from "@/components/ui/badge";
 import { db } from "@/core/db";
-import { moduleProjectWhere } from "@/modules/procurement";
+import { moduleProjectWhere } from "@/modules/procurement/server/queries";
 import { financeData } from "../../server/queries";
 import { ProjectFilter } from "../components/project-filter";
 import { date, linkClass, money } from "../util";

@@ -4,8 +4,8 @@ import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { optional } from "@/core/form-data";
 import { nextDocumentNumber } from "@/core/numbering";
-import { lockStockProjects } from "@/modules/procurement";
-import { audit, stageInProject } from "@/modules/project";
+import { lockStockProjects } from "@/modules/procurement/server/inventory/service";
+import { audit, stageInProject } from "@/modules/project/server/action-helpers";
 import { date, expenseInput, materialCostRecognitionInput } from "../schema";
 import { validateProjectCostRecognitionChange } from "./cost-recognition";
 
@@ -90,7 +90,9 @@ export async function expense(
           code: await nextDocumentNumber(ctx.org.id, "EXP", tx),
         },
       });
-      const { submitForApproval } = await import("@/modules/approvals");
+      const { submitForApproval } = await import(
+        "@/modules/approvals/server/service"
+      );
       const request = await submitForApproval(
         {
           orgSlug: org,

@@ -2,7 +2,7 @@ import "server-only";
 import { writeAudit } from "@/core/audit";
 import { assertPermission, type OrgContext } from "@/core/context";
 import type { Prisma } from "@/generated/prisma/client";
-import { moduleProjectWhere } from "@/modules/procurement";
+import { moduleProjectWhere } from "@/modules/procurement/server/queries";
 import { settledStatuses } from "./allocation";
 
 type Tx = Prisma.TransactionClient;

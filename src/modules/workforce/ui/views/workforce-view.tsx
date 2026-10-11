@@ -8,7 +8,7 @@ import { PageHeading } from "@/components/shared/page-heading";
 import { Button } from "@/components/ui/button";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
-import { readDate } from "@/modules/project";
+import { readDate } from "@/modules/project/server/queries";
 import { designationAction } from "../../server/actions";
 import { rangesOverlap } from "../../server/availability";
 import { WorkerForm } from "../components/worker-form";

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { movingAverage } from "@/modules/stock-valuation";
-import type { TaxInput } from "@/modules/tax";
-import { convertUom } from "@/modules/uom";
+import { movingAverage } from "@/modules/stock-valuation/util";
+import type { TaxInput } from "@/modules/tax/util";
+import { convertUom } from "@/modules/uom/util";
 import {
   calculateInvoiceLine,
   invoiceTotals,

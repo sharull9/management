@@ -14,7 +14,7 @@ import {
 } from "@/core/context";
 import { db } from "@/core/db";
 import { ProjectStatus } from "@/generated/prisma/enums";
-import { budgetUsage } from "@/modules/project-cost";
+import { budgetUsage } from "@/modules/project-cost/server/budget-usage";
 import { projectUsers } from "../../server/queries";
 import { ProjectForm } from "../components/project-form";
 export async function ProjectsView({

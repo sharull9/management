@@ -5,10 +5,10 @@ import { writeAudit } from "@/core/audit";
 import type { OrgContext } from "@/core/context";
 import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
-import { getProjectCostRecognition } from "@/modules/project-cost";
-import { materialCostEffects } from "@/modules/project-cost-policy";
-import { movingAverage } from "@/modules/stock-valuation";
-import { convertUom } from "@/modules/uom";
+import { getProjectCostRecognition } from "@/modules/project-cost/server/cost-recognition";
+import { materialCostEffects } from "@/modules/project-cost-policy/util";
+import { movingAverage } from "@/modules/stock-valuation/util";
+import { convertUom } from "@/modules/uom/util";
 import type { consumptionInput, transferInput } from "../../schema";
 import {
   domainAudit,

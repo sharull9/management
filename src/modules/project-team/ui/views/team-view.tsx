@@ -5,8 +5,8 @@ import { FormCard } from "@/components/shared/form-card";
 import { dateValue, Options } from "@/components/shared/form-options";
 import { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
-import { projectUsers } from "@/modules/project";
-import { rangesOverlap } from "@/modules/workforce";
+import { projectUsers } from "@/modules/project/server/queries";
+import { rangesOverlap } from "@/modules/workforce/server/availability";
 import { teamAction } from "../../server/actions";
 export async function TeamView({
   org,

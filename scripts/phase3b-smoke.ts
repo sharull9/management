@@ -42,10 +42,35 @@ registerHooks({
 
 async function main() {
   const { db } = await import("@/core/db");
-  const approvals = await import("@/modules/approvals");
-  const bills = await import("@/modules/vendor-bill");
-  const payments = await import("@/modules/payment");
-  const sales = await import("@/modules/sales-invoice");
+  const { actOnApproval, submitForApproval } = await import(
+    "@/modules/approvals/server/service"
+  );
+  const { financeDocumentTitles } = await import(
+    "@/modules/approvals/server/document-link"
+  );
+  const { saveBill } = await import("@/modules/vendor-bill/server/service");
+  const { billInput } = await import("@/modules/vendor-bill/schema");
+  const { paymentInput, requestInput } = await import(
+    "@/modules/payment/schema"
+  );
+  const { recordPayment } = await import(
+    "@/modules/payment/server/payment-service"
+  );
+  const { saveRequest } = await import(
+    "@/modules/payment/server/request-service"
+  );
+  const { submitRequest } = await import("@/modules/payment/server/submission");
+  const { allocatePayment } = await import(
+    "@/modules/payment/server/allocation-service"
+  );
+  const { voidPayment } = await import("@/modules/payment/server/void-service");
+  const { financeData } = await import("@/modules/payment/server/queries");
+  const { partyBalances } = await import("@/modules/payment/server/balances");
+  const { partyStatement } = await import("@/modules/payment/server/statement");
+  const { saveInvoice } = await import(
+    "@/modules/sales-invoice/server/service"
+  );
+  const { invoiceInput } = await import("@/modules/sales-invoice/schema");
   const transaction = <T>(fn: (tx: Prisma.TransactionClient) => Promise<T>) =>
     db.$transaction(fn, { timeout: 30000 });
   try {
@@ -70,11 +95,7 @@ async function main() {
       const step = await db.approvalRequestStep.findFirstOrThrow({
         where: { requestId, status: "PENDING" },
       });
-      await approvals.actOnApproval(
-        step.id,
-        "APPROVE",
-        "Local integration smoke",
-      );
+      await actOnApproval(step.id, "APPROVE", "Local integration smoke");
       assert.equal(
         (
           await db.approvalRequest.findUniqueOrThrow({
@@ -92,13 +113,13 @@ async function main() {
       total: string,
     ) {
       return transaction(async (tx) => {
-        const request = await approvals.submitForApproval(
+        const request = await submitForApproval(
           {
             orgSlug: org.slug,
             documentType: type,
             documentId: id,
             projectId,
-            title: `${code} ${approvals.financeDocumentTitles[type]}`,
+            title: `${code} ${financeDocumentTitles[type]}`,
             amount: total,
           },
           tx,
@@ -126,10 +147,10 @@ async function main() {
       where: { itemId: item.id },
     });
     const bill = await transaction((tx) =>
-      bills.saveBill(
+      saveBill(
         tx,
         ctx,
-        bills.billInput.parse({
+        billInput.parse({
           id: null,
           projectId: p1.id,
           partyId: vendor.id,
@@ -182,7 +203,7 @@ async function main() {
       partyId = vendor.id,
       direction = "OUTGOING",
     ) =>
-      payments.paymentInput.parse({
+      paymentInput.parse({
         projectId: p1.id,
         partyId,
         date: "2026-09-07",
@@ -194,16 +215,14 @@ async function main() {
         direction,
       });
     await assert.rejects(
-      transaction((tx) =>
-        payments.recordPayment(tx, ctx, payment("400", "CASH")),
-      ),
+      transaction((tx) => recordPayment(tx, ctx, payment("400", "CASH"))),
       /requires an approved payment request/,
     );
     const request = await transaction((tx) =>
-      payments.saveRequest(
+      saveRequest(
         tx,
         ctx,
-        payments.requestInput.parse({
+        requestInput.parse({
           id: null,
           projectId: p1.id,
           partyId: vendor.id,
@@ -216,13 +235,13 @@ async function main() {
         }),
       ),
     );
-    await transaction((tx) => payments.submitRequest(tx, ctx, request.id));
+    await transaction((tx) => submitRequest(tx, ctx, request.id));
     await approve(
       (await db.paymentRequest.findUniqueOrThrow({ where: { id: request.id } }))
         .approvalRequestId as string,
     );
     await transaction((tx) =>
-      payments.recordPayment(tx, ctx, payment("400", "CASH", request.id)),
+      recordPayment(tx, ctx, payment("400", "CASH", request.id)),
     );
     assert.equal(
       (await db.vendorBill.findUniqueOrThrow({ where: { id: bill.id } }))
@@ -230,10 +249,10 @@ async function main() {
       "PARTIALLY_PAID",
     );
     const advance = await transaction((tx) =>
-      payments.recordPayment(tx, ctx, payment("653")),
+      recordPayment(tx, ctx, payment("653")),
     );
     await transaction((tx) =>
-      payments.allocatePayment(tx, ctx, advance.id, [
+      allocatePayment(tx, ctx, advance.id, [
         { documentId: bill.id, amount: "653" },
       ]),
     );
@@ -243,7 +262,7 @@ async function main() {
       "PAID",
     );
     await transaction((tx) =>
-      payments.voidPayment(tx, ctx, advance.id, "Smoke void advance"),
+      voidPayment(tx, ctx, advance.id, "Smoke void advance"),
     );
     const reverted = await db.vendorBill.findUniqueOrThrow({
       where: { id: bill.id },
@@ -254,10 +273,10 @@ async function main() {
       "Bill: base 900.00 + GST 162.00 - TDS 9.00 = payable 1053.00; variance -100.00. Paid 400.00 -> 1053.00 -> void -> 400.00, outstanding 653.00.",
     );
     const invoice = await transaction((tx) =>
-      sales.saveInvoice(
+      saveInvoice(
         tx,
         ctx,
-        sales.invoiceInput.parse({
+        invoiceInput.parse({
           id: null,
           projectId: p2.id,
           partyId: customer.id,
@@ -297,10 +316,10 @@ async function main() {
     assert.equal(sale.qty.toString(), "-2");
     assert.equal(sale.totalCost.toString(), "-200");
     const incoming = await transaction((tx) =>
-      payments.recordPayment(
+      recordPayment(
         tx,
         ctx,
-        payments.paymentInput.parse({
+        paymentInput.parse({
           ...payment("351", "BANK", null, customer.id, "INCOMING"),
           projectId: p2.id,
           date: "2026-09-09",
@@ -308,7 +327,7 @@ async function main() {
       ),
     );
     await transaction((tx) =>
-      payments.allocatePayment(tx, ctx, incoming.id, [
+      allocatePayment(tx, ctx, incoming.id, [
         { documentId: invoice.id, amount: "351" },
       ]),
     );
@@ -334,8 +353,8 @@ async function main() {
         ["9", "900"],
       ],
     );
-    const data = await payments.financeData(org.slug);
-    const balances = payments.partyBalances(data);
+    const data = await financeData(org.slug);
+    const balances = partyBalances(data);
     const vendorBalance = balances.find((b) => b.party.id === vendor.id);
     assert.equal(vendorBalance?.payable.toFixed(2), "653.00");
     assert.equal(vendorBalance?.net.toFixed(2), "-653.00");
@@ -351,7 +370,7 @@ async function main() {
       "0.00",
     );
     assert.equal(
-      payments.partyStatement(data, vendor.id, "INR").at(-1)?.balance,
+      partyStatement(data, vendor.id, "INR").at(-1)?.balance,
       "-653.00",
     );
     console.log(

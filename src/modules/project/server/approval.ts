@@ -9,7 +9,9 @@ export async function resolveProjectManagers(
   type: ApproverType,
   tx: Prisma.TransactionClient,
 ): Promise<string[] | null> {
-  const { managerApprovers } = await import("@/modules/approvals");
+  const { managerApprovers } = await import(
+    "@/modules/approvals/server/project-effects"
+  );
   if (!request.projectId) return null;
   const project = await tx.project.findFirst({
     where: { id: request.projectId, organizationId: request.organizationId },

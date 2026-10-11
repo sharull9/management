@@ -2,9 +2,9 @@ import { Decimal } from "@/core/decimal";
 import "server-only";
 import { writeAudit } from "@/core/audit";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
-import type { ApprovalHandler } from "@/modules/approvals";
+import type { ApprovalHandler } from "@/modules/approvals/server/handlers";
 
-import { lockDocument } from "@/modules/procurement";
+import { lockDocument } from "@/modules/procurement/server/service";
 import { assertBillReceipts } from "./service";
 
 async function decide(

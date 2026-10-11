@@ -1,13 +1,13 @@
 import "server-only";
 import type { ApprovalRequest } from "@/generated/prisma/client";
-import { paymentApprovalDocumentPaths } from "@/modules/payment";
+import { paymentApprovalDocumentPaths } from "@/modules/payment/constants";
 import {
   inventoryApprovalDocumentPaths,
   procurementApprovalDocumentPaths,
-} from "@/modules/procurement";
-import { resolveTaskApprovalDocumentId } from "@/modules/project-task";
-import { salesInvoiceApprovalDocumentPaths } from "@/modules/sales-invoice";
-import { vendorBillApprovalDocumentPaths } from "@/modules/vendor-bill";
+} from "@/modules/procurement/constants";
+import { resolveTaskApprovalDocumentId } from "@/modules/project-task/server/queries";
+import { salesInvoiceApprovalDocumentPaths } from "@/modules/sales-invoice/constants";
+import { vendorBillApprovalDocumentPaths } from "@/modules/vendor-bill/constants";
 // Titles for finance submission callers; ApprovalRequest.title stores the document-specific title.
 export const financeDocumentTitles = {
   VENDOR_BILL: "Vendor bill",

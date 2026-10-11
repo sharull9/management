@@ -16,7 +16,9 @@ export async function submitRequest(
   });
   await scope(tx, ctx, row.projectId, "payment.request.create");
   await validateRequestBills(tx, row, ctx);
-  const { submitForApproval } = await import("@/modules/approvals");
+  const { submitForApproval } = await import(
+    "@/modules/approvals/server/service"
+  );
   const approval = await submitForApproval(
     {
       orgSlug: ctx.org.slug,

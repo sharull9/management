@@ -4,7 +4,7 @@ import { dateValue } from "@/components/shared/form-options";
 import { Button } from "@/components/ui/button";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
-import { readDate } from "@/modules/project";
+import { readDate } from "@/modules/project/server/queries";
 import { attendanceAction } from "../../server/actions";
 import { AttendanceGrid } from "../components/attendance-grid";
 export async function AttendanceView({

@@ -1,6 +1,6 @@
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
-import type { registerApprovalHandler } from "@/modules/approvals";
+import type { registerApprovalHandler } from "@/modules/approvals/server/handlers";
 import { auditEffect } from "./approval-audit";
 import { approveReceipt } from "./receipt-approval";
 import { lockDocument } from "./service";

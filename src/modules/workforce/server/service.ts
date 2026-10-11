@@ -4,7 +4,7 @@ import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
 import { optional } from "@/core/form-data";
 import { nextDocumentNumber } from "@/core/numbering";
-import { audit, nullableDate } from "@/modules/project";
+import { audit, nullableDate } from "@/modules/project/server/action-helpers";
 import { name, workerInput } from "../schema";
 
 export async function saveWorker(org: string, _: ActionState, data: FormData) {

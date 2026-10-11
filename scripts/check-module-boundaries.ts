@@ -12,40 +12,55 @@ function violation(file: string, specifier: string): boolean {
     : specifier.startsWith(".")
       ? normalize(relative(root, resolve(root, dirname(file), specifier)))
       : specifier;
-  const match = /^src\/modules\/([^/]+)\/(.+)$/.exec(target);
+  const match = /^src\/modules\/([^/]+)(?:\/(.+))?$/.exec(target);
   if (!match) return false;
   const [, module, internal] = match;
-  if (/^index(?:\.[cm]?[jt]sx?)?$/.test(internal)) return false;
+  if (!internal || /^index(?:\.[cm]?[jt]sx?)?$/.test(internal)) return true;
   if (file.startsWith(`src/modules/${module}/`)) return false;
-  return !(
-    file.startsWith("src/app/") && /^ui\/(views|layouts)\/[^/]+$/.test(internal)
+  if (/\.test(?:\.[cm]?[jt]sx?)?$/.test(internal)) return true;
+  return (
+    /^ui\/(views|layouts)\//.test(internal) && !file.startsWith("src/app/")
   );
 }
 
 // Guard both alias and relative paths, including the explicit route exceptions.
 assert.equal(
   violation("src/modules/payment/server/a.ts", "@/modules/tax"),
-  false,
+  true,
 );
 assert.equal(
   violation("src/modules/payment/server/a.ts", "@/modules/tax/util"),
-  true,
+  false,
 );
 assert.equal(violation("src/modules/tax/a.ts", "./util"), false);
-assert.equal(violation("src/modules/payment/a.ts", "../tax/util"), true);
+assert.equal(violation("src/modules/payment/a.ts", "../tax/util"), false);
 assert.equal(
   violation("src/app/a.tsx", "@/modules/tax/ui/views/tax-view"),
   false,
 );
 assert.equal(
   violation("src/app/a.tsx", "@/modules/tax/ui/components/form"),
-  true,
+  false,
 );
-assert.equal(violation("scripts/a.ts", "../src/modules/tax/util"), true);
+assert.equal(violation("scripts/a.ts", "../src/modules/tax/util"), false);
 assert.equal(
   violation("src/modules/tax/a.ts", "@/modules/tax/../payment/server/service"),
+  false,
+);
+assert.equal(violation("src/modules/payment/a.ts", "../tax"), true);
+assert.equal(violation("src/app/a.ts", "@/modules/tax/index.ts"), true);
+assert.equal(violation("src/modules/tax/a.ts", "."), true);
+assert.equal(
+  violation("src/modules/payment/a.ts", "@/modules/tax/ui/views/tax-view"),
   true,
 );
+assert.equal(
+  violation("scripts/a.ts", "../src/modules/tax/ui/layouts/nested/layout"),
+  true,
+);
+assert.equal(violation("src/app/a.ts", "@/modules/tax/util.test.ts"), true);
+assert.equal(violation("src/modules/payment/a.ts", "../tax/util.test"), true);
+assert.equal(violation("src/modules/tax/a.test.ts", "./util.test"), false);
 
 function files(directory: string): string[] {
   return readdirSync(resolve(root, directory), { withFileTypes: true }).flatMap(

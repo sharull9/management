@@ -4,8 +4,8 @@ import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
 import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
-import { calculateTax, suggestTaxScope } from "@/modules/tax";
-import { convertUom } from "@/modules/uom";
+import { calculateTax, suggestTaxScope } from "@/modules/tax/util";
+import { convertUom } from "@/modules/uom/util";
 import type { orderInput } from "../schema";
 
 import {

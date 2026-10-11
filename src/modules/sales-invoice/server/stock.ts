@@ -2,8 +2,8 @@ import { Decimal } from "@/core/decimal";
 import "server-only";
 import { writeAudit } from "@/core/audit";
 import type { Prisma, SalesInvoice } from "@/generated/prisma/client";
-import { movingAverage } from "@/modules/stock-valuation";
-import { convertUom } from "@/modules/uom";
+import { movingAverage } from "@/modules/stock-valuation/util";
+import { convertUom } from "@/modules/uom/util";
 import { validateStockLine } from "./calculations";
 export async function postInvoiceStock(
   tx: Prisma.TransactionClient,

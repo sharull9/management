@@ -2,7 +2,7 @@ import "server-only";
 import { writeAudit } from "@/core/audit";
 import type { OrgContext } from "@/core/context";
 import type { Prisma } from "@/generated/prisma/client";
-import { resolveVariant } from "@/modules/masters";
+import { resolveVariant } from "@/modules/masters/server/service";
 
 export async function domainAudit(
   ctx: OrgContext,

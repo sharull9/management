@@ -8,8 +8,8 @@ import {
   requireProjectContext,
 } from "@/core/context";
 import { db } from "@/core/db";
-import { pickerItems } from "@/modules/masters";
-import { suggestTaxScope } from "@/modules/tax";
+import { pickerItems } from "@/modules/masters/server/queries";
+import { suggestTaxScope } from "@/modules/tax/util";
 import type { DocumentKind } from "./approval";
 
 export function moduleProjectWhere(ctx: OrgContext, permission: string) {

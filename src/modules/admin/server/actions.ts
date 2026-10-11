@@ -6,7 +6,7 @@ import { writeAudit } from "@/core/audit";
 import { requireSuperAdmin } from "@/core/context";
 import { db } from "@/core/db";
 
-import { provisionUser } from "@/modules/organization";
+import { provisionUser } from "@/modules/organization/server/provision-user";
 import { createTenantInput, credentials, tenantStatusInput } from "../schema";
 export async function createTenantAction(_: ActionState, data: FormData) {
   return runAction(async () => {

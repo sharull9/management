@@ -9,7 +9,9 @@ export async function linksSmoke(
   origin: string,
 ) {
   const { org } = fixture;
-  const approvals = await import("@/modules/approvals");
+  const { approvalDocumentLinks } = await import(
+    "@/modules/approvals/server/document-link"
+  );
   await pendingSmoke(db, fixture);
   const requests = await db.approvalRequest.findMany({
     where: { organizationId: org.id },
@@ -29,7 +31,7 @@ export async function linksSmoke(
       "EXPENSE",
     ].sort(),
   );
-  const links = await approvals.approvalDocumentLinks(org.slug, requests);
+  const links = await approvalDocumentLinks(org.slug, requests);
   // Release the standalone service pool before the local app's HTTP checks.
   await db.$disconnect();
   async function render(path: string, expected: string) {

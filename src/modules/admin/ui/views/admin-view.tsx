@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/table";
 import { requireSuperAdmin } from "@/core/context";
 import { db } from "@/core/db";
-import { signOutAction } from "@/modules/organization-auth";
+import { signOutAction } from "@/modules/organization-auth/server/actions";
 import { createTenantAction, tenantStatusAction } from "../../server/actions";
 
 export async function AdminView() {

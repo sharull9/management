@@ -7,7 +7,7 @@ import {
   domainAudit,
   lockDocument,
   selectedVariant,
-} from "@/modules/procurement";
+} from "@/modules/procurement/server/service";
 import type { invoiceInput } from "../schema";
 import {
   calculateInvoiceLine,

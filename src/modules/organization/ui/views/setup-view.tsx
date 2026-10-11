@@ -4,7 +4,7 @@ import { ActionForm } from "@/components/shared/action-form";
 import { Field } from "@/components/shared/fields";
 import { FormCard } from "@/components/shared/form-card";
 import { db } from "@/core/db";
-import { setupAction } from "@/modules/organization-auth";
+import { setupAction } from "@/modules/organization-auth/server/actions";
 
 export async function SetupView() {
   await connection();

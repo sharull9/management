@@ -2,22 +2,24 @@ import { Decimal } from "@/core/decimal";
 import "dotenv/config";
 import assert from "node:assert/strict";
 import { permissionKeys } from "@/core/permissions";
-import { getApprovalHandler } from "@/modules/approvals";
-import "@/modules/approvals";
+import { getApprovalHandler } from "@/modules/approvals/server/handlers";
+import "@/modules/approvals/server/register";
 import type { OrgContext } from "@/core/context";
 import { db } from "@/core/db";
-import { resolveVariant } from "@/modules/masters";
+import { resolveVariant } from "@/modules/masters/server/service";
 import {
   consumptionInput,
   orderInput,
   receiptInput,
+  transferInput,
+} from "@/modules/procurement/schema";
+import {
   recordConsumption,
-  saveGoodsReceipt,
-  savePurchaseOrder,
   saveStockTransfer,
   stockBalance,
-  transferInput,
-} from "@/modules/procurement";
+} from "@/modules/procurement/server/inventory/service";
+import { savePurchaseOrder } from "@/modules/procurement/server/order-service";
+import { saveGoodsReceipt } from "@/modules/procurement/server/receipt-service";
 
 async function main() {
   const url = new URL(process.env.DATABASE_URL ?? "");

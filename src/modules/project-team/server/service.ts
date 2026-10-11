@@ -3,8 +3,12 @@ import { type ActionState, runAction } from "@/core/action-result";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { optional, value } from "@/core/form-data";
-import { audit, member, nullableDate } from "@/modules/project";
-import { checkAvailability } from "@/modules/workforce";
+import {
+  audit,
+  member,
+  nullableDate,
+} from "@/modules/project/server/action-helpers";
+import { checkAvailability } from "@/modules/workforce/server/availability";
 import { date, id, rate, teamOperation, text } from "../schema";
 
 export async function team(

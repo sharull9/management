@@ -1,5 +1,5 @@
 import type { PickerItem } from "@/components/shared/item-picker";
-import type { TaxInput } from "@/modules/tax";
+import type { TaxInput } from "@/modules/tax/util";
 
 type Choice = { id: string; name: string };
 export type InvoiceDraftLine = {

@@ -8,8 +8,8 @@ import {
 import { db } from "@/core/db";
 import { optional, value } from "@/core/form-data";
 import { nextDocumentNumber } from "@/core/numbering";
-import { lockStockProjects } from "@/modules/procurement";
-import { validateProjectCostRecognitionChange } from "@/modules/project-cost";
+import { lockStockProjects } from "@/modules/procurement/server/inventory/service";
+import { validateProjectCostRecognitionChange } from "@/modules/project-cost/server/cost-recognition";
 import { name, optionalMaterialCostRecognition, projectInput } from "../schema";
 import { audit, dateOrder, member, nullableDate } from "./action-helpers";
 

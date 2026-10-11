@@ -3,7 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import {
   assertCostRecognitionChange,
   type MaterialCostMode,
-} from "@/modules/project-cost-policy";
+} from "@/modules/project-cost-policy/util";
 
 // Callers must authorize the project before reading its recognition setting.
 export async function getProjectCostRecognition(
