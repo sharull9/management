@@ -1,9 +1,7 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
-import {
-  DataTable,
-  DataTableColumnHeader,
-} from "@/components/shared/data-table/index";
+import { DataTable } from "@/components/shared/data-table/data-table";
+import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
 import { Decimal } from "@/core/decimal";
 

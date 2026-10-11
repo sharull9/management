@@ -8,7 +8,7 @@ import {
   type FieldError as RHFFieldError,
   useController,
 } from "react-hook-form";
-import { Combobox, type Option } from "@/components/shared/combobox";
+import { Combobox, type Option } from "@/components/shared/combobox/combobox";
 import {
   Field,
   FieldDescription,

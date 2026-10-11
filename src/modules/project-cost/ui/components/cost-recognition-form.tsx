@@ -1,9 +1,7 @@
 "use client";
-import {
-  ActionFormShell,
-  MaterialCostRecognitionField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { MaterialCostRecognitionField } from "@/components/shared/form/material-cost-recognition-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { costRecognitionInput } from "../../schema";
 import { saveProjectCostRecognitionAction } from "../../server/actions";
 export function CostRecognitionForm({

@@ -49,7 +49,7 @@ export async function LocationsView({ org }: { org: string }) {
           org={org}
           states={states.map((s) => ({
             value: s.id,
-            label: `${s.country.code} · ${s.name}`,
+            label: `${s.country.code} Â· ${s.name}`,
           }))}
         />
       </FormCard>

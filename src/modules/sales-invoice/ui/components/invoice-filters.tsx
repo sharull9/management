@@ -1,13 +1,12 @@
 "use client";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import type { z } from "zod";
-import type { Option } from "@/components/shared/combobox";
-import { ComboboxField } from "@/components/shared/combobox";
-import {
-  ActionFormShell,
-  CheckboxField,
-  useZodForm,
-} from "@/components/shared/form";
+import type { Option } from "@/components/shared/combobox/combobox";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { CheckboxField } from "@/components/shared/form/checkbox-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { invoiceFiltersInput } from "../../schema";
 import {
   findInvoiceCustomers,
@@ -24,6 +23,8 @@ export function InvoiceFilters({
   customers: Option[];
   projects: Option[];
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const form = useZodForm(invoiceFiltersInput, {
     customerId: filters.customerId ?? null,
     projectId: filters.projectId ?? null,
@@ -41,14 +42,17 @@ export function InvoiceFilters({
   );
   async function apply(input: z.input<typeof invoiceFiltersInput>) {
     const values = invoiceFiltersInput.parse(input);
-    const search = new URLSearchParams();
+    const search = new URLSearchParams(searchParams.toString());
     if (values.customerId) search.set("customerId", values.customerId);
+    else search.delete("customerId");
     if (values.projectId) search.set("projectId", values.projectId);
+    else search.delete("projectId");
     if (values.status) search.set("status", values.status);
+    else search.delete("status");
     if (values.overdue) search.set("overdue", "1");
-    return {
-      redirectTo: `/${org}/sales/invoices?${search}`,
-    };
+    else search.delete("overdue");
+    router.replace(`/${org}/sales/invoices?${search}`, { scroll: false });
+    return {};
   }
   return (
     <ActionFormShell form={form} action={apply} submit="Apply">

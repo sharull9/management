@@ -1,9 +1,7 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
-import {
-  DataTable,
-  DataTableColumnHeader,
-} from "@/components/shared/data-table/index";
+import { DataTable } from "@/components/shared/data-table/data-table";
+import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 import { CityForm, DeleteCityForm } from "./city-form";
 
 type CityRow = {
@@ -49,7 +47,7 @@ export function CitiesTable({
                 city={city}
                 states={states.map((s) => ({
                   value: s.id,
-                  label: `${s.country.code} · ${s.name}`,
+                  label: `${s.country.code} Â· ${s.name}`,
                 }))}
               />
               <DeleteCityForm org={org} id={city.id} />

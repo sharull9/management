@@ -1,14 +1,12 @@
 "use client";
 
 import { useFieldArray } from "react-hook-form";
-import {
-  ActionFormShell,
-  CostTypeField,
-  SelectField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { CostTypeField } from "@/components/shared/form/cost-type-field";
 import { toOptions } from "@/components/shared/form/enum-options";
+import { SelectField } from "@/components/shared/form/select-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Button } from "@/components/ui/button";
 import { budgetLinesInput } from "../../schema";
 import { budgetLinesAction } from "../../server/budget-actions";

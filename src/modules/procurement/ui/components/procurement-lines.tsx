@@ -3,13 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type UseFormReturn, useFieldArray, useWatch } from "react-hook-form";
 import type { z } from "zod";
-import {
-  ItemVariantField,
-  NumberField,
-  SelectField,
-  TextField,
-} from "@/components/shared/form";
 import { toOptions } from "@/components/shared/form/enum-options";
+import { ItemVariantField } from "@/components/shared/form/item-variant-field";
+import { NumberField } from "@/components/shared/form/number-field";
+import { SelectField } from "@/components/shared/form/select-field";
+import { TextField } from "@/components/shared/form/text-field";
 import { Button } from "@/components/ui/button";
 import type { procurementFormInput } from "../../schema";
 import {

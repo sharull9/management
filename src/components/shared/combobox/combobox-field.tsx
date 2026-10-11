@@ -2,7 +2,7 @@
 
 import type { FieldValues } from "react-hook-form";
 import { FieldFrame, type FormFieldProps } from "../form/field-frame";
-import { Combobox, type ComboboxProps } from "./index";
+import { Combobox, type ComboboxProps } from "./combobox";
 
 export function ComboboxField<T extends FieldValues, TOutput = T>({
   control,

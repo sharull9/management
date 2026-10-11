@@ -1,9 +1,7 @@
 "use client";
-import {
-  ActionFormShell,
-  type TypedFormAction,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import type { TypedFormAction } from "@/components/shared/form/use-action-submit";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { recordIdInput } from "../../schema";
 export function RecordDeleteForm({
   id,

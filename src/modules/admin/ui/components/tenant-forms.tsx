@@ -1,11 +1,9 @@
 "use client";
 import type { z } from "zod";
-import {
-  ActionFormShell,
-  PasswordField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { PasswordField } from "@/components/shared/form/password-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { createTenantInput, tenantStatusInput } from "../../schema";
 import { createTenantAction, tenantStatusAction } from "../../server/actions";
 export function CreateTenantForm() {

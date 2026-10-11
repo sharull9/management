@@ -2,10 +2,8 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import type { z } from "zod";
-import {
-  DataTable,
-  DataTableColumnHeader,
-} from "@/components/shared/data-table/index";
+import { DataTable } from "@/components/shared/data-table/data-table";
+import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   Item,

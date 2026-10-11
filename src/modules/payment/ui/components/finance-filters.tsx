@@ -1,6 +1,6 @@
 "use client";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Combobox, type Option } from "@/components/shared/combobox";
+import { Combobox, type Option } from "@/components/shared/combobox/combobox";
 import { Field, FieldLabel } from "@/components/ui/field";
 export function FinanceFilters({
   fields,

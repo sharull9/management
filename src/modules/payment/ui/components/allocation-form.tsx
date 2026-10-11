@@ -2,13 +2,12 @@
 import { useMemo } from "react";
 import { FormProvider, useFieldArray, useFormContext } from "react-hook-form";
 import type { z } from "zod";
-import { ComboboxField, type Option } from "@/components/shared/combobox";
+import type { Option } from "@/components/shared/combobox/combobox";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { EmptyState } from "@/components/shared/empty-state";
-import {
-  ActionFormShell,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
 import { allocationActionInput } from "../../schema";

@@ -1,10 +1,8 @@
 "use client";
 import type { z } from "zod";
-import {
-  ActionFormShell,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { designationInput } from "../../schema";
 import { designationAction } from "../../server/actions";
 export function DesignationForm({

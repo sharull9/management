@@ -1,10 +1,8 @@
 "use client";
-import {
-  ActionFormShell,
-  PasswordField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { PasswordField } from "@/components/shared/form/password-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { credentials } from "../../schema";
 import { setupAction } from "../../server/actions";
 export function SetupForm() {

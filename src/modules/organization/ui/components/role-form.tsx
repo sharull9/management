@@ -1,11 +1,9 @@
 "use client";
 import { Controller } from "react-hook-form";
 import type { z } from "zod";
-import {
-  ActionFormShell,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldError, FieldLabel } from "@/components/ui/field";
 import { permissionGroups } from "@/core/permissions";

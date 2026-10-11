@@ -28,7 +28,7 @@ export async function findItems(
   });
   return items.map((item) => ({
     id: item.id,
-    name: `${item.code} · ${item.name}`,
+    name: `${item.code} Â· ${item.name}`,
     configs: item.levelConfigs.map((c) => ({
       level: c.definition.level,
       name: c.definition.name,

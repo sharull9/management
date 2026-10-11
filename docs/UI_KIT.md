@@ -22,7 +22,9 @@ export async function saveProfile(input: z.input<typeof profileInput>) {
 
 ```tsx
 "use client";
-import { ActionFormShell, TextField, useZodForm } from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { profileInput } from "../../schema";
 import { saveProfile } from "../../server/actions";
 export function ProfileForm() {
@@ -37,11 +39,11 @@ export function ProfileForm() {
 
 `TextField`, `NumberField`, `TextareaField`, `DateField`, `CheckboxField`, `PasswordField` take `control`, typed `name`, `label`, optional `description`. Text, textarea, number and password accept additional input attributes. Date accepts `min`, `max`, `disabled`; checkbox accepts `disabled`. Number values are numbers or `null` when cleared; dates are `YYYY-MM-DD` strings; checkboxes are booleans. Match schema/defaults to these values. `PasswordInput` also works outside RHF with ordinary input props and an accessible show/hide toggle.
 
-Example: `organization-auth/ui/components/sign-in-form.tsx`, rendered by `organization/ui/views/sign-in-view.tsx`. Setup/sign-out still use FormData.
+Example: `organization-auth/ui/components/sign-in-form.tsx`, rendered by `organization/ui/views/sign-in-view.tsx`. Sign-out still uses FormData.
 
 ## Comboboxes
 
-Import `Combobox`, `ComboboxField`, type `Option` from `@/components/shared/combobox`. It composes Popover, Command, Button and multi-value Badge.
+Import `Combobox` and type `Option` from `@/components/shared/combobox/combobox`, and `ComboboxField` from `@/components/shared/combobox/combobox-field`. It composes Popover, Command, Button and multi-value Badge.
 
 ```tsx
 <Combobox options={[{ value: "active", label: "Active" }]} value={status}
@@ -75,7 +77,7 @@ Remote mode debounces 250ms, disables cmdk filtering, displays loading/errors an
 
 ## Domain pickers
 
-Import client fields from `@/components/shared/form` or their defining files. All take RHF `control` and typed `name`, and support transformed form output generics. Set defaults in the form. Legacy pickers and module forms remain available during wave 2b.
+Import client fields directly from their defining files under `@/components/shared/form/`. All take RHF `control` and typed `name`, and support transformed form output generics. Set defaults in the form. All implementations live in concrete files. Form, combobox and data-table indexes are temporary compatibility re-exports for the concurrent approvals migration.
 
 ### Item and variant
 
@@ -110,7 +112,7 @@ For async search, return complete items with configs from an authenticated, tena
 
 ### Option helpers
 
-Import `toOptions` and `enumOptions` directly from `@/components/shared/form/enum-options`. This pure file has no client directive and can run in server views. `toOptions(rows)` maps `{ id, name }` to `{ value: id, label: name }`. `enumOptions(values: Record<string, string>)` keeps enum values, replaces underscores with spaces and title-cases each word. Legacy EnumOptions keeps its existing uppercase labels; the new helper uses human labels. Both return `Option[]` in input order and omit a blank option; single Combobox fields represent blank values with `null`.
+Import `toOptions` and `enumOptions` directly from `@/components/shared/form/enum-options`. This pure file has no client directive and can run in server views. `toOptions(rows)` maps `{ id, name }` to `{ value: id, label: name }`. `enumOptions(values: Record<string, string>)` keeps enum values, replaces underscores with spaces and title-cases each word. The helpers use human labels and return `Option[]` in input order and omit a blank option; single Combobox fields represent blank values with `null`.
 
 ```ts
 const itemOptions = toOptions([{ id: "steel", name: "Steel" }]);
@@ -129,12 +131,13 @@ const modeOptions = enumOptions({ ON_RECEIPT: "ON_RECEIPT" });
 
 ## Tables
 
-Import from `@/components/shared/data-table/index`. The legacy `@/components/shared/data-table` file still accepts `headings` and `rows`; it is deprecated.
+Import `DataTable` from `@/components/shared/data-table/data-table`, `DataTableColumnHeader` from `@/components/shared/data-table/data-table-column-header`, and `DataTablePagination` from `@/components/shared/data-table/data-table-pagination`. The legacy headings/rows component has been removed.
 
 ```tsx
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
-import { DataTable, DataTableColumnHeader } from "@/components/shared/data-table/index";
+import { DataTable } from "@/components/shared/data-table/data-table";
+import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 type Row = { id: string; name: string };
 const columns: ColumnDef<Row>[] = [{ accessorKey: "name",
   header: ({ column }) => <DataTableColumnHeader column={column} title="Name" /> }];
@@ -175,3 +178,5 @@ Use Empty when rows are empty.
 4. Keep FormData actions and legacy ActionForm for uploads. Do not force files through the typed object helper.
 5. Move table columns to module client components. Render Empty for "No records" and Item for simple lists.
 6. Run tsc, lint, tests, build and boundary checks. Limit edits to assigned modules and coordinate shared changes.
+
+Import `dateValue` from `@/components/shared/form/date-value`. Filters use Combobox fields and `router.replace` with search parameters, preserving unrelated query values and deleting cleared filters. Upload and sign-out forms may retain `ActionForm` with shadcn Field primitives.

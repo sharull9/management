@@ -1,6 +1,6 @@
 "use server";
 import { z } from "zod";
-import type { Option } from "@/components/shared/combobox";
+import type { Option } from "@/components/shared/combobox/combobox";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
 export async function findTenantUsers(

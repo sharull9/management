@@ -2,7 +2,8 @@
 import type { ReactNode } from "react";
 import type { UseFormReturn } from "react-hook-form";
 import type { z } from "zod";
-import { ActionFormShell, useZodForm } from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { deleteMasterInput, saveMasterInput } from "../../schema";
 import { deleteMasterAction, saveMasterAction } from "../../server/actions";
 import type { MasterKind } from "../../type";

@@ -1,4 +1,13 @@
-export type { PickerItem } from "../item-picker";
+import type { LevelConfig } from "@/modules/item-variant/util";
+
+export type PickerItem = {
+  id: string;
+  name: string;
+  configs: LevelConfig[];
+  stockUomId?: string;
+  purchaseUomId?: string | null;
+  defaultTaxGroupId?: string | null;
+};
 
 /** Legacy itemId/level1...level5 fields grouped into one RHF value. */
 export type ItemVariantValue = {

@@ -1,13 +1,11 @@
 "use client";
 import type { z } from "zod";
-import {
-  ActionFormShell,
-  CostTypeField,
-  SelectField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { CostTypeField } from "@/components/shared/form/cost-type-field";
 import { toOptions } from "@/components/shared/form/enum-options";
+import { SelectField } from "@/components/shared/form/select-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { budgetLineInput, deleteInput, totalBudgetInput } from "../../schema";
 import {
   budgetAction,

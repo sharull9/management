@@ -1,10 +1,8 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { Option } from "@/components/shared/combobox";
-import {
-  DataTable,
-  DataTableColumnHeader,
-} from "@/components/shared/data-table/index";
+import type { Option } from "@/components/shared/combobox/combobox";
+import { DataTable } from "@/components/shared/data-table/data-table";
+import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 import { removeMemberAction } from "../../server/member-actions";
 import { MemberForm } from "./member-form";
 import { RecordDeleteForm } from "./record-delete-form";

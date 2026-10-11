@@ -1,11 +1,9 @@
 "use client";
 import { useCallback, useState } from "react";
-import {
-  ActionFormShell,
-  ItemVariantField,
-  type PickerItem,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { ItemVariantField } from "@/components/shared/form/item-variant-field";
+import type { PickerItem } from "@/components/shared/form/item-variant-value";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { variantFormInput } from "../../schema";
 import { resolveVariantAction } from "../../server/actions";
 import { findItems } from "../../server/picker-actions";

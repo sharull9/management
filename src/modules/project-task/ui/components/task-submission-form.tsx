@@ -2,8 +2,11 @@
 import { useMemo } from "react";
 import { useWatch } from "react-hook-form";
 import { ActionForm } from "@/components/shared/action-form";
-import { ComboboxField, type Option } from "@/components/shared/combobox";
-import { NumberField, TextField, useZodForm } from "@/components/shared/form";
+import type { Option } from "@/components/shared/combobox/combobox";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { NumberField } from "@/components/shared/form/number-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { taskSubmissionInput } from "../../schema";

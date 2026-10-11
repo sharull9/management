@@ -1,16 +1,14 @@
 "use client";
 import { useMemo } from "react";
 import type { z } from "zod";
-import { ComboboxField } from "@/components/shared/combobox";
-import {
-  ActionFormShell,
-  DateField,
-  NumberField,
-  TextareaField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { DateField } from "@/components/shared/form/date-field";
 import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
+import { NumberField } from "@/components/shared/form/number-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { TextareaField } from "@/components/shared/form/textarea-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { TaskPriority } from "@/generated/prisma/enums";
 import { saveTaskInput } from "../../schema";
 import { saveTaskAction } from "../../server/actions";

@@ -2,14 +2,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { useFieldArray, useWatch } from "react-hook-form";
 import type { z } from "zod";
-import { ComboboxField } from "@/components/shared/combobox";
-import {
-  ActionFormShell,
-  DateField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { DateField } from "@/components/shared/form/date-field";
 import { toOptions } from "@/components/shared/form/enum-options";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Button } from "@/components/ui/button";
 import { type invoiceFormInput, invoiceFormSchema } from "../../schema";
 import { saveInvoiceAction } from "../../server/actions";

@@ -1,13 +1,12 @@
 "use client";
 import { useMemo } from "react";
-import { ComboboxField, type Option } from "@/components/shared/combobox";
-import {
-  ActionFormShell,
-  CostTypeField,
-  DateField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import type { Option } from "@/components/shared/combobox/combobox";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { CostTypeField } from "@/components/shared/form/cost-type-field";
+import { DateField } from "@/components/shared/form/date-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { createExpenseInput } from "../../schema";
 import { expenseAction } from "../../server/actions";
 import {

@@ -1,15 +1,13 @@
 "use client";
 import { useMemo } from "react";
 import type { z } from "zod";
-import {
-  ActionFormShell,
-  DateField,
-  MaterialCostRecognitionField,
-  SelectField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { DateField } from "@/components/shared/form/date-field";
 import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
+import { MaterialCostRecognitionField } from "@/components/shared/form/material-cost-recognition-field";
+import { SelectField } from "@/components/shared/form/select-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { ProjectStatus } from "@/generated/prisma/enums";
 import { projectFormInput } from "../../schema";
 import { saveProjectAction } from "../../server/actions";

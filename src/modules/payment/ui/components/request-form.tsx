@@ -2,14 +2,12 @@
 import { useMemo } from "react";
 import { FormProvider, useWatch } from "react-hook-form";
 import type { z } from "zod";
-import { ComboboxField } from "@/components/shared/combobox";
-import {
-  ActionFormShell,
-  DateField,
-  TextareaField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { DateField } from "@/components/shared/form/date-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { TextareaField } from "@/components/shared/form/textarea-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { modes } from "../../constants";
 import { requestInput } from "../../schema";
 import { saveRequestAction } from "../../server/actions";

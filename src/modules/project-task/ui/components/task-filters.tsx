@@ -1,13 +1,13 @@
 "use client";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import type { z } from "zod";
-import { ComboboxField, type Option } from "@/components/shared/combobox";
-import {
-  ActionFormShell,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import type { Option } from "@/components/shared/combobox/combobox";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
 import { enumOptions } from "@/components/shared/form/enum-options";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { TaskStatus } from "@/generated/prisma/enums";
 import { taskFiltersInput } from "../../schema";
 import { findTaskStages } from "../../server/picker-actions";
@@ -22,6 +22,8 @@ export function TaskFilters({
   defaults: z.input<typeof taskFiltersInput>;
   stages: Option[];
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const form = useZodForm(taskFiltersInput, defaults);
   const loadStages = useMemo(
     () => findTaskStages.bind(null, org, projectId),
@@ -33,12 +35,15 @@ export function TaskFilters({
       className="grid items-end gap-4"
       submit="Filter tasks"
       action={async (input) => {
-        const query = new URLSearchParams();
+        const query = new URLSearchParams(searchParams.toString());
         for (const [key, value] of Object.entries(input))
           if (value) query.set(key, String(value));
-        return {
-          redirectTo: `/${org}/projects/${projectId}/tasks?${query.toString()}`,
-        };
+          else query.delete(key);
+        router.replace(
+          `/${org}/projects/${projectId}/tasks?${query.toString()}`,
+          { scroll: false },
+        );
+        return {};
       }}
     >
       <div className="grid items-end gap-4 sm:grid-cols-4">

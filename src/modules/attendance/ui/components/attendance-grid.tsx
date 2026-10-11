@@ -1,16 +1,14 @@
 "use client";
 import { useFieldArray, useWatch } from "react-hook-form";
 import type { z } from "zod";
-import { ComboboxField } from "@/components/shared/combobox";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { EmptyState } from "@/components/shared/empty-state";
-import {
-  ActionFormShell,
-  CheckboxField,
-  TextField,
-  type TypedFormAction,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { CheckboxField } from "@/components/shared/form/checkbox-field";
 import { enumOptions } from "@/components/shared/form/enum-options";
+import { TextField } from "@/components/shared/form/text-field";
+import type { TypedFormAction } from "@/components/shared/form/use-action-submit";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Button } from "@/components/ui/button";
 import {
   Table,

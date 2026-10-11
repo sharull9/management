@@ -1,11 +1,9 @@
 "use client";
 import type { z } from "zod";
-import {
-  ActionFormShell,
-  NumberField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { NumberField } from "@/components/shared/form/number-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { saveSeriesInput } from "../../schema";
 import { saveSeriesAction } from "../../server/numbering-actions";
 export function SeriesForm({

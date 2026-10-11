@@ -1,11 +1,9 @@
 "use client";
-import type { Option } from "@/components/shared/combobox";
-import {
-  ActionFormShell,
-  SelectField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import type { Option } from "@/components/shared/combobox/combobox";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { SelectField } from "@/components/shared/form/select-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { deleteCityInput, saveCityInput } from "../../schema";
 import {
   deleteCityAction,

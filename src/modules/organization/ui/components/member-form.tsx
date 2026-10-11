@@ -2,15 +2,13 @@
 import { useEffect, useMemo } from "react";
 import { useWatch } from "react-hook-form";
 import type { z } from "zod";
-import type { Option } from "@/components/shared/combobox";
-import {
-  ActionFormShell,
-  PasswordField,
-  SelectField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import type { Option } from "@/components/shared/combobox/combobox";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
 import { enumOptions } from "@/components/shared/form/enum-options";
+import { PasswordField } from "@/components/shared/form/password-field";
+import { SelectField } from "@/components/shared/form/select-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { saveMemberInput } from "../../schema";
 import { saveMemberAction } from "../../server/member-actions";
 import { findTenantUsers } from "../../server/picker-actions";

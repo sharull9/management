@@ -1,10 +1,8 @@
 "use client";
-import {
-  CheckboxField,
-  SelectField,
-  TextField,
-} from "@/components/shared/form";
+import { CheckboxField } from "@/components/shared/form/checkbox-field";
 import { toOptions } from "@/components/shared/form/enum-options";
+import { SelectField } from "@/components/shared/form/select-field";
+import { TextField } from "@/components/shared/form/text-field";
 import { FormCard } from "@/components/shared/form-card";
 import { Item, ItemContent } from "@/components/ui/item";
 import type { MasterData as Data } from "../../type";

@@ -1,6 +1,7 @@
 "use client";
 
-import { ActionFormShell, useZodForm } from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { documentSubmissionInput } from "../../schema";
 import { submitProcurementAction } from "../../server/actions";
 

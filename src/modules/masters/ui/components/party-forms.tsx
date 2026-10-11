@@ -1,12 +1,10 @@
 "use client";
 import Link from "next/link";
-import {
-  CheckboxField,
-  NumberField,
-  SelectField,
-  TextField,
-} from "@/components/shared/form";
+import { CheckboxField } from "@/components/shared/form/checkbox-field";
 import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
+import { NumberField } from "@/components/shared/form/number-field";
+import { SelectField } from "@/components/shared/form/select-field";
+import { TextField } from "@/components/shared/form/text-field";
 import { FormCard } from "@/components/shared/form-card";
 import { Item, ItemContent } from "@/components/ui/item";
 import { partyTypeSchema } from "../../schema";

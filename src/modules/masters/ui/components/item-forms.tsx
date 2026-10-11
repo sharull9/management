@@ -1,12 +1,12 @@
 "use client";
 import { EmptyState } from "@/components/shared/empty-state";
+import { CheckboxField } from "@/components/shared/form/checkbox-field";
+import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
 import {
-  CheckboxField,
   MultiSelectField,
   SelectField,
-  TextField,
-} from "@/components/shared/form";
-import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
+} from "@/components/shared/form/select-field";
+import { TextField } from "@/components/shared/form/text-field";
 import { FormCard } from "@/components/shared/form-card";
 import {
   Item,

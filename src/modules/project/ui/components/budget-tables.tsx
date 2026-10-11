@@ -1,10 +1,8 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { z } from "zod";
-import {
-  DataTable,
-  DataTableColumnHeader,
-} from "@/components/shared/data-table/index";
+import { DataTable } from "@/components/shared/data-table/data-table";
+import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 import type { budgetLineInput } from "../../schema";
 import { BudgetLineForm, DeleteBudgetForm } from "./budget-forms";
 export type BudgetRow = {

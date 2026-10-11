@@ -1,6 +1,6 @@
 "use client";
 import type { FieldValues } from "react-hook-form";
-import { Combobox, type Option } from "@/components/shared/combobox";
+import { Combobox, type Option } from "@/components/shared/combobox/combobox";
 import {
   FieldFrame,
   type FormFieldProps,

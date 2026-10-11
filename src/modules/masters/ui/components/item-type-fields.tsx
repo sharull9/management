@@ -2,8 +2,9 @@
 import { useEffect, useRef } from "react";
 import { type UseFormReturn, useWatch } from "react-hook-form";
 import type { z } from "zod";
-import { CheckboxField, SelectField } from "@/components/shared/form";
+import { CheckboxField } from "@/components/shared/form/checkbox-field";
 import { enumOptions } from "@/components/shared/form/enum-options";
+import { SelectField } from "@/components/shared/form/select-field";
 import { itemTypeSchema, type saveMasterInput } from "../../schema";
 
 type Input = z.input<typeof saveMasterInput>;

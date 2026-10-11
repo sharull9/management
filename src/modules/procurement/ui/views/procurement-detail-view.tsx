@@ -8,14 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { db } from "@/core/db";
 import { Decimal } from "@/core/decimal";
 import { attachProformaAction } from "../../server/actions";
@@ -23,6 +15,7 @@ import { type DocumentKind, documentKinds } from "../../server/approval";
 import { documentDetail, procurementData } from "../../server/queries";
 import type { DraftLine } from "../../type";
 import { formData, selectedLevels } from "../../util";
+import { ProcurementDetailLinesTable } from "../components/procurement-detail-lines-table";
 import { ProcurementForm } from "../components/procurement-form";
 import { SubmitProcurementForm } from "../components/submit-procurement-form";
 
@@ -238,54 +231,7 @@ export async function ProcurementDetail({
           ` · To: ${row.toProject.name} · ${row.date.toISOString().slice(0, 10)}`}
       </p>
       <FormCard title="Lines">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {[
-                  "Item variant",
-                  "Quantity",
-                  "UOM",
-                  "Rate",
-                  "Discount %",
-                  "Net / estimate",
-                  "Received",
-                  "Accepted",
-                  "Rejected",
-                  "Pending",
-                ].map((h) => (
-                  <TableHead key={h}>{h}</TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {lines.map((l) => (
-                <TableRow key={l.id}>
-                  {[
-                    l.name,
-                    l.qty,
-                    l.uom,
-                    l.rate,
-                    l.discount,
-                    l.amount,
-                    l.received,
-                    l.accepted,
-                    l.rejected,
-                    l.pending,
-                  ].map((cell, i) => (
-                    <TableCell
-                      key={`${l.id}:${i}`}
-                      className="p-2"
-                      title={i === 0 ? l.description : undefined}
-                    >
-                      {cell}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        <ProcurementDetailLinesTable lines={lines} />
       </FormCard>
       {isRequest && (
         <p className="font-medium">

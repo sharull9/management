@@ -1,4 +1,4 @@
-import type { Option } from "@/components/shared/combobox";
+import type { Option } from "@/components/shared/combobox/combobox";
 
 export function toOptions(
   rows: readonly { id: string; name: string }[],

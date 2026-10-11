@@ -2,13 +2,11 @@
 import { useEffect, useRef } from "react";
 import { type UseFormReturn, useWatch } from "react-hook-form";
 import type { z } from "zod";
-import { ComboboxField } from "@/components/shared/combobox";
-import {
-  CheckboxField,
-  ItemVariantField,
-  TextField,
-} from "@/components/shared/form";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { CheckboxField } from "@/components/shared/form/checkbox-field";
 import { toOptions } from "@/components/shared/form/enum-options";
+import { ItemVariantField } from "@/components/shared/form/item-variant-field";
+import { TextField } from "@/components/shared/form/text-field";
 import { Button } from "@/components/ui/button";
 import type { invoiceFormInput } from "../../schema";
 import type {

@@ -1,9 +1,10 @@
 "use client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import type { z } from "zod";
-import { ComboboxField, type Option } from "@/components/shared/combobox";
-import { useZodForm } from "@/components/shared/form";
+import type { Option } from "@/components/shared/combobox/combobox";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Button } from "@/components/ui/button";
 import { billFilterInput } from "../../schema";
 import { findBillVendors } from "../../server/picker-actions";
@@ -21,6 +22,7 @@ export function BillFilters({
 }) {
   const form = useZodForm(billFilterInput, initial);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const loadVendors = useMemo(
     () => findBillVendors.bind(null, org, "bill.view"),
     [org],
@@ -29,10 +31,11 @@ export function BillFilters({
     <form
       className="grid gap-4 md:grid-cols-5"
       onSubmit={form.handleSubmit((values) => {
-        const search = new URLSearchParams();
+        const search = new URLSearchParams(searchParams.toString());
         for (const [key, value] of Object.entries(values))
           if (value) search.set(key, value);
-        router.push(`/${org}/procurement/bills?${search}`);
+          else search.delete(key);
+        router.replace(`/${org}/procurement/bills?${search}`);
       })}
     >
       <ComboboxField

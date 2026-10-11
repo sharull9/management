@@ -1,13 +1,13 @@
 "use client";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import type { z } from "zod";
-import { ComboboxField, type Option } from "@/components/shared/combobox";
-import {
-  ActionFormShell,
-  DateField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import type { Option } from "@/components/shared/combobox/combobox";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { DateField } from "@/components/shared/form/date-field";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { workforceFiltersInput } from "../../schema";
 import { findWorkforceWorkers } from "../../server/picker-actions";
 export function WorkforceFilters({
@@ -19,6 +19,8 @@ export function WorkforceFilters({
   defaults: z.input<typeof workforceFiltersInput>;
   workers: Option[];
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const form = useZodForm(workforceFiltersInput, defaults);
   const loadWorkers = useMemo(
     () => findWorkforceWorkers.bind(null, org),
@@ -30,10 +32,14 @@ export function WorkforceFilters({
       className="grid items-end gap-4"
       submit="Check availability"
       action={async (input) => {
-        const query = new URLSearchParams();
+        const query = new URLSearchParams(searchParams.toString());
         for (const [key, value] of Object.entries(input))
           if (value) query.set(key, String(value));
-        return { redirectTo: `/${org}/workforce?${query.toString()}` };
+          else query.delete(key);
+        router.replace(`/${org}/workforce?${query.toString()}`, {
+          scroll: false,
+        });
+        return {};
       }}
     >
       <div className="grid items-end gap-4 sm:grid-cols-5">

@@ -1,10 +1,8 @@
 "use client";
 
 import type { FieldValues } from "react-hook-form";
-import {
-  ComboboxField,
-  type ComboboxProps,
-} from "@/components/shared/combobox";
+import type { ComboboxProps } from "@/components/shared/combobox/combobox";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import type { FormFieldProps } from "./field-frame";
 
 export type SelectFieldProps<

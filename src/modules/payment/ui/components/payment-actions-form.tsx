@@ -1,9 +1,7 @@
 "use client";
-import {
-  ActionFormShell,
-  TextareaField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { TextareaField } from "@/components/shared/form/textarea-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { submitRequestInput, voidPaymentInput } from "../../schema";
 import { submitRequestAction, voidPaymentAction } from "../../server/actions";
 export function SubmitRequestForm({ org, id }: { org: string; id: string }) {
