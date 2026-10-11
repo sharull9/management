@@ -1,13 +1,19 @@
-import { ActionForm } from "@/components/shared/action-form";
-import { Field, SelectField } from "@/components/shared/fields";
+"use client";
+import { useMemo } from "react";
+import type { z } from "zod";
 import {
-  dateValue,
-  EnumOptions,
-  Options,
-} from "@/components/shared/form-options";
-import type { Stage } from "@/generated/prisma/client";
+  ActionFormShell,
+  DateField,
+  NumberField,
+  SelectField,
+  TextField,
+  useZodForm,
+} from "@/components/shared/form";
+import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
 import { ProjectStatus } from "@/generated/prisma/enums";
-import { saveStageAction } from "../../server/actions";
+import { findProjectMembers } from "@/modules/project/server/picker-actions";
+import { deleteStageInput, stageFormInput } from "../../schema";
+import { deleteStageAction, saveStageAction } from "../../server/actions";
 export function StageForm({
   org,
   projectId,
@@ -17,64 +23,99 @@ export function StageForm({
 }: {
   org: string;
   projectId: string;
-  stage?: Stage;
+  stage?: z.input<typeof stageFormInput>;
   users: { id: string; name: string }[];
   nextSequence?: number;
 }) {
+  const form = useZodForm<
+    z.input<typeof stageFormInput>,
+    z.output<typeof stageFormInput>
+  >(
+    stageFormInput,
+    stage ?? {
+      id: null,
+      name: "",
+      sequence: nextSequence,
+      status: "PLANNED",
+      managerUserId: null,
+      budgetAmount: "",
+      startDate: "",
+      endDate: "",
+    },
+  );
+  const loadMembers = useMemo(
+    () => findProjectMembers.bind(null, org, projectId, "stage"),
+    [org, projectId],
+  );
   return (
-    <ActionForm
+    <ActionFormShell
+      form={form}
       action={saveStageAction.bind(null, org, projectId)}
       submit={stage ? "Save stage" : "Create stage"}
     >
-      {stage && <input type="hidden" name="id" value={stage.id} />}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="Stage name"
+        <TextField
+          control={form.control}
           name="name"
-          defaultValue={stage?.name}
+          label="Stage name"
           required
         />
-        <Field
-          label="Sequence"
+        <NumberField
+          control={form.control}
           name="sequence"
-          type="number"
+          label="Sequence"
           min={1}
-          defaultValue={stage?.sequence ?? nextSequence}
           required
         />
         <SelectField
-          label="Status"
+          control={form.control}
           name="status"
-          defaultValue={stage?.status ?? "PLANNED"}
-        >
-          <EnumOptions values={ProjectStatus} />
-        </SelectField>
+          label="Status"
+          options={enumOptions(ProjectStatus)}
+        />
         <SelectField
-          label="Stage manager"
+          control={form.control}
           name="managerUserId"
-          defaultValue={stage?.managerUserId ?? ""}
-        >
-          <Options rows={users} />
-        </SelectField>
-        <Field
-          label="Start date"
-          name="startDate"
-          type="date"
-          defaultValue={dateValue(stage?.startDate)}
+          label="Stage manager"
+          options={toOptions(users)}
+          loadOptions={loadMembers}
+          clearable
         />
-        <Field
-          label="End date"
-          name="endDate"
-          type="date"
-          defaultValue={dateValue(stage?.endDate)}
-        />
-        <Field
-          label="Stage budget (optional)"
+        <DateField control={form.control} name="startDate" label="Start date" />
+        <DateField control={form.control} name="endDate" label="End date" />
+        <TextField
+          control={form.control}
           name="budgetAmount"
+          label="Stage budget (optional)"
           inputMode="decimal"
-          defaultValue={stage?.budgetAmount?.toFixed(2) ?? ""}
         />
       </div>
-    </ActionForm>
+    </ActionFormShell>
+  );
+}
+export function DeleteStageForm({
+  org,
+  projectId,
+  id,
+}: {
+  org: string;
+  projectId: string;
+  id: string;
+}) {
+  const form = useZodForm<
+    z.input<typeof deleteStageInput>,
+    z.output<typeof deleteStageInput>
+  >(deleteStageInput, { id });
+  return (
+    <ActionFormShell
+      form={form}
+      action={deleteStageAction.bind(null, org, projectId)}
+      submit="Delete stage"
+      destructive
+    >
+      <p className="text-xs text-muted-foreground">
+        Referenced stages cannot be deleted.
+      </p>
+    </ActionFormShell>
   );
 }

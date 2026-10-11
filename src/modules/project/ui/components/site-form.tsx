@@ -1,110 +1,163 @@
 "use client";
-import { useState } from "react";
-import type { FormAction } from "@/components/shared/action-form";
-import { ActionForm } from "@/components/shared/action-form";
-import { Field, SelectField } from "@/components/shared/fields";
-
+import { useEffect, useMemo, useRef } from "react";
+import { useWatch } from "react-hook-form";
+import type { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox";
+import {
+  ActionFormShell,
+  TextField,
+  useZodForm,
+} from "@/components/shared/form";
+import { toOptions } from "@/components/shared/form/enum-options";
+import { deleteInput, siteFormInput } from "../../schema";
+import {
+  findCities,
+  findCountries,
+  findStates,
+} from "../../server/picker-actions";
+import { deleteSiteAction, siteAction } from "../../server/site-actions";
 import type { Site } from "../../type";
 export function SiteForm({
-  action,
+  org,
+  projectId,
   site,
   countries,
   states,
   cities,
 }: {
-  action: FormAction;
+  org: string;
+  projectId: string;
   site?: Site;
   countries: { id: string; name: string }[];
   states: { id: string; name: string; countryId: string }[];
   cities: { id: string; name: string; stateId: string }[];
 }) {
-  const [country, setCountry] = useState(site?.countryId ?? "");
-  const [state, setState] = useState(site?.stateId ?? "");
-  const [city, setCity] = useState(site?.cityId ?? "");
+  const form = useZodForm<
+    z.input<typeof siteFormInput>,
+    z.output<typeof siteFormInput>
+  >(siteFormInput, {
+    id: site?.id ?? null,
+    name: site?.name ?? "",
+    address: site?.address ?? "",
+    pincode: site?.pincode ?? null,
+    countryId: site?.countryId ?? null,
+    stateId: site?.stateId ?? null,
+    cityId: site?.cityId ?? null,
+    latitude: site?.latitude ?? "",
+    longitude: site?.longitude ?? "",
+  });
+  const country = useWatch({ control: form.control, name: "countryId" });
+  const state = useWatch({ control: form.control, name: "stateId" });
+  const loadCountries = useMemo(
+    () => findCountries.bind(null, org, projectId),
+    [org, projectId],
+  );
+  const loadStates = useMemo(
+    () => findStates.bind(null, org, projectId, country),
+    [org, projectId, country],
+  );
+  const loadCities = useMemo(
+    () => findCities.bind(null, org, projectId, state),
+    [org, projectId, state],
+  );
+  const previousCountry = useRef(country);
+  const previousState = useRef(state);
+  useEffect(() => {
+    if (previousCountry.current !== country) {
+      previousCountry.current = country;
+      form.setValue("stateId", null);
+      form.setValue("cityId", null);
+    }
+  }, [country, form]);
+  useEffect(() => {
+    if (previousState.current !== state) {
+      previousState.current = state;
+      form.setValue("cityId", null);
+    }
+  }, [state, form]);
   return (
-    <ActionForm action={action} submit={site ? "Save site" : "Create site"}>
-      {site && <input type="hidden" name="id" value={site.id} />}
+    <ActionFormShell
+      form={form}
+      action={siteAction.bind(null, org, projectId)}
+      submit={site ? "Save site" : "Create site"}
+    >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="Site name"
+        <TextField
+          control={form.control}
           name="name"
-          defaultValue={site?.name}
+          label="Site name"
           required
         />
-        <Field
-          label="Site address"
+        <TextField
+          control={form.control}
           name="address"
-          defaultValue={site?.address}
+          label="Site address"
           required
         />
-        <SelectField
-          label="Country"
+        <ComboboxField
+          control={form.control}
           name="countryId"
-          value={country}
-          onChange={(e) => {
-            setCountry(e.target.value);
-            setState("");
-            setCity("");
-          }}
-        >
-          <option value="">Select country</option>
-          {countries.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField
-          label="State"
-          name="stateId"
-          value={state}
-          onChange={(e) => {
-            setState(e.target.value);
-            setCity("");
-          }}
-        >
-          <option value="">Select state</option>
-          {states
-            .filter((s) => s.countryId === country)
-            .map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-        </SelectField>
-        <SelectField
-          label="City"
-          name="cityId"
-          value={city}
-          onChange={(e) => setCity(e.target.value)}
-        >
-          <option value="">Select city</option>
-          {cities
-            .filter((c) => c.stateId === state)
-            .map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-        </SelectField>
-        <Field
-          label="Pincode"
-          name="pincode"
-          defaultValue={site?.pincode ?? ""}
+          label="Country"
+          options={toOptions(countries)}
+          loadOptions={loadCountries}
+          clearable
         />
-        <Field
-          label="Latitude"
+        <ComboboxField
+          control={form.control}
+          key={`state:${country}`}
+          name="stateId"
+          label="State"
+          options={toOptions(states.filter((s) => s.countryId === country))}
+          loadOptions={loadStates}
+          clearable
+        />
+        <ComboboxField
+          control={form.control}
+          key={`city:${state}`}
+          name="cityId"
+          label="City"
+          options={toOptions(cities.filter((c) => c.stateId === state))}
+          loadOptions={loadCities}
+          clearable
+        />
+        <TextField control={form.control} name="pincode" label="Pincode" />
+        <TextField
+          control={form.control}
           name="latitude"
-          defaultValue={site?.latitude ?? ""}
+          label="Latitude"
           inputMode="decimal"
         />
-        <Field
-          label="Longitude"
+        <TextField
+          control={form.control}
           name="longitude"
-          defaultValue={site?.longitude ?? ""}
+          label="Longitude"
           inputMode="decimal"
         />
       </div>
-    </ActionForm>
+    </ActionFormShell>
+  );
+}
+export function DeleteSiteForm({
+  org,
+  projectId,
+  id,
+}: {
+  org: string;
+  projectId: string;
+  id: string;
+}) {
+  const form = useZodForm<
+    z.input<typeof deleteInput>,
+    z.output<typeof deleteInput>
+  >(deleteInput, { id });
+  return (
+    <ActionFormShell
+      form={form}
+      action={deleteSiteAction.bind(null, org, projectId)}
+      submit="Delete site"
+      destructive
+    >
+      {null}
+    </ActionFormShell>
   );
 }

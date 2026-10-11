@@ -17,3 +17,28 @@ export function readDate(value: string | undefined, fallback: Date) {
     ? new Date(`${value}T00:00:00Z`)
     : fallback;
 }
+
+export async function projectUserOptions(
+  organizationId: string,
+  selectedIds: string[] = [],
+) {
+  const [initial, selected] = await Promise.all([
+    db.member.findMany({
+      where: { organizationId },
+      select: { user: { select: { id: true, name: true } } },
+      orderBy: { user: { name: "asc" } },
+      take: 50,
+    }),
+    selectedIds.length
+      ? db.member.findMany({
+          where: { organizationId, userId: { in: selectedIds } },
+          select: { user: { select: { id: true, name: true } } },
+        })
+      : Promise.resolve([]),
+  ]);
+  return [
+    ...new Map(
+      [...initial, ...selected].map((member) => [member.user.id, member.user]),
+    ).values(),
+  ];
+}

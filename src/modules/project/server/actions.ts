@@ -1,10 +1,13 @@
 "use server";
-import type { ActionState } from "@/core/action-result";
+import type { z } from "zod";
+import { typedAction } from "@/core/typed-action";
+import { projectFormInput } from "../schema";
 import { saveProject } from "./service";
 export async function saveProjectAction(
   org: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof projectFormInput>,
 ) {
-  return saveProject(org, _, data);
+  return typedAction(projectFormInput, async (parsed) =>
+    saveProject(org, parsed),
+  )(input);
 }

@@ -1,6 +1,4 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
-import { DataTable } from "@/components/shared/data-table";
 import { FormCard } from "@/components/shared/form-card";
 import { MaterialCostRecognitionBadge } from "@/components/shared/material-cost-recognition-badge";
 import { Progress } from "@/components/ui/progress";
@@ -8,7 +6,8 @@ import type { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { budgetUsage } from "@/modules/project-cost/server/budget-usage";
 import { projectSpent } from "@/modules/project-cost/server/queries";
-import { projectUsers } from "../../server/queries";
+import { projectUserOptions } from "../../server/queries";
+import { OverviewTable } from "../components/overview-table";
 import { ProjectForm } from "../components/project-form";
 export async function ProjectOverviewView({
   org,
@@ -62,9 +61,16 @@ export async function ProjectOverviewView({
       where: { projectId, status: "PENDING" },
       orderBy: { createdAt: "asc" },
     }),
-    projectUsers(ctx.org.id),
+    projectUserOptions(
+      ctx.org.id,
+      ctx.project.managerUserId ? [ctx.project.managerUserId] : [],
+    ),
     db.party.findMany({
-      where: { tenantId: ctx.tenant.id, isCustomer: true },
+      where: {
+        tenantId: ctx.tenant.id,
+        isCustomer: true,
+        id: ctx.project.clientPartyId ?? "",
+      },
       select: { id: true, displayName: true },
     }),
   ]);
@@ -102,24 +108,26 @@ export async function ProjectOverviewView({
           </FormCard>
           <div className="grid gap-4 md:grid-cols-2">
             <FormCard title="Cost by type">
-              <DataTable
-                headings={["Type", "Amount"]}
-                rows={byType.map((c) => ({
-                  id: c.costType,
-                  cells: [c.costType, c._sum.amount?.toFixed(2)],
+              <OverviewTable
+                labelTitle="Type"
+                valueTitle="Amount"
+                data={byType.map((row) => ({
+                  id: row.costType,
+                  label: row.costType,
+                  value: row._sum.amount?.toFixed(2) ?? "0.00",
                 }))}
               />
             </FormCard>
             <FormCard title="Cost by stage">
-              <DataTable
-                headings={["Stage", "Amount"]}
-                rows={byStage.map((c) => ({
-                  id: c.stageId ?? "none",
-                  cells: [
-                    stages.find((s) => s.id === c.stageId)?.name ??
-                      "Unallocated",
-                    c._sum.amount?.toFixed(2),
-                  ],
+              <OverviewTable
+                labelTitle="Stage"
+                valueTitle="Amount"
+                data={byStage.map((row) => ({
+                  id: row.stageId ?? "none",
+                  label:
+                    stages.find((stage) => stage.id === row.stageId)?.name ??
+                    "Unallocated",
+                  value: row._sum.amount?.toFixed(2) ?? "0.00",
                 }))}
               />
             </FormCard>
@@ -127,49 +135,40 @@ export async function ProjectOverviewView({
         </>
       )}
       <FormCard title="Task progress">
-        <DataTable
-          headings={["Status", "Tasks"]}
-          rows={counts.map((c) => ({
-            id: c.status,
-            cells: [c.status, c._count],
+        <OverviewTable
+          labelTitle="Status"
+          valueTitle="Tasks"
+          data={counts.map((row) => ({
+            id: row.status,
+            label: row.status,
+            value: row._count,
           }))}
         />
       </FormCard>
       <FormCard title="Overdue tasks">
-        <DataTable
-          headings={["Task", "Due"]}
-          rows={overdue.map((t) => ({
-            id: t.id,
-            cells: [
-              <Link
-                key="task"
-                className="underline"
-                href={`/${org}/projects/${projectId}/tasks/${t.id}`}
-              >
-                {t.code} · {t.title}
-              </Link>,
-              t.dueDate?.toISOString().slice(0, 10),
-            ],
+        <OverviewTable
+          labelTitle="Task"
+          valueTitle="Due"
+          data={overdue.map((row) => ({
+            id: row.id,
+            label: `${row.code} \u00b7 ${row.title}`,
+            value: row.dueDate?.toISOString().slice(0, 10) ?? "",
+            href: `/${org}/projects/${projectId}/tasks/${row.id}`,
           }))}
         />
       </FormCard>
       <FormCard title="Pending project approvals">
-        <DataTable
-          headings={["Document", "Type"]}
-          rows={pending.map((r) => ({
-            id: r.id,
-            cells: [
-              <Link
-                key="approval"
-                className="underline"
-                href={`/${org}/approvals`}
-              >
-                {r.documentType === "EXPENSE" && !canCost
-                  ? "Expense approval"
-                  : r.title}
-              </Link>,
-              r.documentType,
-            ],
+        <OverviewTable
+          labelTitle="Document"
+          valueTitle="Type"
+          data={pending.map((row) => ({
+            id: row.id,
+            label:
+              row.documentType === "EXPENSE" && !canCost
+                ? "Expense approval"
+                : row.title,
+            value: row.documentType,
+            href: `/${org}/approvals`,
           }))}
         />
       </FormCard>
@@ -179,7 +178,23 @@ export async function ProjectOverviewView({
         <FormCard title="Edit project">
           <ProjectForm
             org={org}
-            project={ctx.project}
+            project={{
+              id: ctx.project.id,
+              name: ctx.project.name,
+              description: ctx.project.description ?? "",
+              status: ctx.project.status,
+              budgetAmount: ctx.project.budgetAmount.toFixed(2),
+              currency: ctx.project.currency,
+              clientPartyId: ctx.project.clientPartyId,
+              managerUserId: ctx.project.managerUserId,
+              startDate:
+                ctx.project.startDate?.toISOString().slice(0, 10) ?? "",
+              endDate: ctx.project.endDate?.toISOString().slice(0, 10) ?? "",
+              customerName: "",
+              customerLegalName: "",
+              materialCostRecognition: ctx.project.materialCostRecognition,
+              confirmCostRecognitionChange: false,
+            }}
             currency={ctx.org.baseCurrency}
             users={users}
             customers={customers.map((c) => ({

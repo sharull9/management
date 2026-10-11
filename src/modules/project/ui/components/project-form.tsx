@@ -1,14 +1,19 @@
-import { ActionForm } from "@/components/shared/action-form";
-import { Field, SelectField } from "@/components/shared/fields";
+"use client";
+import { useMemo } from "react";
+import type { z } from "zod";
 import {
-  dateValue,
-  EnumOptions,
-  Options,
-} from "@/components/shared/form-options";
-import { MaterialCostRecognitionFields } from "@/components/shared/material-cost-recognition-fields";
-import type { Project } from "@/generated/prisma/client";
+  ActionFormShell,
+  DateField,
+  MaterialCostRecognitionField,
+  SelectField,
+  TextField,
+  useZodForm,
+} from "@/components/shared/form";
+import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
 import { ProjectStatus } from "@/generated/prisma/enums";
+import { projectFormInput } from "../../schema";
 import { saveProjectAction } from "../../server/actions";
+import { findCustomers, findProjectMembers } from "../../server/picker-actions";
 export function ProjectForm({
   org,
   project,
@@ -17,92 +22,130 @@ export function ProjectForm({
   users,
 }: {
   org: string;
-  project?: Project;
+  project?: z.input<typeof projectFormInput>;
   currency: string;
   customers: { id: string; name: string }[];
   users: { id: string; name: string }[];
 }) {
+  const form = useZodForm<
+    z.input<typeof projectFormInput>,
+    z.output<typeof projectFormInput>
+  >(
+    projectFormInput,
+    project ?? {
+      id: null,
+      name: "",
+      description: "",
+      status: "PLANNED",
+      budgetAmount: "0.00",
+      currency,
+      clientPartyId: null,
+      managerUserId: null,
+      startDate: "",
+      endDate: "",
+      customerName: "",
+      customerLegalName: "",
+      materialCostRecognition: "ON_CONSUMPTION",
+      confirmCostRecognitionChange: false,
+    },
+  );
+  const loadCustomers = useMemo(
+    () => findCustomers.bind(null, org, project?.id ?? null),
+    [org, project?.id],
+  );
+  const loadMembers = useMemo(
+    () => findProjectMembers.bind(null, org, project?.id ?? null, "project"),
+    [org, project?.id],
+  );
   return (
-    <ActionForm
+    <ActionFormShell
+      form={form}
       action={saveProjectAction.bind(null, org)}
       submit={project ? "Save project" : "Create project"}
     >
-      {project && <input type="hidden" name="id" value={project.id} />}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="Project name"
+        <TextField
+          control={form.control}
           name="name"
-          defaultValue={project?.name}
+          label="Project name"
           required
           maxLength={150}
         />
-        <Field
-          label="Description"
+        <TextField
+          control={form.control}
           name="description"
-          defaultValue={project?.description ?? ""}
+          label="Description"
         />
         <SelectField
-          label="Client"
+          control={form.control}
           name="clientPartyId"
-          defaultValue={project?.clientPartyId ?? ""}
-        >
-          <Options rows={customers} />
-        </SelectField>
+          label="Client"
+          options={toOptions(customers)}
+          loadOptions={loadCustomers}
+          clearable
+        />
         <SelectField
-          label="Manager"
+          control={form.control}
           name="managerUserId"
-          defaultValue={project?.managerUserId ?? ""}
-        >
-          <Options rows={users} />
-        </SelectField>
+          label="Manager"
+          options={toOptions(users)}
+          loadOptions={loadMembers}
+          clearable
+        />
         <SelectField
-          label="Status"
+          control={form.control}
           name="status"
-          defaultValue={project?.status ?? "PLANNED"}
-        >
-          <EnumOptions values={ProjectStatus} />
-        </SelectField>
-        <Field
-          label="Budget"
+          label="Status"
+          options={enumOptions(ProjectStatus)}
+        />
+        <TextField
+          control={form.control}
           name="budgetAmount"
+          label="Budget"
           inputMode="decimal"
-          defaultValue={project?.budgetAmount.toFixed(2) ?? "0.00"}
           required
         />
-        <Field
-          label="Currency"
+        <TextField
+          control={form.control}
           name="currency"
-          defaultValue={project?.currency ?? currency}
+          label="Currency"
           maxLength={3}
           required
         />
-        <Field
-          label="Start date"
-          name="startDate"
-          type="date"
-          defaultValue={dateValue(project?.startDate)}
-        />
-        <Field
-          label="End date"
-          name="endDate"
-          type="date"
-          defaultValue={dateValue(project?.endDate)}
-        />
+        <DateField control={form.control} name="startDate" label="Start date" />
+        <DateField control={form.control} name="endDate" label="End date" />
       </div>
-      <MaterialCostRecognitionFields
-        mode={project?.materialCostRecognition}
-        existingProject={!!project}
-      />
+      {project ? (
+        <MaterialCostRecognitionField
+          control={form.control}
+          name="materialCostRecognition"
+          existingProject
+          confirmationName="confirmCostRecognitionChange"
+        />
+      ) : (
+        <MaterialCostRecognitionField
+          control={form.control}
+          name="materialCostRecognition"
+        />
+      )}
       <details className="rounded-md border p-3">
         <summary className="cursor-pointer text-sm">Create a customer</summary>
         <a className="text-sm underline" href={`/${org}/masters/parties`}>
           Manage customers and vendor details in Parties
         </a>
         <div className="grid gap-4 pt-4 sm:grid-cols-2">
-          <Field label="Customer display name" name="customerName" />
-          <Field label="Customer legal name" name="customerLegalName" />
+          <TextField
+            control={form.control}
+            name="customerName"
+            label="Customer display name"
+          />
+          <TextField
+            control={form.control}
+            name="customerLegalName"
+            label="Customer legal name"
+          />
         </div>
       </details>
-    </ActionForm>
+    </ActionFormShell>
   );
 }

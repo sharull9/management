@@ -1,13 +1,13 @@
-import { ActionForm } from "@/components/shared/action-form";
-import { CostTypeField } from "@/components/shared/cost-type-field";
-import { DataTable } from "@/components/shared/data-table";
-import { Field, SelectField } from "@/components/shared/fields";
 import { FormCard } from "@/components/shared/form-card";
-import { Options } from "@/components/shared/form-options";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { Prisma } from "@/generated/prisma/client";
-import { budgetAction } from "../../server/budget-actions";
+import { TotalBudgetForm } from "../components/budget-forms";
+import { BudgetLinesForm } from "../components/budget-lines-form";
+import {
+  BudgetLinesTable,
+  BudgetSummaryTable,
+} from "../components/budget-tables";
 export async function ProjectBudgetView({
   org,
   projectId,
@@ -31,7 +31,6 @@ export async function ProjectBudgetView({
     }),
   ]);
   const manage = ctx.isAdmin || ctx.permissions.has("project.edit");
-  const action = budgetAction.bind(null, org, projectId);
   const lineActual = (line: (typeof lines)[number]) =>
     actual
       .filter((a) => a.costType === line.costType && a.stageId === line.stageId)
@@ -54,39 +53,33 @@ export async function ProjectBudgetView({
       .reduce((sum, a) => sum.add(a._sum.amount ?? 0), new Prisma.Decimal(0));
     return {
       id: key,
-      cells: [
-        first.costType,
-        first.stage?.name ?? "Unallocated",
-        planned.toFixed(2),
-        spent.toFixed(2),
-        planned.sub(spent).toFixed(2),
-      ],
+      costType: first.costType,
+      stage: first.stage?.name ?? "Unallocated",
+      amount: planned.toFixed(2),
+      actual: spent.toFixed(2),
+      remaining: planned.sub(spent).toFixed(2),
     };
   });
+  const stageOptions = stages.map((stage) => ({
+    id: stage.id,
+    name: stage.name,
+  }));
   return (
     <>
       <h2 className="text-lg font-medium">Budget</h2>
       <FormCard
-        title={`Total project budget · ${ctx.project.currency} ${ctx.project.budgetAmount.toFixed(2)}`}
+        title={`Total project budget \u00b7 ${ctx.project.currency} ${ctx.project.budgetAmount.toFixed(2)}`}
       >
         {manage && (
-          <ActionForm action={action} submit="Save total budget">
-            <input type="hidden" name="operation" value="TOTAL" />
-            <Field
-              label="Total budget"
-              name="budgetAmount"
-              defaultValue={ctx.project.budgetAmount.toFixed(2)}
-              inputMode="decimal"
-              required
-            />
-          </ActionForm>
+          <TotalBudgetForm
+            org={org}
+            projectId={projectId}
+            budgetAmount={ctx.project.budgetAmount.toFixed(2)}
+          />
         )}
       </FormCard>
       <FormCard title="Budget vs actual by type and stage">
-        <DataTable
-          headings={["Type", "Stage", "Budget", "Actual", "Remaining"]}
-          rows={groups}
-        />
+        <BudgetSummaryTable data={groups} />
         <p className="mt-3 text-xs text-muted-foreground">
           Lines with the same type and stage are combined. Unallocated lines
           compare with costs without a stage. Labour attendance is unallocated.
@@ -95,83 +88,30 @@ export async function ProjectBudgetView({
         </p>
       </FormCard>
       <FormCard title="Budget lines">
-        <DataTable
-          headings={[
-            "Type",
-            "Stage",
-            "Budget",
-            "Actual for type/stage",
-            "Remaining vs line",
-            "Note",
-            "Actions",
-          ]}
-          rows={lines.map((l) => ({
-            id: l.id,
-            cells: [
-              l.costType,
-              l.stage?.name ?? "Unallocated",
-              l.amount.toFixed(2),
-              lineActual(l).toFixed(2),
-              l.amount.sub(lineActual(l)).toFixed(2),
-              l.note,
-              manage ? (
-                <div key="actions" className="space-y-4">
-                  <details>
-                    <summary className="cursor-pointer">Edit line</summary>
-                    <ActionForm action={action}>
-                      <input type="hidden" name="id" value={l.id} />
-                      <CostTypeField defaultValue={l.costType} />
-                      <SelectField
-                        label="Budget stage"
-                        name="stageId"
-                        defaultValue={l.stageId ?? ""}
-                      >
-                        <Options rows={stages} />
-                      </SelectField>
-                      <Field
-                        label="Line amount"
-                        name="amount"
-                        defaultValue={l.amount.toFixed(2)}
-                        required
-                      />
-                      <Field
-                        label="Line note"
-                        name="note"
-                        defaultValue={l.note ?? ""}
-                      />
-                    </ActionForm>
-                  </details>
-                  <ActionForm
-                    action={action}
-                    submit="Delete budget line"
-                    destructive
-                  >
-                    <input type="hidden" name="operation" value="DELETE" />
-                    <input type="hidden" name="id" value={l.id} />
-                  </ActionForm>
-                </div>
-              ) : (
-                "—"
-              ),
-            ],
+        <BudgetLinesTable
+          org={org}
+          projectId={projectId}
+          manage={manage}
+          stages={stageOptions}
+          data={lines.map((line) => ({
+            id: line.id,
+            costType: line.costType,
+            stageId: line.stageId,
+            stage: line.stage?.name ?? "Unallocated",
+            amount: line.amount.toFixed(2),
+            actual: lineActual(line).toFixed(2),
+            remaining: line.amount.sub(lineActual(line)).toFixed(2),
+            note: line.note ?? "",
           }))}
         />
       </FormCard>
       {manage && (
-        <FormCard title="Add budget line">
-          <ActionForm action={action} submit="Add budget line">
-            <CostTypeField />
-            <SelectField label="Budget stage" name="stageId">
-              <Options rows={stages} />
-            </SelectField>
-            <Field
-              label="Line amount"
-              name="amount"
-              inputMode="decimal"
-              required
-            />
-            <Field label="Line note" name="note" />
-          </ActionForm>
+        <FormCard title="Add budget lines">
+          <BudgetLinesForm
+            org={org}
+            projectId={projectId}
+            stages={stageOptions}
+          />
         </FormCard>
       )}
     </>

@@ -1,11 +1,6 @@
-import Link from "next/link";
-import { DataTable } from "@/components/shared/data-table";
-import { Field, SelectField } from "@/components/shared/fields";
 import { FormCard } from "@/components/shared/form-card";
-import { dateValue, EnumOptions } from "@/components/shared/form-options";
+import { dateValue } from "@/components/shared/form-options";
 import { PageHeading } from "@/components/shared/page-heading";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   canViewProjectCost,
   projectAccessWhere,
@@ -15,8 +10,10 @@ import {
 import { db } from "@/core/db";
 import { ProjectStatus } from "@/generated/prisma/enums";
 import { budgetUsage } from "@/modules/project-cost/server/budget-usage";
-import { projectUsers } from "../../server/queries";
+import { projectUserOptions } from "../../server/queries";
+import { ProjectFilters } from "../components/project-filters";
 import { ProjectForm } from "../components/project-form";
+import { ProjectsTable } from "../components/projects-table";
 export async function ProjectsView({
   org,
   searchParams,
@@ -53,10 +50,12 @@ export async function ProjectsView({
       },
       orderBy: { createdAt: "desc" },
     }),
-    projectUsers(ctx.org.id),
+    projectUserOptions(ctx.org.id),
     db.party.findMany({
       where: { tenantId: ctx.tenant.id, isCustomer: true },
       select: { id: true, displayName: true },
+      orderBy: { displayName: "asc" },
+      take: 50,
     }),
     db.costEntry.groupBy({
       by: ["projectId"],
@@ -73,62 +72,35 @@ export async function ProjectsView({
         title="Projects"
         description="Track delivery, workforce and project costs."
       />
-      <form className="grid items-end gap-4 sm:grid-cols-3">
-        <Field label="Search" name="search" defaultValue={filters.search} />
-        <SelectField
-          label="Status"
-          name="status"
-          defaultValue={filters.status ?? ""}
-        >
-          <option value="">All statuses</option>
-          <EnumOptions values={ProjectStatus} />
-        </SelectField>
-        <Button type="submit">Filter projects</Button>
-      </form>
+      <ProjectFilters
+        org={org}
+        search={filters.search}
+        status={filters.status}
+      />
       <FormCard title="Projects">
-        <DataTable
-          headings={[
-            "Code",
-            "Name",
-            "Client",
-            "Manager",
-            "Dates",
-            "Status",
-            "Budget",
-            "Spent",
-            "Used",
-          ]}
-          rows={projects.map((p) => {
-            const projectCost = canViewProjectCost(ctx, p);
+        <ProjectsTable
+          org={org}
+          data={projects.map((project) => {
+            const projectCost = canViewProjectCost(ctx, project);
             const spent =
               costs
-                .find((c) => c.projectId === p.id)
+                .find((cost) => cost.projectId === project.id)
                 ?._sum.amount?.toFixed(2) ?? "0.00";
             return {
-              id: p.id,
-              cells: [
-                p.code,
-                <Link
-                  key="name"
-                  className="underline"
-                  href={`/${org}/projects/${p.id}`}
-                >
-                  {p.name}
-                </Link>,
-                p.clientParty?.displayName ?? "—",
-                p.manager?.name ?? "—",
-                `${dateValue(p.startDate)} / ${dateValue(p.endDate)}`,
-                <Badge key="status" variant="secondary">
-                  {p.status}
-                </Badge>,
-                projectCost
-                  ? `${p.currency} ${p.budgetAmount.toFixed(2)}`
-                  : "—",
-                projectCost ? spent : "—",
-                projectCost
-                  ? `${budgetUsage(p.budgetAmount, spent).percent}%`
-                  : "—",
-              ],
+              id: project.id,
+              code: project.code,
+              name: project.name,
+              client: project.clientParty?.displayName ?? "\u2014",
+              manager: project.manager?.name ?? "\u2014",
+              dates: `${dateValue(project.startDate)} / ${dateValue(project.endDate)}`,
+              status: project.status,
+              budget: projectCost
+                ? `${project.currency} ${project.budgetAmount.toFixed(2)}`
+                : "\u2014",
+              spent: projectCost ? spent : "\u2014",
+              used: projectCost
+                ? `${budgetUsage(project.budgetAmount, spent).percent}%`
+                : "\u2014",
             };
           })}
         />
