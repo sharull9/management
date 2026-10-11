@@ -3,10 +3,10 @@ import { useEffect, useMemo } from "react";
 import { useWatch } from "react-hook-form";
 import type { z } from "zod";
 import type { Option } from "@/components/shared/combobox/combobox";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { ActionFormShell } from "@/components/shared/form/action-form-shell";
 import { enumOptions } from "@/components/shared/form/enum-options";
 import { PasswordField } from "@/components/shared/form/password-field";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { saveMemberInput } from "../../schema";
@@ -57,7 +57,7 @@ export function MemberForm({
       <div className="grid gap-4 sm:grid-cols-2">
         {!member && (
           <>
-            <SelectField
+            <ComboboxField
               control={form.control}
               name="existingEmail"
               label="Existing tenant account"
@@ -86,13 +86,13 @@ export function MemberForm({
             />
           </>
         )}
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="role"
           label="Base role"
           options={roles}
         />
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="roleId"
           label="Custom role"

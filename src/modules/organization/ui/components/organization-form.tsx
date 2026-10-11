@@ -1,8 +1,8 @@
 "use client";
 import type { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { ActionFormShell } from "@/components/shared/form/action-form-shell";
 import { toOptions } from "@/components/shared/form/enum-options";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { orgInput } from "../../schema";
@@ -68,14 +68,14 @@ export function OrganizationForm({
           maxLength={3}
           required
         />
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="countryId"
           label="Country"
           options={toOptions(countries)}
           clearable
         />
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="stateId"
           label="State"
@@ -85,7 +85,7 @@ export function OrganizationForm({
           }))}
           clearable
         />
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="cityId"
           label="City"

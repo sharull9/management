@@ -1,12 +1,10 @@
 "use client";
 
 import type { z } from "zod";
-import { ComboboxField } from "@/components/shared/combobox";
-import {
-  ActionFormShell,
-  TextareaField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { TextareaField } from "@/components/shared/form/textarea-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { approvalDecisionInput, cancelApprovalInput } from "../../schema";
 import {
   approvalDecisionAction,

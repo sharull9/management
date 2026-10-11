@@ -1,7 +1,7 @@
 "use client";
 import type { Option } from "@/components/shared/combobox/combobox";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { ActionFormShell } from "@/components/shared/form/action-form-shell";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { deleteCityInput, saveCityInput } from "../../schema";
@@ -36,7 +36,7 @@ export function CityForm({
           label="City name"
           required
         />
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="stateId"
           label="State"

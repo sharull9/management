@@ -1,11 +1,8 @@
 "use client";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { EmptyState } from "@/components/shared/empty-state";
 import { CheckboxField } from "@/components/shared/form/checkbox-field";
 import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
-import {
-  MultiSelectField,
-  SelectField,
-} from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { FormCard } from "@/components/shared/form-card";
 import {
@@ -76,21 +73,21 @@ export function ItemMasters({ org, data: d }: { org: string; data: Data }) {
                   required
                 />
                 <ItemTypeFields form={form} />
-                <SelectField
+                <ComboboxField
                   control={form.control}
                   label="Category"
                   name="categoryId"
                   options={toOptions(d.categories)}
                   clearable
                 />
-                <SelectField
+                <ComboboxField
                   control={form.control}
                   label="Stock UOM"
                   name="stockUomId"
                   options={toOptions(d.uoms)}
                   clearable
                 />
-                <SelectField
+                <ComboboxField
                   control={form.control}
                   label="Purchase UOM (same group)"
                   name="purchaseUomId"
@@ -102,7 +99,7 @@ export function ItemMasters({ org, data: d }: { org: string; data: Data }) {
                   label="Tax code (HSN / SAC)"
                   name="taxCode"
                 />
-                <SelectField
+                <ComboboxField
                   control={form.control}
                   label="Default tax group"
                   name="defaultTaxGroupId"
@@ -129,7 +126,7 @@ export function ItemMasters({ org, data: d }: { org: string; data: Data }) {
                         {l.name}
                         {!l.enabled ? " (disabled)" : ""}
                       </legend>
-                      <SelectField
+                      <ComboboxField
                         control={form.control}
                         label="Mode"
                         name={`mode${l.level as 1 | 2 | 3 | 4 | 5}`}
@@ -140,7 +137,8 @@ export function ItemMasters({ org, data: d }: { org: string; data: Data }) {
                         label="Required"
                         name={`required${l.level as 1 | 2 | 3 | 4 | 5}`}
                       />
-                      <MultiSelectField
+                      <ComboboxField
+                        multiple
                         control={form.control}
                         label="Allowed linked values"
                         name={`links${l.level as 1 | 2 | 3 | 4 | 5}`}

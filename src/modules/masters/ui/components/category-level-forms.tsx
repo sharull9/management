@@ -1,7 +1,7 @@
 "use client";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { CheckboxField } from "@/components/shared/form/checkbox-field";
 import { toOptions } from "@/components/shared/form/enum-options";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { FormCard } from "@/components/shared/form-card";
 import { Item, ItemContent } from "@/components/ui/item";
@@ -36,7 +36,7 @@ export function CategoryMasters({ org, data: d }: { org: string; data: Data }) {
                   name="name"
                   required
                 />
-                <SelectField
+                <ComboboxField
                   control={form.control}
                   label="Parent (maximum depth 5)"
                   name="parentId"

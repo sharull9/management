@@ -1,11 +1,11 @@
 "use client";
 import { useMemo } from "react";
 import type { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { ActionFormShell } from "@/components/shared/form/action-form-shell";
 import { CheckboxField } from "@/components/shared/form/checkbox-field";
 import { DateField } from "@/components/shared/form/date-field";
 import { toOptions } from "@/components/shared/form/enum-options";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { findProjectMembers } from "@/modules/project/server/picker-actions";
@@ -53,14 +53,14 @@ export function MemberForm({
       action={teamAction.bind(null, org, projectId)}
       submit="Save member"
     >
-      <SelectField
+      <ComboboxField
         control={form.control}
         name="userId"
         label="Organization member"
         options={toOptions(users)}
         loadOptions={loadMembers}
       />
-      <SelectField
+      <ComboboxField
         control={form.control}
         name="roleId"
         label="Project role"
@@ -137,7 +137,7 @@ export function WorkerForm({
       submit={assignment ? "Save assignment" : "Assign worker"}
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="workerId"
           label="Worker"

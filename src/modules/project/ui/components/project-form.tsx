@@ -1,11 +1,11 @@
 "use client";
 import { useMemo } from "react";
 import type { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { ActionFormShell } from "@/components/shared/form/action-form-shell";
 import { DateField } from "@/components/shared/form/date-field";
 import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
 import { MaterialCostRecognitionField } from "@/components/shared/form/material-cost-recognition-field";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { ProjectStatus } from "@/generated/prisma/enums";
@@ -74,7 +74,7 @@ export function ProjectForm({
           name="description"
           label="Description"
         />
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="clientPartyId"
           label="Client"
@@ -82,7 +82,7 @@ export function ProjectForm({
           loadOptions={loadCustomers}
           clearable
         />
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="managerUserId"
           label="Manager"
@@ -90,7 +90,7 @@ export function ProjectForm({
           loadOptions={loadMembers}
           clearable
         />
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="status"
           label="Status"

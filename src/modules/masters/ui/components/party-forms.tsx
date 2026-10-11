@@ -1,9 +1,9 @@
 "use client";
 import Link from "next/link";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { CheckboxField } from "@/components/shared/form/checkbox-field";
 import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
 import { NumberField } from "@/components/shared/form/number-field";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { FormCard } from "@/components/shared/form-card";
 import { Item, ItemContent } from "@/components/ui/item";
@@ -55,7 +55,7 @@ export function PartyMasters({ org, data: d }: { org: string; data: Data }) {
                   name="displayName"
                   required
                 />
-                <SelectField
+                <ComboboxField
                   control={form.control}
                   label="Type"
                   name="type"
@@ -145,21 +145,21 @@ export function PartyMasters({ org, data: d }: { org: string; data: Data }) {
                               label="Postal code"
                               name="postalCode"
                             />
-                            <SelectField
+                            <ComboboxField
                               control={form.control}
                               label="Country"
                               name="countryId"
                               options={toOptions(d.countries)}
                               clearable
                             />
-                            <SelectField
+                            <ComboboxField
                               control={form.control}
                               label="State"
                               name="stateId"
                               options={toOptions(d.states)}
                               clearable
                             />
-                            <SelectField
+                            <ComboboxField
                               control={form.control}
                               label="City"
                               name="cityId"

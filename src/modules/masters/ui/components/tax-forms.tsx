@@ -1,10 +1,7 @@
 "use client";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { CheckboxField } from "@/components/shared/form/checkbox-field";
 import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
-import {
-  MultiSelectField,
-  SelectField,
-} from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { FormCard } from "@/components/shared/form-card";
 import { taxAppliesToSchema, taxScopeSchema } from "../../schema";
@@ -50,7 +47,7 @@ export function TaxMasters({ org, data: d }: { org: string; data: Data }) {
                   name="rate"
                   required
                 />
-                <SelectField
+                <ComboboxField
                   control={form.control}
                   label="Applies to"
                   name="appliesTo"
@@ -91,20 +88,21 @@ export function TaxMasters({ org, data: d }: { org: string; data: Data }) {
                   name="name"
                   required
                 />
-                <SelectField
+                <ComboboxField
                   control={form.control}
                   label="Country"
                   name="countryId"
                   options={toOptions(d.countries)}
                   clearable
                 />
-                <SelectField
+                <ComboboxField
                   control={form.control}
                   label="Scope"
                   name="scope"
                   options={enumOptions(taxScopeSchema.enum)}
                 />
-                <MultiSelectField
+                <ComboboxField
+                  multiple
                   control={form.control}
                   label="Components"
                   name="componentIds"

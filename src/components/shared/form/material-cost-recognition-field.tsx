@@ -1,9 +1,9 @@
 "use client";
 
 import type { FieldPath, FieldValues } from "react-hook-form";
+import { ComboboxField } from "../combobox/combobox-field";
 import { CheckboxField } from "./checkbox-field";
 import type { FormFieldProps } from "./field-frame";
-import { SelectField } from "./select-field";
 
 export type MaterialCostRecognitionFieldProps<
   T extends FieldValues,
@@ -30,7 +30,7 @@ export function MaterialCostRecognitionField<
 }: MaterialCostRecognitionFieldProps<T, TOutput>) {
   return (
     <div className="space-y-3">
-      <SelectField
+      <ComboboxField
         control={control}
         name={name}
         label={label}

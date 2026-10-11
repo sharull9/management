@@ -1,11 +1,11 @@
 "use client";
 import { useMemo } from "react";
 import type { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { ActionFormShell } from "@/components/shared/form/action-form-shell";
 import { DateField } from "@/components/shared/form/date-field";
 import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
 import { NumberField } from "@/components/shared/form/number-field";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { ProjectStatus } from "@/generated/prisma/enums";
@@ -65,13 +65,13 @@ export function StageForm({
           min={1}
           required
         />
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="status"
           label="Status"
           options={enumOptions(ProjectStatus)}
         />
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="managerUserId"
           label="Stage manager"

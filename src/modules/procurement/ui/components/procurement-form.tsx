@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWatch } from "react-hook-form";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { ActionFormShell } from "@/components/shared/form/action-form-shell";
 import { DateField } from "@/components/shared/form/date-field";
 import { toOptions } from "@/components/shared/form/enum-options";
 import { NumberField } from "@/components/shared/form/number-field";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { procurementFormSchema } from "../../schema";
@@ -158,7 +158,7 @@ export function ProcurementForm({
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField
+        <ComboboxField
           control={form.control}
           name="projectId"
           label="Project"
@@ -168,7 +168,7 @@ export function ProcurementForm({
         />
         {(kind === "requests" || kind === "consumption") && (
           <>
-            <SelectField
+            <ComboboxField
               control={form.control}
               name="stageId"
               label="Stage"
@@ -178,7 +178,7 @@ export function ProcurementForm({
               )}
               loadOptions={projectId ? loaders.stages : undefined}
             />
-            <SelectField
+            <ComboboxField
               control={form.control}
               name="taskId"
               label="Task"
@@ -200,7 +200,7 @@ export function ProcurementForm({
           />
         )}
         {(kind === "orders" || kind === "receipts") && (
-          <SelectField
+          <ComboboxField
             control={form.control}
             name="siteId"
             label="Delivery site"
@@ -213,14 +213,14 @@ export function ProcurementForm({
         )}
         {kind === "orders" && (
           <>
-            <SelectField
+            <ComboboxField
               control={form.control}
               name="vendorPartyId"
               label="Vendor"
               options={toOptions(data.vendors)}
               loadOptions={projectId ? loaders.vendors : undefined}
             />
-            <SelectField
+            <ComboboxField
               control={form.control}
               name="paymentTerms"
               label="Payment terms"
@@ -253,7 +253,7 @@ export function ProcurementForm({
         )}
         {kind === "receipts" && (
           <>
-            <SelectField
+            <ComboboxField
               control={form.control}
               name="poId"
               label="Approved purchase order"
@@ -275,7 +275,7 @@ export function ProcurementForm({
           </>
         )}
         {kind === "transfers" && (
-          <SelectField
+          <ComboboxField
             control={form.control}
             name="toProjectId"
             label="Destination project"

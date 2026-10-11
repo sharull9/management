@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { Option } from "@/components/shared/combobox";
+import type { Option } from "@/components/shared/combobox/combobox";
 import type { savePolicyInput } from "./schema";
 
 export type PolicyDraft = z.input<typeof savePolicyInput>;

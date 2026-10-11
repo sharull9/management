@@ -1,9 +1,9 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { ActionFormShell } from "@/components/shared/form/action-form-shell";
 import { enumOptions } from "@/components/shared/form/enum-options";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { ProjectStatus } from "@/generated/prisma/enums";
@@ -44,7 +44,7 @@ export function ProjectFilters({
       }}
     >
       <TextField control={form.control} name="search" label="Search" />
-      <SelectField
+      <ComboboxField
         control={form.control}
         name="status"
         label="Status"

@@ -1,9 +1,9 @@
 "use client";
 import type { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { ActionFormShell } from "@/components/shared/form/action-form-shell";
 import { CostTypeField } from "@/components/shared/form/cost-type-field";
 import { toOptions } from "@/components/shared/form/enum-options";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { budgetLineInput, deleteInput, totalBudgetInput } from "../../schema";
@@ -43,7 +43,7 @@ export function BudgetLineForm({
       submit={line ? "Save line" : "Add budget line"}
     >
       <CostTypeField control={form.control} name="costType" />
-      <SelectField
+      <ComboboxField
         control={form.control}
         name="stageId"
         label="Budget stage"

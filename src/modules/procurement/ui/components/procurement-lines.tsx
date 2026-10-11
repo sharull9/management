@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type UseFormReturn, useFieldArray, useWatch } from "react-hook-form";
 import type { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { toOptions } from "@/components/shared/form/enum-options";
 import { ItemVariantField } from "@/components/shared/form/item-variant-field";
 import { NumberField } from "@/components/shared/form/number-field";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { Button } from "@/components/ui/button";
 import type { procurementFormInput } from "../../schema";
@@ -202,7 +202,7 @@ function Line({
         </p>
       )}
       {kind === "orders" && (
-        <SelectField
+        <ComboboxField
           control={control}
           name={`lines.${index}.prLineId`}
           label="Approved PR line (optional)"
@@ -214,7 +214,7 @@ function Line({
         />
       )}
       {kind === "receipts" ? (
-        <SelectField
+        <ComboboxField
           control={control}
           name={`lines.${index}.poLineId`}
           label="PO line"
@@ -244,7 +244,7 @@ function Line({
         />
       )}
       <div className="grid gap-3 sm:grid-cols-3">
-        <SelectField
+        <ComboboxField
           control={control}
           name={`lines.${index}.uomId`}
           label="UOM"
@@ -316,7 +316,7 @@ function Line({
               max={100}
               step="0.0001"
             />
-            <SelectField
+            <ComboboxField
               control={control}
               name={`lines.${index}.taxGroupId`}
               label="Tax group"

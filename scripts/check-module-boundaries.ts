@@ -6,6 +6,19 @@ import ts from "typescript";
 const root = resolve(import.meta.dirname, "..");
 const normalize = (path: string) => path.replaceAll("\\", "/");
 
+function forbiddenIndex(file: string): boolean {
+  return /^src\/(?:modules|components\/shared)\/(?:.*\/)?index\.tsx?$/.test(
+    normalize(file),
+  );
+}
+
+assert.equal(forbiddenIndex("src/modules/tax/index.ts"), true);
+assert.equal(forbiddenIndex("src/modules/tax/server/index.tsx"), true);
+assert.equal(forbiddenIndex("src/components/shared/form/index.ts"), true);
+assert.equal(forbiddenIndex("src\\components\\shared\\index.tsx"), true);
+assert.equal(forbiddenIndex("src/components/ui/index.ts"), false);
+assert.equal(forbiddenIndex("src/modules/tax/util.ts"), false);
+
 function violation(file: string, specifier: string): boolean {
   const target = specifier.startsWith("@/")
     ? normalize(relative(root, resolve(root, "src", specifier.slice(2))))
@@ -79,6 +92,7 @@ function files(directory: string): string[] {
 const errors: string[] = [];
 const sources = [...files("src"), ...files("scripts")];
 for (const file of sources) {
+  if (forbiddenIndex(file)) errors.push(`${file}: index files are forbidden`);
   const source = ts.createSourceFile(
     file,
     readFileSync(resolve(root, file), "utf8"),

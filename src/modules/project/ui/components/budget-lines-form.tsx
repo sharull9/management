@@ -1,10 +1,10 @@
 "use client";
 
 import { useFieldArray } from "react-hook-form";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { ActionFormShell } from "@/components/shared/form/action-form-shell";
 import { CostTypeField } from "@/components/shared/form/cost-type-field";
 import { toOptions } from "@/components/shared/form/enum-options";
-import { SelectField } from "@/components/shared/form/select-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Button } from "@/components/ui/button";
@@ -45,7 +45,7 @@ export function BudgetLinesForm({
               control={form.control}
               name={`lines.${index}.costType`}
             />
-            <SelectField
+            <ComboboxField
               control={form.control}
               name={`lines.${index}.stageId`}
               label="Budget stage"

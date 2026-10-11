@@ -4,14 +4,12 @@ import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { useFieldArray, useWatch } from "react-hook-form";
 import type { z } from "zod";
-import { ComboboxField } from "@/components/shared/combobox";
-import {
-  ActionFormShell,
-  CheckboxField,
-  TextField,
-  useZodForm,
-} from "@/components/shared/form";
+import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { CheckboxField } from "@/components/shared/form/checkbox-field";
 import { enumOptions } from "@/components/shared/form/enum-options";
+import { TextField } from "@/components/shared/form/text-field";
+import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Button } from "@/components/ui/button";
 import { ApproverType, DocumentType } from "@/generated/prisma/enums";
 import { savePolicyInput } from "../../schema";
