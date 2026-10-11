@@ -77,7 +77,7 @@ Remote mode debounces 250ms, disables cmdk filtering, displays loading/errors an
 
 ## Domain pickers
 
-Import client fields directly from their defining files under `@/components/shared/form/`. All take RHF `control` and typed `name`, and support transformed form output generics. Set defaults in the form. All implementations live in concrete files. Form, combobox and data-table indexes are temporary compatibility re-exports for the concurrent approvals migration.
+Import client fields directly from their defining files under `@/components/shared/form/`. All take RHF `control` and typed `name`, and support transformed form output generics. Set defaults in the form. All implementations live in concrete files. Shared indexes are forbidden; no compatibility re-exports remain. Import `ItemVariantField` from `form/item-variant-field`, `CostTypeField` from `form/cost-type-field`, and `MaterialCostRecognitionField` from `form/material-cost-recognition-field`, all under `@/components/shared/`.
 
 ### Item and variant
 
@@ -120,13 +120,15 @@ const modeOptions = enumOptions({ ON_RECEIPT: "ON_RECEIPT" });
 // [{ value: "ON_RECEIPT", label: "On Receipt" }]
 ```
 
-### Select aliases
+### Single and multiple choices
 
-`SelectField` and `MultiSelectField` take `control`, typed `name`, `label`, `options: Option[]`, optional `description`, and the shared Combobox props (including `loadOptions`, `disabled`, `clearable`, and search placeholders). `SelectField` stores `string | null`; `MultiSelectField` stores `string[]`. They render Popover/Command Comboboxes. Defaults and validation belong to the form/schema.
+Use `ComboboxField` from `@/components/shared/combobox/combobox-field`.
+Single values are `string | null`; `multiple` stores `string[]`. Defaults and
+validation belong to the form/schema. The old select aliases have been removed.
 
 ```tsx
-<SelectField control={form.control} name="vendorId" label="Vendor" options={vendors} clearable />
-<MultiSelectField control={form.control} name="memberIds" label="Members" options={members} />
+<ComboboxField control={form.control} name="vendorId" label="Vendor" options={vendors} clearable />
+<ComboboxField control={form.control} name="memberIds" label="Members" options={members} multiple />
 ```
 
 ## Tables
@@ -170,13 +172,15 @@ For simple lists, import Item components from `@/components/ui/item`:
 
 Use Empty when rows are empty.
 
-## Wave 2 recipe
+## Migration recipe
 
 1. Change non-upload actions from `(previousState, FormData)` to async exported `(input: z.input<typeof schema>)` wrappers calling typedAction. Preserve server authentication, authorization, transactions, refreshes and redirects. Never export the helper's returned function directly from a `"use server"` file; Next requires async function exports.
-2. Put forms in client components with useZodForm, explicit defaults and ActionFormShell. Replace Field/SelectField from `shared/fields.tsx` with RHF wrappers and ComboboxField.
-3. Replace native select, SelectField, Options and EnumOptions with Combobox. Convert choices to `{ value, label }`, use null for blank single values and arrays for multiple values. Use existing schema/constants for enums; validate choices on the server.
+2. Put forms in client components with useZodForm, explicit defaults and ActionFormShell. Use RHF field wrappers and ComboboxField.
+3. Use Combobox for single and multiple choices. Convert choices to `{ value, label }`, use null for blank single values and arrays for multiple values. Use existing schema/constants for enums; validate choices on the server.
 4. Keep FormData actions and legacy ActionForm for uploads. Do not force files through the typed object helper.
 5. Move table columns to module client components. Render Empty for "No records" and Item for simple lists.
-6. Run tsc, lint, tests, build and boundary checks. Limit edits to assigned modules and coordinate shared changes.
+6. Run tsc, lint, tests, build and boundary checks. Respect module boundaries.
 
 Import `dateValue` from `@/components/shared/form/date-value`. Filters use Combobox fields and `router.replace` with search parameters, preserving unrelated query values and deleting cleared filters. Upload and sign-out forms may retain `ActionForm` with shadcn Field primitives.
+
+The retained `ActionForm` import is `@/components/shared/action-form`. Sign-out ignores its FormData payload; upload actions validate metadata with Zod and files with explicit size/type checks or a file schema. Vendor bill and task upload components can retain RHF for metadata and send files in FormData.
