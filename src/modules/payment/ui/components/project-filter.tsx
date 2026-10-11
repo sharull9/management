@@ -1,30 +1,35 @@
-import { SelectField } from "@/components/shared/fields";
-import type { FinanceData } from "../../server/queries";
-
+"use client";
+import { useMemo } from "react";
+import { findProjects } from "../../server/picker-actions";
+import { FinanceFilters } from "./finance-filters";
 export function ProjectFilter({
+  org,
+  permission = "payment.view",
   projects,
   projectId,
 }: {
-  projects: FinanceData["projects"];
+  org: string;
+  permission?: string;
+  projects: { id: string; name: string }[];
   projectId?: string;
 }) {
+  const loadOptions = useMemo(
+    () => findProjects.bind(null, org, permission),
+    [org, permission],
+  );
   return (
-    <form className="flex max-w-md items-end gap-3">
-      <SelectField
-        label="Project"
-        name="projectId"
-        defaultValue={projectId ?? ""}
-      >
-        <option value="">All accessible projects</option>
-        {projects.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </SelectField>
-      <button className="rounded-md border px-4 py-2 text-sm" type="submit">
-        Filter
-      </button>
-    </form>
+    <FinanceFilters
+      fields={[
+        {
+          name: "projectId",
+          label: "Project",
+          value: projectId ?? null,
+          options: projects.map((p) => ({ value: p.id, label: p.name })),
+          loadOptions,
+          clearable: true,
+          placeholder: "All accessible projects",
+        },
+      ]}
+    />
   );
 }

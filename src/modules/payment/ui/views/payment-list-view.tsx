@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { PageHeading } from "@/components/shared/page-heading";
-import { Badge } from "@/components/ui/badge";
 import { db } from "@/core/db";
 import { moduleProjectWhere } from "@/modules/procurement/server/queries";
 import { financeData } from "../../server/queries";
+import { FinanceTable } from "../components/finance-tables";
 import { ProjectFilter } from "../components/project-filter";
-import { date, linkClass, money } from "../util";
+import { linkClass, money } from "../util";
 export async function FinanceList({
   org,
   kind,
@@ -63,102 +63,50 @@ export async function FinanceList({
           Party balances
         </Link>
       </div>
-      <ProjectFilter projects={d.projects} projectId={projectId} />
-      <div className="overflow-x-auto rounded-lg border">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-muted">
-            <tr>
-              {[
-                "Document",
-                "Date",
-                "Party",
-                "Project",
-                "Status",
-                "Amount",
-                "Allocation",
-              ].map((h) => (
-                <th key={h} className="p-3">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {requests
-              ? d.requests.map((r) => (
-                  <tr key={r.id} className="border-t">
-                    <td className="p-3">
-                      <Link
-                        className={linkClass}
-                        href={`/${org}/finance/payment-requests/${r.id}`}
-                      >
-                        {r.code}
-                      </Link>
-                    </td>
-                    <td className="p-3">{date(r.date)}</td>
-                    <td className="p-3">{r.party.displayName}</td>
-                    <td className="p-3">
-                      {d.projects.find((p) => p.id === r.projectId)?.name ??
-                        "Organization"}
-                    </td>
-                    <td className="p-3">
-                      <Badge variant="outline">{r.status}</Badge>
-                    </td>
-                    <td className="p-3">
-                      {r.currency} {money(r.amount)}
-                    </td>
-                    <td className="p-3">{r.purpose}</td>
-                  </tr>
-                ))
-              : payments.map((p) => (
-                  <tr key={p.id} className="border-t">
-                    <td className="p-3">
-                      <Link
-                        className={linkClass}
-                        href={`/${org}/finance/payments/${p.id}`}
-                      >
-                        {p.code}
-                      </Link>
-                    </td>
-                    <td className="p-3">{date(p.date)}</td>
-                    <td className="p-3">
-                      {p.party.displayName}
-                      <p className="text-xs text-muted-foreground">
-                        {p.direction}
-                      </p>
-                    </td>
-                    <td className="p-3">
-                      {d.projects.find((r) => r.id === p.projectId)?.name ??
-                        "Organization"}
-                    </td>
-                    <td className="p-3">
-                      <Badge variant="outline">{p.status}</Badge>
-                    </td>
-                    <td className="p-3">
-                      {p.currency} {money(p.amount)}
-                    </td>
-                    <td className="p-3">
-                      {p.status === "VOID"
-                        ? "Reversed"
-                        : p.unallocatedAmount.isZero()
-                          ? "Fully allocated"
-                          : p.allocatedAmount.isZero()
-                            ? "Advance"
-                            : "Partially allocated"}
-                      {p.status === "POSTED" && (
-                        <p className="text-xs text-muted-foreground">
-                          {money(p.unallocatedAmount)} unallocated
-                        </p>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-          </tbody>
-        </table>
-        {!(requests ? d.requests : payments).length && (
-          <p className="p-6 text-sm text-muted-foreground">No records yet.</p>
-        )}
-      </div>
+      <ProjectFilter
+        org={org}
+        permission={kind === "receipts" ? "sales.view" : "payment.view"}
+        projects={d.projects.map((p) => ({ id: p.id, name: p.name }))}
+        projectId={projectId}
+      />
+      <FinanceTable
+        org={org}
+        requests={requests}
+        data={
+          requests
+            ? d.requests.map((r) => ({
+                id: r.id,
+                code: r.code,
+                date: r.date.toISOString(),
+                party: r.party.displayName,
+                project:
+                  d.projects.find((p) => p.id === r.projectId)?.name ??
+                  "Organization",
+                status: r.status,
+                currency: r.currency,
+                amount: money(r.amount),
+                allocation: r.purpose,
+                direction: "",
+              }))
+            : payments.map((p) => ({
+                id: p.id,
+                code: p.code,
+                date: p.date.toISOString(),
+                party: p.party.displayName,
+                project:
+                  d.projects.find((r) => r.id === p.projectId)?.name ??
+                  "Organization",
+                status: p.status,
+                currency: p.currency,
+                amount: money(p.amount),
+                direction: p.direction,
+                allocation:
+                  p.status === "VOID"
+                    ? "Reversed"
+                    : `${p.unallocatedAmount.isZero() ? "Fully allocated" : p.allocatedAmount.isZero() ? "Advance" : "Partially allocated"} | ${money(p.unallocatedAmount)} unallocated`,
+              }))
+        }
+      />
     </div>
   );
 }

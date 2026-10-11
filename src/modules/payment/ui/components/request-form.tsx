@@ -1,11 +1,26 @@
 "use client";
-import { useState } from "react";
-import { ActionForm } from "@/components/shared/action-form";
-import { Field, SelectField } from "@/components/shared/fields";
+import { useMemo } from "react";
+import { FormProvider, useWatch } from "react-hook-form";
+import type { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox";
+import {
+  ActionFormShell,
+  DateField,
+  TextareaField,
+  TextField,
+  useZodForm,
+} from "@/components/shared/form";
 import { modes } from "../../constants";
+import { requestInput } from "../../schema";
 import { saveRequestAction } from "../../server/actions";
+import {
+  findOpenDocuments,
+  findParties,
+  findProjects,
+} from "../../server/picker-actions";
 import type { FormData, RequestDraft } from "../../type";
 import { AllocationFields } from "./allocation-form";
+import { PaymentChoice } from "./payment-choice";
 export function RequestForm({
   org,
   data,
@@ -15,126 +30,134 @@ export function RequestForm({
   data: FormData;
   draft?: RequestDraft;
 }) {
-  const [partyId, setParty] = useState(draft?.partyId ?? ""),
-    [projectId, setProject] = useState(
+  const form = useZodForm<
+    z.input<typeof requestInput>,
+    z.output<typeof requestInput>
+  >(requestInput, {
+    id: draft?.id ?? null,
+    partyId: draft?.partyId ?? "",
+    projectId:
       draft?.projectId ??
-        (data.allowOrganization ? "" : (data.projects[0]?.id ?? "")),
-    ),
-    [purpose, setPurpose] = useState(draft?.purpose ?? "ADVANCE");
-  const [values, setValues] = useState<Record<string, string>>(
-    Object.fromEntries(
-      draft?.allocations.map((a) => [a.documentId, a.amount]) ?? [],
-    ),
-  );
+      (data.allowOrganization ? null : (data.projects[0]?.id ?? null)),
+    date: draft?.date ?? new Date().toISOString().slice(0, 10),
+    amount: draft?.amount ?? "",
+    mode: requestInput.shape.mode.parse(draft?.mode ?? "CASH"),
+    purpose: requestInput.shape.purpose.parse(draft?.purpose ?? "ADVANCE"),
+    reason: draft?.reason ?? "",
+    allocations: draft?.allocations ?? [],
+  });
+  const [partyId, projectId, purpose] = useWatch({
+    control: form.control,
+    name: ["partyId", "projectId", "purpose"],
+  });
   const currency =
     data.projects.find((p) => p.id === projectId)?.currency ??
     data.baseCurrency;
+  const parties = useMemo(
+    () => findParties.bind(null, org, "payment.request.create", "OUTGOING"),
+    [org],
+  );
+  const projects = useMemo(
+    () => findProjects.bind(null, org, "payment.request.create"),
+    [org],
+  );
+  const documents = useMemo(
+    () =>
+      findOpenDocuments.bind(
+        null,
+        org,
+        "payment.request.create",
+        "OUTGOING",
+        partyId ?? "",
+        projectId,
+        currency,
+      ),
+    [org, partyId, projectId, currency],
+  );
+  const clear = () => form.setValue("allocations", []);
   return (
-    <ActionForm action={saveRequestAction.bind(null, org)} submit="Save draft">
-      <input type="hidden" name="id" value={draft?.id ?? ""} />
-      <div className="grid gap-4 md:grid-cols-2">
-        <SelectField
-          label="Vendor"
-          name="partyId"
-          required
-          value={partyId}
-          onChange={(e) => {
-            setParty(e.target.value);
-            setValues({});
-          }}
-        >
-          <option value="">Select vendor</option>
-          {data.parties
-            .filter((p) => p.isVendor)
-            .map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-        </SelectField>
-        <SelectField
-          label="Project"
-          name="projectId"
-          value={projectId}
-          onChange={(e) => {
-            setProject(e.target.value);
-            setValues({});
-          }}
-        >
-          {data.allowOrganization && (
-            <option value="">Organization · {data.baseCurrency}</option>
-          )}
-          {data.projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name} · {p.currency}
-            </option>
-          ))}
-        </SelectField>
-        <Field
-          label="Date"
-          type="date"
-          name="date"
-          required
-          defaultValue={draft?.date ?? new Date().toISOString().slice(0, 10)}
+    <FormProvider {...form}>
+      <ActionFormShell
+        form={form}
+        action={saveRequestAction.bind(null, org)}
+        submit="Save draft"
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <PaymentChoice
+            control={form.control}
+            name="partyId"
+            label="Vendor"
+            options={data.parties
+              .filter((p) => p.isVendor)
+              .map((p) => ({ value: p.id, label: p.name }))}
+            loadOptions={parties}
+            onChange={clear}
+          />
+          <PaymentChoice
+            control={form.control}
+            name="projectId"
+            label="Project"
+            options={data.projects.map((p) => ({
+              value: p.id,
+              label: p.name,
+              description: p.currency,
+            }))}
+            loadOptions={projects}
+            clearable={data.allowOrganization}
+            placeholder={`Organization | ${data.baseCurrency}`}
+            onChange={clear}
+          />
+          <DateField control={form.control} name="date" label="Date" />
+          <PaymentChoice
+            control={form.control}
+            name="purpose"
+            label="Purpose"
+            options={["ADVANCE", "BILL_SETTLEMENT", "OTHER"].map((value) => ({
+              value,
+              label: value.replaceAll("_", " "),
+            }))}
+            onChange={clear}
+          />
+          <ComboboxField
+            control={form.control}
+            name="mode"
+            label="Mode"
+            options={modes.map((value) => ({ value, label: value }))}
+          />
+          <TextField
+            control={form.control}
+            name="amount"
+            label={`Amount | ${currency}`}
+            inputMode="decimal"
+          />
+        </div>
+        <TextareaField
+          control={form.control}
+          name="reason"
+          label="Reason"
+          maxLength={2000}
         />
-        <SelectField
-          label="Purpose"
-          name="purpose"
-          value={purpose}
-          onChange={(e) => {
-            setPurpose(e.target.value);
-            setValues({});
-          }}
-        >
-          {["ADVANCE", "BILL_SETTLEMENT", "OTHER"].map((p) => (
-            <option key={p}>{p}</option>
-          ))}
-        </SelectField>
-        <SelectField
-          label="Mode"
-          name="mode"
-          defaultValue={draft?.mode ?? "CASH"}
-        >
-          {modes.map((m) => (
-            <option key={m}>{m}</option>
-          ))}
-        </SelectField>
-        <Field
-          label={`Amount · ${currency}`}
-          name="amount"
-          type="number"
-          step="0.01"
-          min="0.01"
-          required
-          defaultValue={draft?.amount}
-        />
-      </div>
-      <Field
-        label="Reason"
-        name="reason"
-        required
-        maxLength={2000}
-        defaultValue={draft?.reason}
-      />
-      {purpose === "BILL_SETTLEMENT" ? (
-        <AllocationFields
-          documents={data.bills.filter(
-            (b) =>
-              b.partyId === partyId &&
-              b.currency === currency &&
-              (!projectId || b.projectId === projectId),
-          )}
-          values={values}
-          onChange={setValues}
-        />
-      ) : (
-        <input type="hidden" name="allocations" value="[]" />
-      )}
-      {purpose === "BILL_SETTLEMENT" && (
-        <p className="text-sm text-muted-foreground">
-          Selected bill amounts must equal the request amount.
-        </p>
-      )}
-    </ActionForm>
+        {purpose === "BILL_SETTLEMENT" && (
+          <>
+            <AllocationFields
+              documents={data.bills.filter(
+                (b) =>
+                  b.partyId === partyId &&
+                  b.currency === currency &&
+                  (!projectId || b.projectId === projectId),
+              )}
+              loadOptions={documents}
+              selectedOptions={draft?.allocations.map((a) => ({
+                value: a.documentId,
+                label: a.code ?? a.documentId,
+              }))}
+            />
+            <p className="text-sm text-muted-foreground">
+              Selected bill amounts must equal the request amount.
+            </p>
+          </>
+        )}
+      </ActionFormShell>
+    </FormProvider>
   );
 }

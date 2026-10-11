@@ -1,10 +1,20 @@
 "use client";
-import { useState } from "react";
-import { ActionForm } from "@/components/shared/action-form";
-import { Field, SelectField } from "@/components/shared/fields";
+import { useMemo } from "react";
+import { useWatch } from "react-hook-form";
+import type { z } from "zod";
+import {
+  ActionFormShell,
+  DateField,
+  TextareaField,
+  TextField,
+  useZodForm,
+} from "@/components/shared/form";
 import { modes } from "../../constants";
+import { paymentInput } from "../../schema";
 import { recordPaymentAction } from "../../server/actions";
+import { findParties, findProjects } from "../../server/picker-actions";
 import type { FormData } from "../../type";
+import { PaymentChoice } from "./payment-choice";
 export function PaymentForm({
   org,
   data,
@@ -15,140 +25,146 @@ export function PaymentForm({
   initialRequestId?: string;
 }) {
   const initial = data.requests.find((r) => r.id === initialRequestId);
-  const [requestId, setRequest] = useState(initial?.id ?? ""),
-    [direction, setDirection] = useState("OUTGOING"),
-    [partyId, setParty] = useState(initial?.partyId ?? ""),
-    [projectId, setProject] = useState(
+  const form = useZodForm<
+    z.input<typeof paymentInput>,
+    z.output<typeof paymentInput>
+  >(paymentInput, {
+    direction: "OUTGOING",
+    paymentRequestId: initial?.id ?? null,
+    partyId: initial?.partyId ?? "",
+    projectId:
       initial?.projectId ??
-        (data.allowOrganization ? "" : (data.projects[0]?.id ?? "")),
-    ),
-    [mode, setMode] = useState(initial?.mode ?? "BANK"),
-    [value, setValue] = useState(initial?.remaining ?? "");
-  const request = data.requests.find((r) => r.id === requestId);
+      (data.allowOrganization ? null : (data.projects[0]?.id ?? null)),
+    mode: paymentInput.shape.mode.parse(initial?.mode ?? "BANK"),
+    amount: initial?.remaining ?? "",
+    date: new Date().toISOString().slice(0, 10),
+    reference: "",
+    notes: "",
+  });
+  const [direction, projectId, requestId] = useWatch({
+    control: form.control,
+    name: ["direction", "projectId", "paymentRequestId"],
+  });
   const currency =
     data.projects.find((p) => p.id === projectId)?.currency ??
     data.baseCurrency;
-  const chooseRequest = (id: string) => {
-    setRequest(id);
+  const parties = useMemo(
+    () => findParties.bind(null, org, "payment.record", direction),
+    [org, direction],
+  );
+  const projects = useMemo(
+    () => findProjects.bind(null, org, "payment.record"),
+    [org],
+  );
+  const clear = () => form.setValue("paymentRequestId", null);
+  const chooseRequest = (id: string | null) => {
     const r = data.requests.find((r) => r.id === id);
     if (r) {
-      setDirection("OUTGOING");
-      setParty(r.partyId);
-      setProject(r.projectId ?? "");
-      setMode(r.mode);
-      setValue(r.remaining);
+      form.setValue("direction", "OUTGOING");
+      form.setValue("partyId", r.partyId);
+      form.setValue("projectId", r.projectId);
+      form.setValue("mode", paymentInput.shape.mode.parse(r.mode));
+      form.setValue("amount", r.remaining);
     }
   };
   return (
-    <ActionForm
+    <ActionFormShell
+      form={form}
       action={recordPaymentAction.bind(null, org)}
       submit="Record payment"
     >
       <div className="grid gap-4 md:grid-cols-2">
-        <SelectField
-          label="Direction"
+        <PaymentChoice
+          control={form.control}
           name="direction"
-          value={direction}
-          onChange={(e) => {
-            setDirection(e.target.value);
-            setParty("");
-            setRequest("");
+          label="Direction"
+          options={[
+            { value: "OUTGOING", label: "Outgoing to vendor" },
+            { value: "INCOMING", label: "Incoming from customer" },
+          ]}
+          onChange={() => {
+            form.setValue("partyId", "");
+            clear();
           }}
-        >
-          <option value="OUTGOING">Outgoing to vendor</option>
-          <option value="INCOMING">Incoming from customer</option>
-        </SelectField>
-        <SelectField
-          label="Approved payment request"
+        />
+        <PaymentChoice
+          control={form.control}
           name="paymentRequestId"
-          value={requestId}
-          onChange={(e) => chooseRequest(e.target.value)}
-        >
-          <option value="">Direct payment</option>
-          {direction === "OUTGOING" &&
-            data.requests.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.code} · {r.currency} {r.remaining}
-              </option>
-            ))}
-        </SelectField>
-        <SelectField
-          label={direction === "OUTGOING" ? "Vendor" : "Customer"}
+          label="Approved payment request"
+          options={
+            direction === "OUTGOING"
+              ? data.requests.map((r) => ({
+                  value: r.id,
+                  label: `${r.code} | ${r.currency} ${r.remaining}`,
+                }))
+              : []
+          }
+          clearable
+          placeholder="Direct payment"
+          onChange={chooseRequest}
+        />
+        <PaymentChoice
+          control={form.control}
           name="partyId"
-          required
-          value={partyId}
-          onChange={(e) => {
-            setParty(e.target.value);
-            setRequest("");
-          }}
-        >
-          <option value="">Select party</option>
-          {data.parties
+          label={direction === "OUTGOING" ? "Vendor" : "Customer"}
+          options={data.parties
             .filter((p) =>
               direction === "OUTGOING" ? p.isVendor : p.isCustomer,
             )
-            .map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-        </SelectField>
-        <SelectField
-          label="Project"
+            .map((p) => ({ value: p.id, label: p.name }))}
+          loadOptions={parties}
+          onChange={clear}
+        />
+        <PaymentChoice
+          control={form.control}
           name="projectId"
-          value={projectId}
-          onChange={(e) => {
-            setProject(e.target.value);
-            setRequest("");
-          }}
-        >
-          {data.allowOrganization && (
-            <option value="">Organization · {data.baseCurrency}</option>
-          )}
-          {data.projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name} · {p.currency}
-            </option>
-          ))}
-        </SelectField>
-        <Field
-          label="Date"
-          name="date"
-          type="date"
-          required
-          defaultValue={new Date().toISOString().slice(0, 10)}
+          label="Project"
+          options={data.projects.map((p) => ({
+            value: p.id,
+            label: p.name,
+            description: p.currency,
+          }))}
+          loadOptions={projects}
+          clearable={data.allowOrganization}
+          placeholder={`Organization | ${data.baseCurrency}`}
+          onChange={clear}
         />
-        <SelectField
-          label="Mode"
+        <DateField control={form.control} name="date" label="Date" />
+        <PaymentChoice
+          control={form.control}
           name="mode"
-          value={mode}
-          onChange={(e) => {
-            setMode(e.target.value);
-            setRequest("");
-          }}
-        >
-          {modes.map((m) => (
-            <option key={m}>{m}</option>
-          ))}
-        </SelectField>
-        <Field
-          label={`Amount · ${currency}`}
-          name="amount"
-          type="number"
-          min="0.01"
-          max={request?.remaining}
-          step="0.01"
-          required
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
+          label="Mode"
+          options={modes.map((value) => ({ value, label: value }))}
+          onChange={clear}
         />
-        <Field label="Reference" name="reference" maxLength={200} />
+        <TextField
+          control={form.control}
+          name="amount"
+          label={`Amount | ${currency}`}
+          inputMode="decimal"
+          description={
+            requestId
+              ? `Request remaining: ${data.requests.find((r) => r.id === requestId)?.remaining}`
+              : undefined
+          }
+        />
+        <TextField
+          control={form.control}
+          name="reference"
+          label="Reference"
+          maxLength={200}
+        />
       </div>
-      <Field label="Notes" name="notes" maxLength={2000} />
+      <TextareaField
+        control={form.control}
+        name="notes"
+        label="Notes"
+        maxLength={2000}
+      />
       <p className="text-sm text-muted-foreground">
         Vendor cash payments require an approved request. Request bill amounts
         allocate automatically. Other payments remain advances until allocated.
       </p>
-    </ActionForm>
+    </ActionFormShell>
   );
 }

@@ -1,48 +1,92 @@
 "use client";
-import { useState } from "react";
-import { ActionForm } from "@/components/shared/action-form";
-import { Field } from "@/components/shared/fields";
+import { useMemo } from "react";
+import { FormProvider, useFieldArray, useFormContext } from "react-hook-form";
+import type { z } from "zod";
+import { ComboboxField, type Option } from "@/components/shared/combobox";
+import { EmptyState } from "@/components/shared/empty-state";
+import {
+  ActionFormShell,
+  TextField,
+  useZodForm,
+} from "@/components/shared/form";
 import { Button } from "@/components/ui/button";
+import { FieldError } from "@/components/ui/field";
+import { allocationActionInput } from "../../schema";
 import { allocatePaymentAction } from "../../server/actions";
-
+import { findOpenDocuments } from "../../server/picker-actions";
 import type { Document } from "../../type";
 export function AllocationFields({
   documents,
-  values,
-  onChange,
+  loadOptions,
+  selectedOptions = [],
 }: {
   documents: Document[];
-  values: Record<string, string>;
-  onChange: (values: Record<string, string>) => void;
+  loadOptions: (query: string) => Promise<Option[]>;
+  selectedOptions?: Option[];
 }) {
+  const { control, formState } = useFormContext<{
+    allocations: { documentId: string; amount: string }[];
+  }>();
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "allocations",
+  });
   return (
     <div className="space-y-3">
-      <input
-        type="hidden"
-        name="allocations"
-        value={JSON.stringify(
-          Object.entries(values)
-            .filter(([, v]) => v && v !== "0")
-            .map(([documentId, amount]) => ({ documentId, amount })),
-        )}
-      />
       {documents.length === 0 && (
-        <p className="text-sm text-muted-foreground">
-          No open approved documents for this selection.
-        </p>
+        <EmptyState title="No open approved documents for this selection." />
       )}
-      {documents.map((d) => (
-        <Field
-          key={d.id}
-          label={`${d.code} · ${d.currency} ${d.outstanding} outstanding`}
-          type="number"
-          min="0"
-          max={d.outstanding}
-          step="0.01"
-          value={values[d.id] ?? ""}
-          onChange={(e) => onChange({ ...values, [d.id]: e.target.value })}
-        />
+      {fields.map((field, index) => (
+        <div
+          key={field.id}
+          className="grid items-start gap-3 sm:grid-cols-[1fr_1fr_auto]"
+        >
+          <ComboboxField
+            control={control}
+            name={`allocations.${index}.documentId`}
+            label="Open document"
+            options={[
+              ...selectedOptions,
+              ...documents.map((d) => ({
+                value: d.id,
+                label: d.code,
+                description: `${d.currency} ${d.outstanding} outstanding`,
+              })),
+            ].filter(
+              (option, index, options) =>
+                options.findIndex(
+                  (candidate) => candidate.value === option.value,
+                ) === index,
+            )}
+            loadOptions={loadOptions}
+          />
+          <TextField
+            control={control}
+            name={`allocations.${index}.amount`}
+            label="Allocation amount"
+            inputMode="decimal"
+          />
+          <Button type="button" variant="outline" onClick={() => remove(index)}>
+            Remove
+          </Button>
+        </div>
       ))}
+      <FieldError
+        errors={[
+          formState.errors.allocations,
+          formState.errors.allocations?.root,
+        ]}
+      />
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => append({ documentId: "", amount: "" })}
+      >
+        Add allocation
+      </Button>
+      <Button type="button" variant="ghost" onClick={() => remove()}>
+        Clear allocations
+      </Button>
     </div>
   );
 }
@@ -50,26 +94,48 @@ export function AllocationForm({
   org,
   paymentId,
   documents,
+  direction,
+  partyId,
+  projectId,
+  currency,
 }: {
   org: string;
   paymentId: string;
   documents: Document[];
+  direction: string;
+  partyId: string;
+  projectId: string | null;
+  currency: string;
 }) {
-  const [values, setValues] = useState<Record<string, string>>({});
+  const form = useZodForm<
+    z.input<typeof allocationActionInput>,
+    z.output<typeof allocationActionInput>
+  >(allocationActionInput, {
+    id: paymentId,
+    allocations: [],
+  });
+  const loadOptions = useMemo(
+    () =>
+      findOpenDocuments.bind(
+        null,
+        org,
+        "payment.record",
+        direction,
+        partyId,
+        projectId,
+        currency,
+      ),
+    [org, direction, partyId, projectId, currency],
+  );
   return (
-    <ActionForm
-      action={allocatePaymentAction.bind(null, org)}
-      submit="Allocate payment"
-    >
-      <input type="hidden" name="id" value={paymentId} />
-      <AllocationFields
-        documents={documents}
-        values={values}
-        onChange={setValues}
-      />
-      <Button type="button" variant="outline" onClick={() => setValues({})}>
-        Clear amounts
-      </Button>
-    </ActionForm>
+    <FormProvider {...form}>
+      <ActionFormShell
+        form={form}
+        action={allocatePaymentAction.bind(null, org)}
+        submit="Allocate payment"
+      >
+        <AllocationFields documents={documents} loadOptions={loadOptions} />
+      </ActionFormShell>
+    </FormProvider>
   );
 }

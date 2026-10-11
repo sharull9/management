@@ -37,5 +37,5 @@ export type RequestDraft = {
   mode: string;
   purpose: string;
   reason: string;
-  allocations: { documentId: string; amount: string }[];
+  allocations: { documentId: string; amount: string; code?: string }[];
 };

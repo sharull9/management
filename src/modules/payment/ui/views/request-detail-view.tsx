@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ActionForm } from "@/components/shared/action-form";
 import { ApprovalTimeline } from "@/components/shared/approval-timeline";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
+import { Item, ItemContent, ItemGroup } from "@/components/ui/item";
 import { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
-import { submitRequestAction } from "../../server/actions";
 import { financeData } from "../../server/queries";
+import { SubmitRequestForm } from "../components/payment-actions-form";
 import { RequestForm } from "../components/request-form";
 
 import { date, formData, linkClass, money } from "../util";
@@ -52,16 +53,18 @@ export async function RequestDetail({ org, id }: { org: string; id: string }) {
           </div>
         </dl>
         <p className="mt-4 whitespace-pre-wrap text-sm">{row.reason}</p>
-        <ul className="mt-4 space-y-2 text-sm">
+        <ItemGroup className="mt-4">
           {row.bills.map((b) => (
-            <li key={b.id}>
-              <Link href={`/${org}/procurement/bills/${b.billId}`}>
-                {d.bills.find((r) => r.id === b.billId)?.code ?? b.billId}
-              </Link>{" "}
-              · {money(b.amount)}
-            </li>
+            <Item key={b.id} variant="outline">
+              <ItemContent>
+                <Link href={`/${org}/procurement/bills/${b.billId}`}>
+                  {d.bills.find((r) => r.id === b.billId)?.code ?? b.billId}
+                </Link>{" "}
+                · {money(b.amount)}
+              </ItemContent>
+            </Item>
           ))}
-        </ul>
+        </ItemGroup>
       </FormCard>
       {row.status === "DRAFT" && canEdit && (
         <>
@@ -81,16 +84,14 @@ export async function RequestDetail({ org, id }: { org: string; id: string }) {
                 allocations: row.bills.map((b) => ({
                   documentId: b.billId,
                   amount: money(b.amount),
+                  code:
+                    d.bills.find((bill) => bill.id === b.billId)?.code ??
+                    b.billId,
                 })),
               }}
             />
           </FormCard>
-          <ActionForm
-            action={submitRequestAction.bind(null, org)}
-            submit="Submit for approval"
-          >
-            <input type="hidden" name="id" value={id} />
-          </ActionForm>
+          <SubmitRequestForm org={org} id={id} />
         </>
       )}
       {row.status === "APPROVED" && canPay && (
@@ -102,20 +103,22 @@ export async function RequestDetail({ org, id }: { org: string; id: string }) {
         </Link>
       )}
       <FormCard title="Payments">
-        {row.payments.map((p) => (
-          <p key={p.id} className="py-2 text-sm">
-            <Link
-              className={linkClass}
-              href={`/${org}/finance/payments/${p.id}`}
-            >
-              {p.code}
-            </Link>{" "}
-            · {money(p.amount)}
-          </p>
-        ))}
-        {!row.payments.length && (
-          <p className="text-sm text-muted-foreground">No posted payments.</p>
-        )}
+        <ItemGroup>
+          {row.payments.map((p) => (
+            <Item key={p.id} variant="outline">
+              <ItemContent>
+                <Link
+                  className={linkClass}
+                  href={`/${org}/finance/payments/${p.id}`}
+                >
+                  {p.code}
+                </Link>{" "}
+                · {money(p.amount)}
+              </ItemContent>
+            </Item>
+          ))}
+        </ItemGroup>
+        {!row.payments.length && <EmptyState title="No posted payments." />}
       </FormCard>
       <ApprovalTimeline org={org} approvals={approvals} variant="payment" />
     </div>

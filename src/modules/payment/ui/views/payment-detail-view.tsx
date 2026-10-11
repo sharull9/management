@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ActionForm } from "@/components/shared/action-form";
-import { Field } from "@/components/shared/fields";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
+import { Item, ItemContent, ItemGroup } from "@/components/ui/item";
 import { requireOrgContext, requireProjectContext } from "@/core/context";
-import { voidPaymentAction } from "../../server/actions";
 import { financeData } from "../../server/queries";
 import { AllocationForm } from "../components/allocation-form";
+import { VoidPaymentForm } from "../components/payment-actions-form";
 
 import { date, formData, linkClass, money } from "../util";
 export async function PaymentDetail({ org, id }: { org: string; id: string }) {
@@ -72,20 +72,22 @@ export async function PaymentDetail({ org, id }: { org: string; id: string }) {
       <FormCard
         title={row.status === "VOID" ? "Reversed allocations" : "Allocations"}
       >
-        {row.allocations.map((a) => (
-          <p key={a.id} className="py-2 text-sm">
-            <Link
-              className={linkClass}
-              href={`/${org}/${a.vendorBillId ? `procurement/bills/${a.vendorBillId}` : `sales/invoices/${a.salesInvoiceId}`}`}
-            >
-              {a.vendorBill?.code ?? a.salesInvoice?.code}
-            </Link>{" "}
-            · {money(a.amount)} · {date(a.allocatedAt)}
-          </p>
-        ))}
-        {!row.allocations.length && (
-          <p className="text-sm text-muted-foreground">No allocations yet.</p>
-        )}
+        <ItemGroup>
+          {row.allocations.map((a) => (
+            <Item key={a.id} variant="outline">
+              <ItemContent>
+                <Link
+                  className={linkClass}
+                  href={`/${org}/${a.vendorBillId ? `procurement/bills/${a.vendorBillId}` : `sales/invoices/${a.salesInvoiceId}`}`}
+                >
+                  {a.vendorBill?.code ?? a.salesInvoice?.code}
+                </Link>{" "}
+                · {money(a.amount)} · {date(a.allocatedAt)}
+              </ItemContent>
+            </Item>
+          ))}
+        </ItemGroup>
+        {!row.allocations.length && <EmptyState title="No allocations yet." />}
       </FormCard>
       {row.status === "POSTED" && canRecord && (
         <>
@@ -97,6 +99,10 @@ export async function PaymentDetail({ org, id }: { org: string; id: string }) {
                 key={`${row.id}:${row.updatedAt.toISOString()}`}
                 org={org}
                 paymentId={id}
+                direction={row.direction}
+                partyId={row.partyId}
+                projectId={row.projectId}
+                currency={row.currency}
                 documents={documents.filter(
                   (r) =>
                     r.partyId === row.partyId &&
@@ -107,19 +113,7 @@ export async function PaymentDetail({ org, id }: { org: string; id: string }) {
             </FormCard>
           )}
           <FormCard title="Void payment">
-            <ActionForm
-              action={voidPaymentAction.bind(null, org)}
-              submit="Void and reverse allocations"
-              destructive
-            >
-              <input type="hidden" name="id" value={id} />
-              <Field
-                label="Reason for voiding"
-                name="reason"
-                required
-                maxLength={1000}
-              />
-            </ActionForm>
+            <VoidPaymentForm org={org} id={id} />
           </FormCard>
         </>
       )}
