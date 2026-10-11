@@ -8,6 +8,7 @@ export type ActionState = {
   message?: string;
   redirectTo?: string;
   version?: number;
+  fieldErrors?: Record<string, string[]>;
 };
 export async function runAction(
   work: () => Promise<string | undefined>,
@@ -19,11 +20,20 @@ export async function runAction(
     return { message: "Saved successfully.", redirectTo, version: Date.now() };
   } catch (error) {
     unstable_rethrow(error);
-    if (error instanceof z.ZodError)
+    if (error instanceof z.ZodError) {
+      const errors = new Map<string, string[]>();
+      for (const issue of error.issues) {
+        const path = issue.path.join(".");
+        const messages = errors.get(path) ?? [];
+        messages.push(issue.message);
+        errors.set(path, messages);
+      }
       return {
         error: error.issues.map((issue) => issue.message).join(" "),
+        fieldErrors: Object.fromEntries(errors),
         version: Date.now(),
       };
+    }
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       console.error("Database mutation failed:", error.code);
       return {

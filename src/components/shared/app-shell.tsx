@@ -33,7 +33,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { signOutAction } from "@/modules/organization-auth";
+import { signOutAction } from "@/modules/organization-auth/server/actions";
 import { ActionForm } from "./action-form";
 
 export function AppShell({

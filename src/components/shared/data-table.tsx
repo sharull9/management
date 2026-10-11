@@ -7,6 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+// Deprecated: new tables use shared/data-table/index; retained for legacy headings/rows callers.
 export function DataTable({
   headings,
   rows,

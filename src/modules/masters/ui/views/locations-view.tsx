@@ -2,20 +2,10 @@ import { ActionForm } from "@/components/shared/action-form";
 import { Field, SelectField } from "@/components/shared/fields";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
-import {
-  deleteCityAction,
-  saveCityAction,
-} from "../../server/location-actions";
+import { saveCityAction } from "../../server/location-actions";
+import { CitiesTable } from "../components/cities-table";
 
 export async function LocationsView({ org }: { org: string }) {
   const ctx = await requireOrgContext(org);
@@ -39,64 +29,20 @@ export async function LocationsView({ org }: { org: string }) {
         description="Countries and states are global reference data. Cities are shared only within your tenant."
       />
       <FormCard title="Tenant cities">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>City</TableHead>
-              <TableHead>State / country</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {cities.map((city) => (
-              <TableRow key={city.id}>
-                <TableCell>{city.name}</TableCell>
-                <TableCell>
-                  {city.state.name} · {city.state.country.code}
-                </TableCell>
-                <TableCell>
-                  <details>
-                    <summary className="cursor-pointer text-sm">
-                      Edit city
-                    </summary>
-                    <div className="min-w-56 space-y-4 pt-4">
-                      <ActionForm action={saveCityAction.bind(null, org)}>
-                        <input type="hidden" name="id" value={city.id} />
-                        <Field
-                          label="City name"
-                          name="name"
-                          defaultValue={city.name}
-                          required
-                        />
-                        <SelectField
-                          label="State"
-                          name="stateId"
-                          defaultValue={city.stateId}
-                        >
-                          {states.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.country.code} · {s.name}
-                            </option>
-                          ))}
-                        </SelectField>
-                      </ActionForm>
-                      <ActionForm
-                        action={deleteCityAction.bind(null, org)}
-                        submit="Delete city"
-                        destructive
-                      >
-                        <input type="hidden" name="id" value={city.id} />
-                      </ActionForm>
-                    </div>
-                  </details>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {!cities.length && (
-          <p className="py-4 text-sm text-muted-foreground">No cities yet.</p>
-        )}
+        <CitiesTable
+          org={org}
+          cities={cities.map(({ id, name, stateId, state }) => ({
+            id,
+            name,
+            stateId,
+            state: { name: state.name, country: { code: state.country.code } },
+          }))}
+          states={states.map(({ id, name, country }) => ({
+            id,
+            name,
+            country: { code: country.code },
+          }))}
+        />
       </FormCard>
       <FormCard title="Add city">
         <ActionForm action={saveCityAction.bind(null, org)} submit="Add city">

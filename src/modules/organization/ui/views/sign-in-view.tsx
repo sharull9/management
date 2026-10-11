@@ -1,8 +1,6 @@
 import Link from "next/link";
-import { ActionForm } from "@/components/shared/action-form";
-import { Field } from "@/components/shared/fields";
 import { FormCard } from "@/components/shared/form-card";
-import { signInAction } from "@/modules/organization-auth";
+import { SignInForm } from "@/modules/organization-auth/ui/components/sign-in-form";
 export function SignInView() {
   return (
     <main className="mx-auto w-full max-w-lg p-6 py-16">
@@ -13,22 +11,7 @@ export function SignInView() {
         <p className="mb-6 text-sm text-muted-foreground">
           Access your organizations and project workspace.
         </p>
-        <ActionForm action={signInAction} submit="Sign in">
-          <Field
-            label="Email"
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-          />
-          <Field
-            label="Password"
-            name="password"
-            type="password"
-            required
-            autoComplete="current-password"
-          />
-        </ActionForm>
+        <SignInForm />
       </FormCard>
       <p className="mt-6 text-sm text-muted-foreground">
         First installation?{" "}

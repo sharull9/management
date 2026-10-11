@@ -1,11 +1,11 @@
 "use server";
 import { headers } from "next/headers";
-
+import type { z } from "zod";
 import { type ActionState, runAction } from "@/core/action-result";
 import { writeAudit } from "@/core/audit";
 import { auth, createAuth } from "@/core/auth/auth";
-
 import { db } from "@/core/db";
+import { typedAction } from "@/core/typed-action";
 import { credentials, signInInput } from "../schema";
 export async function setupAction(_: ActionState, data: FormData) {
   return runAction(async () => {
@@ -33,12 +33,11 @@ export async function setupAction(_: ActionState, data: FormData) {
     return "/sign-in";
   });
 }
-export async function signInAction(_: ActionState, data: FormData) {
-  return runAction(async () => {
-    const input = signInInput.parse(Object.fromEntries(data));
+export async function signInAction(input: z.input<typeof signInInput>) {
+  return typedAction(signInInput, async (input) => {
     await auth.api.signInEmail({ body: input, headers: await headers() });
     return "/";
-  });
+  })(input);
 }
 export async function signOutAction(_: ActionState, _data: FormData) {
   return runAction(async () => {
