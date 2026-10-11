@@ -1,186 +1,180 @@
 "use client";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
-import { Field, SelectField } from "@/components/shared/fields";
-import { Button } from "@/components/ui/button";
 
-type Step = {
-  name: string;
-  approverType: "ROLE" | "USER" | "PROJECT_MANAGER" | "STAGE_MANAGER";
-  roleId: string | null;
-  userId: string | null;
-  minAmount: string | null;
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef } from "react";
+import { useFieldArray, useWatch } from "react-hook-form";
+import type { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox";
+import {
+  ActionFormShell,
+  CheckboxField,
+  TextField,
+  useZodForm,
+} from "@/components/shared/form";
+import { enumOptions } from "@/components/shared/form/enum-options";
+import { Button } from "@/components/ui/button";
+import { ApproverType, DocumentType } from "@/generated/prisma/enums";
+import { savePolicyInput } from "../../schema";
+import { savePolicyAction } from "../../server/actions";
+import {
+  findApprovalProjects,
+  findApprovalRoles,
+  findApprovalStages,
+  findApprovalUsers,
+} from "../../server/picker-actions";
+import type { PolicyDraft, PolicyOptions } from "../../type";
+
+const defaultStep: PolicyDraft["steps"][number] = {
+  name: "Approval",
+  approverType: "PROJECT_MANAGER",
+  roleId: null,
+  userId: null,
+  minAmount: "",
 };
+const emptyOptions: PolicyOptions = {
+  roles: [],
+  users: [],
+  projects: [],
+  stages: [],
+};
+const documentTypes = enumOptions(DocumentType);
+const approverTypes = enumOptions(ApproverType);
+const scopes = [
+  { value: "org", label: "Organization default" },
+  { value: "project", label: "Project" },
+  { value: "stage", label: "Stage" },
+];
+
 export function PolicyEditor({
-  initialSteps,
-  roles,
-  users,
-  projects = [],
-  stages = [],
-  initialProjectId = null,
-  initialStageId = null,
+  org,
+  draft,
+  options = emptyOptions,
 }: {
-  initialSteps?: Step[];
-  roles: { id: string; name: string }[];
-  users: { id: string; name: string }[];
-  projects?: { id: string; name: string }[];
-  stages?: { id: string; name: string; projectId: string }[];
-  initialProjectId?: string | null;
-  initialStageId?: string | null;
+  org: string;
+  draft?: PolicyDraft;
+  options?: PolicyOptions;
 }) {
-  const [scope, setScope] = useState(
-    initialStageId ? "stage" : initialProjectId ? "project" : "org",
+  const form = useZodForm<PolicyDraft, z.output<typeof savePolicyInput>>(
+    savePolicyInput,
+    draft ?? {
+      id: null,
+      name: "",
+      documentType: Object.values(DocumentType)[0],
+      active: true,
+      scope: "org",
+      projectId: null,
+      stageId: null,
+      steps: [defaultStep],
+    },
   );
-  const [projectId, setProjectId] = useState(initialProjectId ?? "");
-  const [stageId, setStageId] = useState(initialStageId ?? "");
-  const [steps, setSteps] = useState<(Step & { editorId: string })[]>(() =>
-    (initialSteps?.length
-      ? initialSteps
-      : [
-          {
-            name: "Approval",
-            approverType: "PROJECT_MANAGER" as const,
-            roleId: null,
-            userId: null,
-            minAmount: null,
-          },
-        ]
-    ).map((s, i) => ({ ...s, editorId: `initial-${i}` })),
+  const { fields, append, remove, move } = useFieldArray({
+    control: form.control,
+    name: "steps",
+  });
+  const [scope, projectId, steps] = useWatch({
+    control: form.control,
+    name: ["scope", "projectId", "steps"],
+  });
+  const previousProject = useRef(projectId);
+  useEffect(() => {
+    if (previousProject.current !== projectId) {
+      form.setValue("stageId", null, { shouldDirty: true });
+      previousProject.current = projectId;
+    }
+  }, [form, projectId]);
+  const roles = useMemo(() => findApprovalRoles.bind(null, org), [org]);
+  const users = useMemo(() => findApprovalUsers.bind(null, org), [org]);
+  const projects = useMemo(() => findApprovalProjects.bind(null, org), [org]);
+  const stages = useMemo(
+    () => findApprovalStages.bind(null, org, projectId),
+    [org, projectId],
   );
-  function update(index: number, change: Partial<Step>) {
-    setSteps(steps.map((s, i) => (i === index ? { ...s, ...change } : s)));
-  }
-  function move(index: number, delta: number) {
-    const result = [...steps];
-    [result[index], result[index + delta]] = [
-      result[index + delta],
-      result[index],
-    ];
-    setSteps(result);
-  }
   return (
-    <div className="space-y-4">
-      <input
-        type="hidden"
-        name="steps"
-        value={JSON.stringify(steps.map(({ editorId: _editorId, ...s }) => s))}
+    <ActionFormShell
+      form={form}
+      action={savePolicyAction.bind(null, org)}
+      submit={draft ? "Save policy" : "Create policy"}
+    >
+      <TextField control={form.control} name="name" label="Policy name" />
+      <ComboboxField
+        control={form.control}
+        name="documentType"
+        label="Document type"
+        options={documentTypes}
       />
+      <CheckboxField control={form.control} name="active" label="Active" />
       <div className="grid gap-4 sm:grid-cols-3">
-        <SelectField
-          label="Policy scope"
+        <ComboboxField
+          control={form.control}
           name="scope"
-          value={scope}
-          onChange={(e) => setScope(e.target.value)}
-        >
-          <option value="org">Organization default</option>
-          <option value="project">Project</option>
-          <option value="stage">Stage</option>
-        </SelectField>
-        <SelectField
-          label="Project"
+          label="Policy scope"
+          options={scopes}
+        />
+        <ComboboxField
+          control={form.control}
           name="projectId"
+          label="Project"
+          options={options.projects}
+          loadOptions={projects}
           disabled={scope === "org"}
-          required={scope !== "org"}
-          value={projectId}
-          onChange={(e) => {
-            setProjectId(e.target.value);
-            setStageId("");
-          }}
-        >
-          <option value="">Select project</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField
-          label="Stage"
+          clearable
+          searchPlaceholder="Search projects"
+        />
+        <ComboboxField
+          key={projectId}
+          control={form.control}
           name="stageId"
-          disabled={scope !== "stage"}
-          required={scope === "stage"}
-          value={stageId}
-          onChange={(e) => setStageId(e.target.value)}
-        >
-          <option value="">Select stage</option>
-          {stages
-            .filter((s) => s.projectId === projectId)
-            .map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-        </SelectField>
+          label="Stage"
+          options={projectId === draft?.projectId ? options.stages : []}
+          loadOptions={stages}
+          disabled={scope !== "stage" || !projectId}
+          clearable
+          searchPlaceholder="Search stages"
+        />
       </div>
-      {steps.map((step, index) => (
-        <fieldset key={step.editorId} className="rounded-lg border p-4">
+      {fields.map((field, index) => (
+        <fieldset key={field.id} className="rounded-lg border p-4">
           <legend className="px-2 text-sm font-medium">Step {index + 1}</legend>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field
+            <TextField
+              control={form.control}
+              name={`steps.${index}.name`}
               label="Step name"
-              value={step.name}
-              onChange={(e) => update(index, { name: e.target.value })}
-              required
             />
-            <SelectField
+            <ComboboxField
+              control={form.control}
+              name={`steps.${index}.approverType`}
               label="Approver type"
-              value={step.approverType}
-              onChange={(e) =>
-                update(index, {
-                  approverType: e.target.value as Step["approverType"],
-                  roleId: null,
-                  userId: null,
-                })
-              }
-            >
-              {["ROLE", "USER", "PROJECT_MANAGER", "STAGE_MANAGER"].map(
-                (type) => (
-                  <option key={type}>{type}</option>
-                ),
-              )}
-            </SelectField>
-            {step.approverType === "ROLE" && (
-              <SelectField
+              options={approverTypes}
+            />
+            {steps[index]?.approverType === "ROLE" && (
+              <ComboboxField
+                control={form.control}
+                name={`steps.${index}.roleId`}
                 label="Custom role"
-                value={step.roleId ?? ""}
-                onChange={(e) =>
-                  update(index, { roleId: e.target.value || null })
-                }
-                required
-              >
-                <option value="">Choose role</option>
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.name}
-                  </option>
-                ))}
-              </SelectField>
+                options={options.roles}
+                loadOptions={roles}
+                clearable
+                searchPlaceholder="Search roles"
+              />
             )}
-            {step.approverType === "USER" && (
-              <SelectField
+            {steps[index]?.approverType === "USER" && (
+              <ComboboxField
+                control={form.control}
+                name={`steps.${index}.userId`}
                 label="Approver"
-                value={step.userId ?? ""}
-                onChange={(e) =>
-                  update(index, { userId: e.target.value || null })
-                }
-                required
-              >
-                <option value="">Choose member</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </SelectField>
+                options={options.users}
+                loadOptions={users}
+                clearable
+                searchPlaceholder="Search members"
+              />
             )}
-            <Field
+            <TextField
+              control={form.control}
+              name={`steps.${index}.minAmount`}
               label="Minimum amount (optional)"
               inputMode="decimal"
               placeholder="0.00"
-              value={step.minAmount ?? ""}
-              onChange={(e) =>
-                update(index, { minAmount: e.target.value || null })
-              }
             />
           </div>
           <div className="mt-4 flex gap-2">
@@ -190,7 +184,7 @@ export function PolicyEditor({
               size="sm"
               aria-label={`Move step ${index + 1} up`}
               disabled={index === 0}
-              onClick={() => move(index, -1)}
+              onClick={() => move(index, index - 1)}
             >
               <ArrowUp />
             </Button>
@@ -199,8 +193,8 @@ export function PolicyEditor({
               variant="outline"
               size="sm"
               aria-label={`Move step ${index + 1} down`}
-              disabled={index === steps.length - 1}
-              onClick={() => move(index, 1)}
+              disabled={index === fields.length - 1}
+              onClick={() => move(index, index + 1)}
             >
               <ArrowDown />
             </Button>
@@ -208,8 +202,8 @@ export function PolicyEditor({
               type="button"
               variant="outline"
               size="sm"
-              disabled={steps.length === 1}
-              onClick={() => setSteps(steps.filter((_, i) => i !== index))}
+              disabled={fields.length === 1}
+              onClick={() => remove(index)}
             >
               <Trash2 />
               Remove
@@ -220,20 +214,8 @@ export function PolicyEditor({
       <Button
         type="button"
         variant="outline"
-        disabled={steps.length >= 20}
-        onClick={() =>
-          setSteps([
-            ...steps,
-            {
-              editorId: crypto.randomUUID(),
-              name: "Approval",
-              approverType: "PROJECT_MANAGER",
-              roleId: null,
-              userId: null,
-              minAmount: null,
-            },
-          ])
-        }
+        disabled={fields.length >= 20}
+        onClick={() => append(defaultStep)}
       >
         <Plus />
         Add step
@@ -242,6 +224,6 @@ export function PolicyEditor({
         Manager steps resolve project or stage managers. When no manager is set,
         organization or tenant administrators can act.
       </p>
-    </div>
+    </ActionFormShell>
   );
 }

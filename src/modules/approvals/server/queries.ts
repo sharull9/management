@@ -52,28 +52,20 @@ export async function approvalInbox(org: string) {
 export async function approvalPolicyData(org: string) {
   const ctx = await requireOrgContext(org);
   assertPermission(ctx, "approval.policy.manage");
-  const [policies, roles, members, projects, stages] = await Promise.all([
-    db.approvalPolicy.findMany({
-      where: { organizationId: ctx.org.id },
-      include: { steps: { orderBy: { sequence: "asc" } } },
-      orderBy: { documentType: "asc" },
-    }),
-    db.role.findMany({
-      where: { tenantId: ctx.tenant.id },
-      select: { id: true, name: true },
-    }),
-    db.member.findMany({
-      where: { organizationId: ctx.org.id },
-      include: { user: { select: { id: true, name: true } } },
-    }),
-    db.project.findMany({
-      where: { organizationId: ctx.org.id },
-      select: { id: true, name: true },
-    }),
-    db.stage.findMany({
-      where: { project: { organizationId: ctx.org.id } },
-      select: { id: true, name: true, projectId: true },
-    }),
-  ]);
-  return { policies, roles, members, projects, stages };
+  const policies = await db.approvalPolicy.findMany({
+    where: { organizationId: ctx.org.id },
+    include: {
+      project: { select: { id: true, name: true } },
+      stage: { select: { id: true, name: true } },
+      steps: {
+        orderBy: { sequence: "asc" },
+        include: {
+          role: { select: { id: true, name: true } },
+          user: { select: { id: true, name: true } },
+        },
+      },
+    },
+    orderBy: { documentType: "asc" },
+  });
+  return { policies };
 }

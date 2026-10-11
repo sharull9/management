@@ -1,31 +1,23 @@
 "use server";
 
-import { type ActionState, runAction } from "@/core/action-result";
+import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
-
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
-import { optional, value } from "@/core/form-data";
+import { typedAction } from "@/core/typed-action";
 import {
   approvalDecisionInput,
-  id,
-  policyScopeInput,
+  cancelApprovalInput,
   savePolicyInput,
 } from "../schema";
 import { actOnApproval, cancelApproval } from "./service";
 export async function savePolicyAction(
   orgSlug: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof savePolicyInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(savePolicyInput, async (input) => {
     const ctx = await requireOrgContext(orgSlug);
     assertPermission(ctx, "approval.policy.manage");
-    const input = savePolicyInput.parse({
-      ...Object.fromEntries(data),
-      active: data.get("active") === "on",
-      steps: JSON.parse(value(data, "steps")),
-    });
     for (const step of input.steps) {
       if (
         step.approverType === "ROLE" &&
@@ -42,10 +34,9 @@ export async function savePolicyAction(
       )
         throw new Error("Approver user must belong to this organization.");
     }
-    const policyId = optional(data, "id");
-    const scope = policyScopeInput.parse(data.get("scope") ?? "org");
-    const projectId = scope === "org" ? null : id.parse(data.get("projectId"));
-    const stageId = scope === "stage" ? id.parse(data.get("stageId")) : null;
+    const policyId = input.id;
+    const projectId = input.scope === "org" ? null : input.projectId;
+    const stageId = input.scope === "stage" ? input.stageId : null;
     if (
       projectId &&
       !(await db.project.findFirst({
@@ -111,16 +102,14 @@ export async function savePolicyAction(
       );
     });
     return undefined;
-  });
+  })(input);
 }
 export async function approvalDecisionAction(
   orgSlug: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof approvalDecisionInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(approvalDecisionInput, async (input) => {
     const ctx = await requireOrgContext(orgSlug);
-    const input = approvalDecisionInput.parse(Object.fromEntries(data));
     if (
       !(await db.approvalRequestStep.findFirst({
         where: { id: input.stepId, request: { organizationId: ctx.org.id } },
@@ -129,16 +118,15 @@ export async function approvalDecisionAction(
       throw new Error("Step not found.");
     await actOnApproval(input.stepId, input.action, input.comment);
     return undefined;
-  });
+  })(input);
 }
 export async function cancelApprovalAction(
   orgSlug: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof cancelApprovalInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(cancelApprovalInput, async (input) => {
     const ctx = await requireOrgContext(orgSlug);
-    const requestId = id.parse(data.get("id"));
+    const requestId = input.id;
     if (
       !(await db.approvalRequest.findFirst({
         where: { id: requestId, organizationId: ctx.org.id },
@@ -147,5 +135,5 @@ export async function cancelApprovalAction(
       throw new Error("Request not found.");
     await cancelApproval(requestId);
     return undefined;
-  });
+  })(input);
 }
