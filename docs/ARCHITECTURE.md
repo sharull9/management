@@ -22,7 +22,7 @@ src/lib/utils.ts                 shadcn's cn helper
 
 `src/app` resolves params/searchParams, performs route-level authorization when needed, and renders module views inside Suspense. Put request-time resolution inside the boundary, preserving the installed Next.js Cache Components behavior. Layouts, loading/error boundaries, redirects, and HTTP handlers remain thin adapters. HTTP business logic belongs in module server files. Read relevant guides in `node_modules/next/dist/docs/` before Next.js edits.
 
-Cross-module imports target the concrete file that defines each symbol, such as `@/modules/payment/server/actions` or `@/modules/tax/util`. Module root imports and module barrel files are forbidden. Shared dependencies use `@/core/*` and `@/components/shared/*`. Generated Prisma types and shadcn primitives retain their existing import paths. Only app adapters may import module `ui/views/*` and `ui/layouts/*`; other module files may be imported across modules except `*.test.ts`. Shared UI stays in `src/components/shared`.
+Cross-module imports target the concrete file that defines each symbol, such as `@/modules/payment/server/actions` or `@/modules/tax/util`. Module root imports and all `index.ts`/`index.tsx` files under modules or shared components are forbidden. Shared dependencies use `@/core/*` and `@/components/shared/*`. Generated Prisma types and shadcn primitives retain their existing import paths. Only app adapters may import module `ui/views/*` and `ui/layouts/*`; other module files may be imported across modules except `*.test.ts`. Shared UI stays in `src/components/shared`.
 
 Import functions, types, constants, pure helpers, and server actions directly from their defining files. The stateless Server Component ApprovalTimeline is defined in `approvals/ui/components/approval-timeline.tsx` and used by its shared bridge. Its four presentations preserve existing markup and dates. Client code must not import files that load server-only services. The pure modules below contain no database imports, registrations, or server-only sentinels. Node unit tests use concrete pure files or adjacent files in their own module.
 
@@ -35,7 +35,7 @@ The four refactor ownership groups are retained as the module maintenance map:
 - G3 owns `procurement`, `vendor-bill`, `stock-valuation`.
 - G4 owns `payment`, `sales-invoice`.
 
-The integration owner maintains `approvals`, `src/core`, shared components, navigation, package scripts and docs. Route adapters follow their feature's ownership; the project Materials adapter belongs to G2 and renders G3's inventory view. During parallel work, each group edits its modules and route adapters. Coordinate shared edits and consumer import changes with their owner. Completed R2 moves and temporary shim handoffs no longer apply.
+The integration owner maintains `approvals`, `notifications`, `src/core`, shared components, navigation, package scripts and docs. Route adapters follow their feature's ownership; the project Materials adapter belongs to G2 and renders G3's inventory view. During parallel work, each group edits its modules and route adapters. Coordinate shared edits and consumer import changes with their owner. Completed R2 moves and temporary shim handoffs no longer apply.
 
 One responsibility per file. Split files over approximately 400 lines. Put schemas in schema.ts, types in type.ts, queries in server/queries.ts, mutations in service files, and exported actions in files headed by `"use server"`. Split large views into components or named views. Tests live beside their code as `*.test.ts`.
 
@@ -43,33 +43,33 @@ One responsibility per file. Split files over approximately 400 lines. Put schem
 
 ## Module map
 
-Cross-module consumers use the main entry files below. Modules without cross-module entry files are reached through their route views. Inventory belongs to procurement because its documents share purchasing forms and submission flows.
+Cross-module consumers use the concrete entry files below. Paths omit only the `.ts`/`.tsx` extension. Form features also expose concrete `schema` and `server/picker-actions` files where present; import their defining files directly. Modules without cross-module entry files are reached through their route views. Inventory belongs to procurement because its documents share purchasing forms and submission flows.
 
 | Module | Responsibility | Main entry files |
 | --- | --- | --- |
-| `admin` | Tenant administration and suspension | `server/actions` |
-| `approvals` | Policies, engine, inbox, links, manager authorization and timelines | `server/actions`, `server/authorization`, `server/document-link`, `server/handlers`, `server/policy`, `server/project-effects`, `server/register`, `server/service`, `ui/components/approval-timeline` |
-| `attendance` | Attendance and labour costing | `server/actions`, `server/costing` |
+| `admin` | Tenant administration and suspension | `server/actions`, `schema` |
+| `approvals` | Policies, engine, inbox, links, manager authorization and timelines | `schema`, `server/actions`, `server/picker-actions`, `workflows/approval-reminder`, `server/start-reminder`, `server/authorization`, `server/document-link`, `server/handlers`, `server/policy`, `server/project-effects`, `server/register`, `server/service`, `ui/components/approval-timeline` |
+| `attendance` | Attendance and labour costing | `server/actions`, `server/costing`, `schema` |
 | `dashboard` | Organization dashboard | None |
 | `item-variant` | Pure variant identity and level configuration | `util` |
-| `masters` | Tenant locations, items, UOMs, parties and taxes | `server/location-actions`, `server/queries`, `server/service` |
+| `masters` | Tenant locations, items, UOMs, parties and taxes | `server/location-actions`, `server/queries`, `server/service`, `schema`, `server/actions`, `server/picker-actions` |
 | `notifications` | Scoped in-app notifications, latest items and mark-read actions | `server/queries`, `server/actions`, `schema` |
-| `organization` | Organizations, members, roles, numbering and user provisioning | `server/actions`, `server/member-actions`, `server/numbering-actions`, `server/provision-user`, `server/role-actions` |
-| `organization-auth` | Setup, sign-in and sign-out actions | `server/actions` |
-| `payment` | Requests, payments, allocations, voids, balances, aging and statements | `constants`, `schema`, `server/allocation-service`, `server/approval`, `server/balances`, `server/payment-service`, `server/queries`, `server/request-service`, `server/statement`, `server/submission`, `server/void-service` |
-| `procurement` | PR, PO, GRN, project inventory, consumption and transfers | `constants`, `schema`, `server/approval`, `server/inventory/service`, `server/order-service`, `server/queries`, `server/receipt-service`, `server/request-service`, `server/service`, `server/submission` |
-| `project` | Projects, sites, budgets, manager resolution and approval auditing | `server/action-helpers`, `server/actions`, `server/approval`, `server/approval-audit`, `server/budget-actions`, `server/queries`, `server/site-actions` |
-| `project-cost` | Expense approval, project costs and recognition settings | `server/actions`, `server/approval`, `server/budget-usage`, `server/cost-recognition`, `server/queries` |
+| `organization` | Organizations, members, roles, numbering and user provisioning | `server/actions`, `server/member-actions`, `server/numbering-actions`, `server/provision-user`, `server/role-actions`, `schema`, `server/picker-actions` |
+| `organization-auth` | Setup, sign-in and sign-out actions | `server/actions`, `schema` |
+| `payment` | Requests, payments, allocations, voids, balances, aging and statements | `constants`, `schema`, `server/allocation-service`, `server/approval`, `server/balances`, `server/payment-service`, `server/queries`, `server/request-service`, `server/statement`, `server/submission`, `server/void-service`, `server/actions`, `server/picker-actions` |
+| `procurement` | PR, PO, GRN, project inventory, consumption and transfers | `constants`, `schema`, `server/approval`, `server/inventory/service`, `server/order-service`, `server/queries`, `server/receipt-service`, `server/request-service`, `server/service`, `server/submission`, `server/actions`, `server/picker-actions` |
+| `project` | Projects, sites, budgets, manager resolution and approval auditing | `server/action-helpers`, `server/actions`, `server/approval`, `server/approval-audit`, `server/budget-actions`, `server/queries`, `server/site-actions`, `schema`, `server/picker-actions` |
+| `project-cost` | Expense approval, project costs and recognition settings | `server/actions`, `server/approval`, `server/budget-usage`, `server/cost-recognition`, `server/queries`, `schema`, `server/picker-actions` |
 | `project-cost-policy` | Pure recognition effects and change guard | `util` |
-| `project-stage` | Stage management | `server/actions` |
-| `project-task` | Tasks, work, submissions, delays and document lookup | `server/actions`, `server/approval`, `server/queries`, `server/work-actions` |
-| `project-team` | Project membership | `server/actions` |
-| `sales-invoice` | Customer invoices, approval, printing and stock sales | `constants`, `schema`, `server/approval`, `server/service` |
+| `project-stage` | Stage management | `server/actions`, `schema` |
+| `project-task` | Tasks, work, submissions, delays and document lookup | `server/actions`, `server/approval`, `server/queries`, `server/work-actions`, `schema`, `server/picker-actions` |
+| `project-team` | Project membership | `server/actions`, `schema`, `server/picker-actions` |
+| `sales-invoice` | Customer invoices, approval, printing and stock sales | `constants`, `schema`, `server/approval`, `server/service`, `server/actions`, `server/picker-actions` |
 | `stock-valuation` | Pure moving-average inventory valuation | `util` |
 | `tax` | Pure tax scope and calculation | `util` |
 | `uom` | Pure unit conversion | `util` |
-| `vendor-bill` | Vendor bills, receipt reservations, variance costing and attachments | `constants`, `schema`, `server/approval`, `server/attachment`, `server/service` |
-| `workforce` | Workers, designations and availability | `server/actions`, `server/availability` |
+| `vendor-bill` | Vendor bills, receipt reservations, variance costing and attachments | `constants`, `schema`, `server/approval`, `server/attachment`, `server/service`, `server/actions`, `server/picker-actions` |
+| `workforce` | Workers, designations and availability | `server/actions`, `server/availability`, `schema`, `server/picker-actions` |
 
 ## Workflows
 
@@ -104,11 +104,22 @@ Development uses the bundled local world and ignored `.workflow-data/` directory
 Self-hosted production uses `@workflow/world-postgres`. Set `WORKFLOW_TARGET_WORLD`
 and `WORKFLOW_POSTGRES_URL` as shown in `.env.example`, and run `pnpm exec bootstrap`
 with that URL to apply the world's own idempotent migrations. Run a long-lived
-worker, not a serverless process. Before enabling this world, the deployment's
-Next instrumentation `register()` must dynamically import `workflow/runtime`
-and call `(await getWorld()).start?.()` for the Node runtime so queued work resumes
-on restart. That startup adapter is a deployment prerequisite outside this wave's
-owned paths. `WORKFLOW_LOCAL_BASE_URL` points workers at the app, usually loopback.
+worker, not a serverless process. `src/instrumentation.ts` exports Next's async
+`register()` hook. Only `NEXT_RUNTIME=nodejs` with
+`WORKFLOW_TARGET_WORLD=@workflow/world-postgres` dynamically imports
+`workflow/runtime`, awaits `getWorld()` and awaits `world.start?.()`. Local and
+Edge runtimes skip it. Startup errors propagate so a broken worker configuration
+fails server initialization. No extra shutdown handler is installed; leave
+`WORKFLOW_POSTGRES_APPLICATION_MANAGED_SHUTDOWN` unset so Graphile Worker owns
+its normal signal handling.
+
+Verified against installed `@workflow/world-postgres@5.0.3` `dist/index.js` and
+`dist/queue.js`: start initializes the queue and re-enqueues active runs; queue
+startup is memoized and defers its runner until the loopback executor is reachable.
+This supports Next's register-before-ready ordering. `WORKFLOW_LOCAL_BASE_URL`
+points workers at the app, usually loopback. Bootstrap the world before startup;
+the hook does not replace its schema migrations. The adjacent instrumentation
+test uses the SDK's `setWorld` to check runtime/world gating and startup failures.
 The reference Postgres world ships without HTTP authentication: block external
 access to the flow route at ingress while allowing worker delivery. Do not put it
 back behind the session proxy. See the installed world's README and
@@ -118,7 +129,7 @@ back behind the session proxy. See the installed world's README and
 
 `src/core` owns the Prisma client, tenancy and permissions, auth, storage, numbering, audit, decimal arithmetic, form-data and common schema helpers. The pure `item-variant`, `uom`, `tax`, `stock-valuation` and `project-cost-policy` util.ts files contain no database imports or server registrations. Browser code uses these pure files for cross-module calculations.
 
-`pnpm check:boundaries` scans imports, re-exports, dynamic imports, import types and require calls in `src` and `scripts`, excluding generated code. It resolves both aliases and relative paths. A module may import its own internals. Only `src/app` may import another module's `ui/views/*` or `ui/layouts/*`; HTTP handlers use concrete module server files. Module root imports and cross-module test imports are errors. The script includes assertions for permitted and forbidden paths.
+`pnpm check:boundaries` scans imports, re-exports, dynamic imports, import types and require calls in `src` and `scripts`, excluding generated code. It resolves both aliases and relative paths. A module may import its own internals. Only `src/app` may import another module's `ui/views/*` or `ui/layouts/*`; HTTP handlers use concrete module server files. Module root imports, cross-module test imports, and any `index.ts`/`index.tsx` file under `src/modules/**` or `src/components/shared/**` are errors. The script includes assertions for permitted and forbidden paths.
 
 Approval path constants retain existing URLs. Task links resolve submission/delay IDs within the request organization and project. Missing task lookups retain the costs fallback; requests without a project retain the approvals fallback. The project `server/approval-audit.ts` file defines the shared approval audit helper, used by task and expense handlers. Their pure effect tests remain adjacent to the approvals helpers.
 
