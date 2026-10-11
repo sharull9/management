@@ -73,6 +73,60 @@ export async function findMembers(query: string) {
 
 Remote mode debounces 250ms, disables cmdk filtering, displays loading/errors and ignores stale responses. Supply initial selected options so existing IDs have labels before searching. Loaded selected labels persist across queries. Keep loadOptions stable; bind/memoize an org parameter once. Next dispatches Server Functions sequentially; debounce cannot cancel a dispatched request.
 
+## Domain pickers
+
+Import client fields from `@/components/shared/form` or their defining files. All take RHF `control` and typed `name`, and support transformed form output generics. Set defaults in the form. Legacy pickers and module forms remain available during wave 2b.
+
+### Item and variant
+
+`ItemVariantField` takes `items: PickerItem[]`, optional `loadItems(query): Promise<PickerItem[]>`, `label` (default "Item"), `description`, and `disabled`. `name` points to an `ItemVariantValue` object, including inside a field array. Each item has the legacy `id`, `name`, and `configs: LevelConfig[]`; its optional UOM/tax metadata is also accepted. Types can be imported on the server from `form/item-variant-value`.
+
+The value is `{ itemId: string | null, level1: string | null, level2: string | null, level3: string | null, level4: string | null, level5: string | null }`. These are the legacy submitted field names grouped into one object; there is no separate variant ID. Empty levels are `null`. Changing items clears all levels; returning to the initial item restores its initial levels, as in the legacy picker. Disabled and `NOT_USED` configs are hidden, `ANY` lists all values, and `LINKED` lists only `linkedIds`. Required item/levels are checked by RHF when no resolver is supplied; with a resolver, the module schema must validate this object and the required/allowed levels on client and server. Nested schema errors are included in the picker error summary. `variantIdentity` consumes levels in numeric order to derive a variant key/name.
+
+```tsx
+// defaultValues.selection = { itemId: null, level1: null, level2: null,
+//   level3: null, level4: null, level5: null }
+<ItemVariantField control={form.control} name="selection" items={items} />
+```
+
+For async search, return complete items with configs from an authenticated, tenant-scoped Server Function. Pass existing selected items in `items` so labels/configs are available before searching. Keep `loadItems` stable. The shared Combobox handles debounce, loading, errors and stale option responses; the picker retains loaded item configs across searches.
+
+### Cost type
+
+`CostTypeField` takes `control`, `name`, optional `label` (default "Cost type"), `description`, and single Combobox props such as `disabled`, `placeholder`, `clearable`. Its fixed choices are LABOUR, MATERIAL, EQUIPMENT, FUEL, ELECTRICITY, SUBCONTRACT, OVERHEAD, OTHER, with human labels. The value is an enum string, or `null` when blank.
+
+```tsx
+<CostTypeField control={form.control} name="costType" />
+```
+
+### Material cost recognition
+
+`MaterialCostRecognitionField` takes `control`, `name`, optional `label`, `description`, `disabled`, and `existingProject`. The mode field is `"ON_RECEIPT" | "ON_CONSUMPTION"`; default it to `"ON_CONSUMPTION"` in the form. With `existingProject: true`, `confirmationName` is required and identifies a separate boolean field, defaulted to `false`. This displays the legacy warning and acknowledgement. The module schema/action decides when confirmation is required based on stock history; the picker does not force it for every existing project.
+
+```tsx
+<MaterialCostRecognitionField control={form.control} name="materialCostRecognition"
+  existingProject confirmationName="confirmCostRecognitionChange" />
+```
+
+### Option helpers
+
+Import `toOptions` and `enumOptions` directly from `@/components/shared/form/enum-options`. This pure file has no client directive and can run in server views. `toOptions(rows)` maps `{ id, name }` to `{ value: id, label: name }`. `enumOptions(values: Record<string, string>)` keeps enum values, replaces underscores with spaces and title-cases each word. Legacy EnumOptions keeps its existing uppercase labels; the new helper uses human labels. Both return `Option[]` in input order and omit a blank option; single Combobox fields represent blank values with `null`.
+
+```ts
+const itemOptions = toOptions([{ id: "steel", name: "Steel" }]);
+const modeOptions = enumOptions({ ON_RECEIPT: "ON_RECEIPT" });
+// [{ value: "ON_RECEIPT", label: "On Receipt" }]
+```
+
+### Select aliases
+
+`SelectField` and `MultiSelectField` take `control`, typed `name`, `label`, `options: Option[]`, optional `description`, and the shared Combobox props (including `loadOptions`, `disabled`, `clearable`, and search placeholders). `SelectField` stores `string | null`; `MultiSelectField` stores `string[]`. They render Popover/Command Comboboxes. Defaults and validation belong to the form/schema.
+
+```tsx
+<SelectField control={form.control} name="vendorId" label="Vendor" options={vendors} clearable />
+<MultiSelectField control={form.control} name="memberIds" label="Members" options={members} />
+```
+
 ## Tables
 
 Import from `@/components/shared/data-table/index`. The legacy `@/components/shared/data-table` file still accepts `headings` and `rows`; it is deprecated.
