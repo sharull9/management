@@ -1,11 +1,14 @@
 "use server";
-import type { ActionState } from "@/core/action-result";
+import type { z } from "zod";
+import { typedAction } from "@/core/typed-action";
+import { attendanceInput } from "../schema";
 import { attendance } from "./service";
 export async function attendanceAction(
   org: string,
   projectId: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof attendanceInput>,
 ) {
-  return attendance(org, projectId, _, data);
+  return typedAction(attendanceInput, (parsed) =>
+    attendance(org, projectId, parsed),
+  )(input);
 }

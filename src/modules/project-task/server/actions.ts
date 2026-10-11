@@ -1,11 +1,14 @@
 "use server";
-import type { ActionState } from "@/core/action-result";
+import type { z } from "zod";
+import { typedAction } from "@/core/typed-action";
+import { saveTaskInput } from "../schema";
 import { saveTask } from "./service";
 export async function saveTaskAction(
   org: string,
   projectId: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof saveTaskInput>,
 ) {
-  return saveTask(org, projectId, _, data);
+  return typedAction(saveTaskInput, (parsed) =>
+    saveTask(org, projectId, parsed),
+  )(input);
 }

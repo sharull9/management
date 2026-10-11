@@ -1,20 +1,14 @@
-import { ActionForm } from "@/components/shared/action-form";
-import { CostTypeField } from "@/components/shared/cost-type-field";
-import { DataTable } from "@/components/shared/data-table";
-import { Field, SelectField } from "@/components/shared/fields";
+import { toOptions } from "@/components/shared/form/enum-options";
 import { FormCard } from "@/components/shared/form-card";
-import {
-  dateValue,
-  EnumOptions,
-  Options,
-} from "@/components/shared/form-options";
-import { Button } from "@/components/ui/button";
+import { dateValue } from "@/components/shared/form-options";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { Prisma } from "@/generated/prisma/client";
 import { CostType } from "@/generated/prisma/enums";
 import { readDate } from "@/modules/project/server/queries";
-import { expenseAction } from "../../server/actions";
+import { CostFilters } from "../components/cost-filters";
+import { CostLedgerTable, ExpensesTable } from "../components/cost-tables";
+import { ExpenseForm } from "../components/expense-form";
 export async function CostsView({
   org,
   projectId,
@@ -56,8 +50,16 @@ export async function CostsView({
         })
       : Promise.resolve([]),
     db.stage.findMany({ where: { projectId } }),
-    db.task.findMany({ where: { projectId } }),
-    db.party.findMany({ where: { tenantId: ctx.tenant.id } }),
+    db.task.findMany({
+      where: { projectId },
+      take: 50,
+      orderBy: { title: "asc" },
+    }),
+    db.party.findMany({
+      where: { tenantId: ctx.tenant.id },
+      take: 50,
+      orderBy: { displayName: "asc" },
+    }),
     db.expense.findMany({
       where: { projectId, ...(canCost ? {} : { createdById: ctx.user.id }) },
       orderBy: { createdAt: "desc" },
@@ -70,120 +72,67 @@ export async function CostsView({
   return (
     <>
       <h2 className="text-lg font-medium">Costs</h2>
-      <form className="grid items-end gap-4 sm:grid-cols-5">
-        <SelectField
-          label="Cost type filter"
-          name="costType"
-          defaultValue={filters.costType ?? ""}
-        >
-          <option value="">All types</option>
-          <EnumOptions values={CostType} />
-        </SelectField>
-        <SelectField
-          label="Stage filter"
-          name="stageId"
-          defaultValue={filters.stageId ?? ""}
-        >
-          <Options rows={stages} empty="All stages" />
-        </SelectField>
-        <Field
-          label="From date"
-          name="from"
-          type="date"
-          defaultValue={filters.from}
-        />
-        <Field
-          label="To date"
-          name="to"
-          type="date"
-          defaultValue={filters.to}
-        />
-        <Button type="submit">Filter ledger</Button>
-      </form>
+      <CostFilters
+        org={org}
+        projectId={projectId}
+        stages={toOptions(stages)}
+        defaults={{
+          costType: Object.values(CostType).includes(
+            filters.costType as CostType,
+          )
+            ? (filters.costType as CostType)
+            : null,
+          stageId: filters.stageId ?? null,
+          from: filters.from ?? "",
+          to: filters.to ?? "",
+        }}
+      />
       {canCost && (
         <FormCard
           title={`Cost ledger · ${ctx.project.currency} ${total.toFixed(2)}`}
         >
-          <DataTable
-            headings={[
-              "Date",
-              "Type",
-              "Stage",
-              "Task",
-              "Description",
-              "Source",
-              "Amount",
-            ]}
-            rows={ledger.map((c) => ({
+          <CostLedgerTable
+            data={ledger.map((c) => ({
               id: c.id,
-              cells: [
-                dateValue(c.date),
-                c.costType,
-                c.stage?.name ?? "—",
-                c.task?.code ?? "—",
-                c.description,
-                c.sourceType,
-                c.amount.toFixed(2),
-              ],
+              date: dateValue(c.date),
+              type: c.costType,
+              stage: c.stage?.name ?? "—",
+              task: c.task?.code ?? "—",
+              description: c.description,
+              source: c.sourceType,
+              amount: c.amount.toFixed(2),
             }))}
           />
         </FormCard>
       )}
       <FormCard title="Expenses and approval status">
-        <DataTable
-          headings={["Code", "Date", "Description", "Amount", "Status"]}
-          rows={expenses.map((e) => ({
+        <ExpensesTable
+          data={expenses.map((e) => ({
             id: e.id,
-            cells: [
-              e.code,
-              dateValue(e.date),
-              e.description,
-              e.amount.toFixed(2),
-              e.status,
-            ],
+            code: e.code,
+            date: dateValue(e.date),
+            description: e.description,
+            amount: e.amount.toFixed(2),
+            status: e.status,
           }))}
         />
       </FormCard>
       {(ctx.isAdmin || ctx.permissions.has("expense.create")) && (
         <FormCard title="Create expense">
-          <ActionForm
-            action={expenseAction.bind(null, org, projectId)}
-            submit="Submit expense for approval"
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field
-                label="Expense date"
-                name="date"
-                type="date"
-                defaultValue={dateValue(new Date())}
-                required
-              />
-              <CostTypeField />
-              <Field
-                label="Expense amount"
-                name="amount"
-                inputMode="decimal"
-                required
-              />
-              <Field label="Expense description" name="description" required />
-              <SelectField label="Expense stage" name="stageId">
-                <Options rows={stages} />
-              </SelectField>
-              <SelectField label="Expense task" name="taskId">
-                <Options
-                  rows={tasks.map((t) => ({
-                    id: t.id,
-                    name: `${t.code} · ${t.title}`,
-                  }))}
-                />
-              </SelectField>
-              <SelectField label="Expense party" name="partyId">
-                <Options
-                  rows={parties.map((p) => ({ id: p.id, name: p.displayName }))}
-                />
-              </SelectField>
-            </div>
-          </ActionForm>
+          <ExpenseForm
+            org={org}
+            projectId={projectId}
+            date={dateValue(new Date())}
+            stages={toOptions(stages)}
+            tasks={tasks.map((t) => ({
+              value: t.id,
+              label: `${t.code} · ${t.title}`,
+            }))}
+            parties={parties.map((p) => ({
+              value: p.id,
+              label: p.displayName,
+            }))}
+          />
         </FormCard>
       )}
     </>

@@ -1,8 +1,13 @@
 import Link from "next/link";
-import { DataTable } from "@/components/shared/data-table";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
-import { Progress } from "@/components/ui/progress";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "@/components/ui/item";
 import {
   canViewProjectCost,
   projectAccessWhere,
@@ -13,6 +18,10 @@ import { db } from "@/core/db";
 import { Prisma } from "@/generated/prisma/client";
 import { listPendingForUser } from "@/modules/approvals/server/service";
 import { budgetUsage } from "@/modules/project-cost/server/budget-usage";
+import {
+  DashboardProjectsTable,
+  OverdueTasksTable,
+} from "../components/dashboard-tables";
 export async function DashboardView({ org }: { org: string }) {
   const ctx = await requireOrgContext(org);
   const access = projectAccessWhere(ctx);
@@ -75,32 +84,48 @@ export async function DashboardView({ org }: { org: string }) {
         title={ctx.org.name}
         description="Project delivery and cost summary."
       />
-      <div className="grid gap-4 sm:grid-cols-3">
-        <FormCard title="Active projects">
-          <p className="text-3xl font-semibold">{projects.length}</p>
-        </FormCard>
-        <FormCard title="Pending approvals for you">
-          <Link
-            className="text-3xl font-semibold underline"
-            href={`/${org}/approvals`}
-          >
-            {pending.length}
-          </Link>
-        </FormCard>
+      <ItemGroup className="grid gap-4 sm:grid-cols-3">
+        <Item variant="outline">
+          <ItemContent>
+            <ItemTitle>Active projects</ItemTitle>
+            <ItemDescription className="text-3xl font-semibold">
+              {projects.length}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+        <Item variant="outline">
+          <ItemContent>
+            <ItemTitle>Pending approvals for you</ItemTitle>
+            <ItemDescription>
+              <Link
+                className="text-3xl font-semibold underline"
+                href={`/${org}/approvals`}
+              >
+                {pending.length}
+              </Link>
+            </ItemDescription>
+          </ItemContent>
+        </Item>
         {showCost && (
-          <FormCard title="Spent this month">
-            {Array.from(monthTotals, ([currency, total]) => (
-              <p key={currency} className="text-2xl font-semibold">
-                {currency} {total.toFixed(2)}
-              </p>
-            ))}
-          </FormCard>
+          <Item variant="outline">
+            <ItemContent>
+              <ItemTitle>Spent this month</ItemTitle>
+              {Array.from(monthTotals, ([currency, total]) => (
+                <ItemDescription
+                  key={currency}
+                  className="text-2xl font-semibold"
+                >
+                  {currency} {total.toFixed(2)}
+                </ItemDescription>
+              ))}
+            </ItemContent>
+          </Item>
         )}
-      </div>
+      </ItemGroup>
       <FormCard title="Active projects">
-        <DataTable
-          headings={["Project", "Budget", "Spent", "Budget usage"]}
-          rows={projects.map((p) => {
+        <DashboardProjectsTable
+          org={org}
+          data={projects.map((p) => {
             const projectCost = canViewProjectCost(ctx, p);
             const spent =
               costs.find((c) => c.projectId === p.id)?._sum.amount ??
@@ -108,47 +133,25 @@ export async function DashboardView({ org }: { org: string }) {
             const usage = budgetUsage(p.budgetAmount, spent);
             return {
               id: p.id,
-              cells: [
-                <Link
-                  key="project"
-                  className="underline"
-                  href={`/${org}/projects/${p.id}`}
-                >
-                  {p.code} · {p.name}
-                </Link>,
-                projectCost
-                  ? `${p.currency} ${p.budgetAmount.toFixed(2)}`
-                  : "—",
-                projectCost ? spent.toFixed(2) : "—",
-                projectCost ? (
-                  <div key="usage" className="min-w-32 space-y-2">
-                    <span>{usage.percent}%</span>
-                    <Progress value={Math.min(100, Number(usage.percent))} />
-                  </div>
-                ) : (
-                  "—"
-                ),
-              ],
+              project: `${p.code} · ${p.name}`,
+              budget: projectCost
+                ? `${p.currency} ${p.budgetAmount.toFixed(2)}`
+                : "—",
+              spent: projectCost ? spent.toFixed(2) : "—",
+              usage: projectCost ? String(usage.percent) : null,
             };
           })}
         />
       </FormCard>
       <FormCard title="Overdue tasks">
-        <DataTable
-          headings={["Project", "Task", "Due"]}
-          rows={overdue.map((t) => ({
+        <OverdueTasksTable
+          org={org}
+          data={overdue.map((t) => ({
             id: t.id,
-            cells: [
-              t.project.name,
-              <Link
-                key="task"
-                className="underline"
-                href={`/${org}/projects/${t.projectId}/tasks/${t.id}`}
-              >
-                {t.code} · {t.title}
-              </Link>,
-              t.dueDate?.toISOString().slice(0, 10),
-            ],
+            projectId: t.projectId,
+            project: t.project.name,
+            task: `${t.code} · ${t.title}`,
+            due: t.dueDate?.toISOString().slice(0, 10) ?? "",
           }))}
         />
       </FormCard>

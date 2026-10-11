@@ -1,7 +1,16 @@
 "use client";
-import { useState } from "react";
-import { ActionForm, type FormAction } from "@/components/shared/action-form";
-import { Field, SelectField } from "@/components/shared/fields";
+import { useFieldArray, useWatch } from "react-hook-form";
+import type { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox";
+import { EmptyState } from "@/components/shared/empty-state";
+import {
+  ActionFormShell,
+  CheckboxField,
+  TextField,
+  type TypedFormAction,
+  useZodForm,
+} from "@/components/shared/form";
+import { enumOptions } from "@/components/shared/form/enum-options";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -11,32 +20,41 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AttendanceStatus } from "@/generated/prisma/enums";
+import { attendanceInput } from "../../schema";
 import { attendanceCost } from "../../server/costing";
-
-import type { AttendanceRow as Row } from "../../type";
+import type { AttendanceRow } from "../../type";
 export function AttendanceGrid({
   initialRows,
   date,
   action,
   currency,
 }: {
-  initialRows: Row[];
+  initialRows: AttendanceRow[];
   date: string;
-  action: FormAction;
+  action: TypedFormAction<z.input<typeof attendanceInput>>;
   currency: string;
 }) {
-  const [rows, setRows] = useState(initialRows);
-  function update(workerId: string, fields: Partial<Row>) {
-    setRows(
-      rows.map((r) => (r.workerId === workerId ? { ...r, ...fields } : r)),
-    );
-  }
-  const totals = rows.map((r) => {
+  const form = useZodForm(attendanceInput, {
+    date,
+    rows: initialRows.map(
+      ({ workerId, status, hoursWorked, overtimeHours, remove }) => ({
+        workerId,
+        status,
+        hoursWorked,
+        overtimeHours,
+        remove: remove ?? false,
+      }),
+    ),
+  });
+  const { fields } = useFieldArray({ control: form.control, name: "rows" });
+  const rows = useWatch({ control: form.control, name: "rows" });
+  const totals = rows.map((r, i) => {
     try {
       return r.remove
         ? "0.00"
         : attendanceCost(
-            r.terms,
+            initialRows[i].terms,
             r.status,
             r.overtimeHours || "0",
           ).totalCost.toFixed(2);
@@ -45,35 +63,20 @@ export function AttendanceGrid({
     }
   });
   return (
-    <ActionForm action={action} submit="Save attendance">
-      <input type="hidden" name="date" value={date} />
-      <input
-        type="hidden"
-        name="rows"
-        value={JSON.stringify(
-          rows.map(
-            ({ workerId, status, hoursWorked, overtimeHours, remove }) => ({
-              workerId,
-              status,
-              hoursWorked,
-              overtimeHours,
-              remove,
-            }),
-          ),
-        )}
-      />
+    <ActionFormShell form={form} action={action} submit="Save attendance">
       <Button
         type="button"
         variant="outline"
         onClick={() =>
-          setRows(
-            rows.map((r) => ({
-              ...r,
-              status: "PRESENT",
-              hoursWorked: String(r.terms.standardHoursPerDay),
-              remove: false,
-            })),
-          )
+          rows.forEach((_, i) => {
+            form.setValue(`rows.${i}.status`, "PRESENT", { shouldDirty: true });
+            form.setValue(
+              `rows.${i}.hoursWorked`,
+              String(initialRows[i].terms.standardHoursPerDay),
+              { shouldDirty: true },
+            );
+            form.setValue(`rows.${i}.remove`, false, { shouldDirty: true });
+          })
         }
       >
         Mark all present
@@ -94,64 +97,51 @@ export function AttendanceGrid({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map((r, i) => (
-            <TableRow key={r.workerId}>
-              <TableCell>{r.name}</TableCell>
-              <TableCell>
-                <SelectField
-                  label={`${r.name} status`}
-                  value={r.status}
-                  onChange={(e) =>
-                    update(r.workerId, {
-                      status: e.target.value as Row["status"],
-                    })
-                  }
-                >
-                  {["PRESENT", "HALF_DAY", "ABSENT", "LEAVE"].map((s) => (
-                    <option key={s}>{s}</option>
-                  ))}
-                </SelectField>
-              </TableCell>
-              <TableCell>
-                <Field
-                  label={`${r.name} hours`}
-                  inputMode="decimal"
-                  value={r.hoursWorked}
-                  onChange={(e) =>
-                    update(r.workerId, { hoursWorked: e.target.value })
-                  }
-                />
-              </TableCell>
-              <TableCell>
-                <Field
-                  label={`${r.name} OT hours`}
-                  inputMode="decimal"
-                  value={r.overtimeHours}
-                  onChange={(e) =>
-                    update(r.workerId, { overtimeHours: e.target.value })
-                  }
-                />
-              </TableCell>
-              <TableCell>{totals[i]}</TableCell>
-              <TableCell>
-                <input
-                  type="checkbox"
-                  aria-label={`Delete ${r.name} attendance`}
-                  checked={r.remove ?? false}
-                  onChange={(e) =>
-                    update(r.workerId, { remove: e.target.checked })
-                  }
-                />
-              </TableCell>
-            </TableRow>
-          ))}
+          {fields.map((field, i) => {
+            const worker = initialRows[i];
+            return (
+              <TableRow key={field.id}>
+                <TableCell>{worker.name}</TableCell>
+                <TableCell>
+                  <ComboboxField
+                    control={form.control}
+                    name={`rows.${i}.status`}
+                    label={`${worker.name} status`}
+                    options={enumOptions(AttendanceStatus)}
+                  />
+                </TableCell>
+                <TableCell>
+                  <TextField
+                    control={form.control}
+                    name={`rows.${i}.hoursWorked`}
+                    label={`${worker.name} hours`}
+                    inputMode="decimal"
+                  />
+                </TableCell>
+                <TableCell>
+                  <TextField
+                    control={form.control}
+                    name={`rows.${i}.overtimeHours`}
+                    label={`${worker.name} OT hours`}
+                    inputMode="decimal"
+                  />
+                </TableCell>
+                <TableCell>{totals[i]}</TableCell>
+                <TableCell>
+                  <CheckboxField
+                    control={form.control}
+                    name={`rows.${i}.remove`}
+                    label={`Delete ${worker.name} attendance`}
+                  />
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
-      {!rows.length && (
-        <p className="text-sm text-muted-foreground">
-          No workers assigned for this date.
-        </p>
+      {!fields.length && (
+        <EmptyState title="No workers assigned for this date." />
       )}
-    </ActionForm>
+    </ActionFormShell>
   );
 }

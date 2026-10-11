@@ -1,17 +1,21 @@
 "use server";
-import type { ActionState } from "@/core/action-result";
+import type { z } from "zod";
+import { typedAction } from "@/core/typed-action";
+import { designationInput, saveWorkerInput } from "../schema";
 import { designation, saveWorker } from "./service";
 export async function saveWorkerAction(
   org: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof saveWorkerInput>,
 ) {
-  return saveWorker(org, _, data);
+  return typedAction(saveWorkerInput, (parsed) => saveWorker(org, parsed))(
+    input,
+  );
 }
 export async function designationAction(
   org: string,
-  _: ActionState,
-  data: FormData,
+  input: z.input<typeof designationInput>,
 ) {
-  return designation(org, _, data);
+  return typedAction(designationInput, (parsed) => designation(org, parsed))(
+    input,
+  );
 }

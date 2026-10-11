@@ -1,11 +1,10 @@
-import { Field } from "@/components/shared/fields";
 import { FormCard } from "@/components/shared/form-card";
 import { dateValue } from "@/components/shared/form-options";
-import { Button } from "@/components/ui/button";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { readDate } from "@/modules/project/server/queries";
 import { attendanceAction } from "../../server/actions";
+import { AttendanceDateForm } from "../components/attendance-date-form";
 import { AttendanceGrid } from "../components/attendance-grid";
 export async function AttendanceView({
   org,
@@ -63,15 +62,11 @@ export async function AttendanceView({
   return (
     <>
       <h2 className="text-lg font-medium">Attendance</h2>
-      <form className="flex flex-wrap items-end gap-4">
-        <Field
-          label="Attendance date"
-          name="date"
-          type="date"
-          defaultValue={dateValue(day)}
-        />
-        <Button type="submit">Load date</Button>
-      </form>
+      <AttendanceDateForm
+        org={org}
+        projectId={projectId}
+        defaults={{ date: dateValue(day) }}
+      />
       <FormCard title={`Attendance · ${dateValue(day)}`}>
         <AttendanceGrid
           key={dateValue(day)}
@@ -84,6 +79,7 @@ export async function AttendanceView({
       {inactiveRows.length > 0 && (
         <FormCard title="Saved rows for inactive or unassigned workers">
           <AttendanceGrid
+            key={dateValue(day)}
             date={dateValue(day)}
             action={attendanceAction.bind(null, org, projectId)}
             currency={ctx.project.currency}

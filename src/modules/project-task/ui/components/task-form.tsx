@@ -1,13 +1,20 @@
-import { ActionForm } from "@/components/shared/action-form";
-import { Field, SelectField } from "@/components/shared/fields";
+"use client";
+import { useMemo } from "react";
+import type { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox";
 import {
-  dateValue,
-  EnumOptions,
-  Options,
-} from "@/components/shared/form-options";
-import type { Task } from "@/generated/prisma/client";
+  ActionFormShell,
+  DateField,
+  NumberField,
+  TextareaField,
+  TextField,
+  useZodForm,
+} from "@/components/shared/form";
+import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
 import { TaskPriority } from "@/generated/prisma/enums";
+import { saveTaskInput } from "../../schema";
 import { saveTaskAction } from "../../server/actions";
+import { findTaskStages } from "../../server/picker-actions";
 export function TaskForm({
   org,
   projectId,
@@ -16,78 +23,89 @@ export function TaskForm({
 }: {
   org: string;
   projectId: string;
-  task?: Task;
+  task?: z.input<typeof saveTaskInput>;
   stages: { id: string; name: string }[];
 }) {
+  const form = useZodForm<
+    z.input<typeof saveTaskInput>,
+    z.output<typeof saveTaskInput>
+  >(
+    saveTaskInput,
+    task ?? {
+      id: null,
+      title: "",
+      description: "",
+      stageId: null,
+      priority: "NORMAL",
+      status: "TODO",
+      progressPercent: 0,
+      plannedStart: "",
+      dueDate: "",
+      estimatedHours: "",
+    },
+  );
+  const loadStages = useMemo(
+    () => findTaskStages.bind(null, org, projectId),
+    [org, projectId],
+  );
   return (
-    <ActionForm
+    <ActionFormShell
+      form={form}
       action={saveTaskAction.bind(null, org, projectId)}
       submit={task ? "Save task" : "Create task"}
     >
-      {task && <input type="hidden" name="id" value={task.id} />}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="Task title"
-          name="title"
-          defaultValue={task?.title}
-          required
-        />
-        <Field
-          label="Description"
+        <TextField control={form.control} name="title" label="Task title" />
+        <TextareaField
+          control={form.control}
           name="description"
-          defaultValue={task?.description ?? ""}
+          label="Description"
         />
-        <SelectField
-          label="Stage"
+        <ComboboxField
+          control={form.control}
           name="stageId"
-          defaultValue={task?.stageId ?? ""}
-        >
-          <Options rows={stages} />
-        </SelectField>
-        <SelectField
-          label="Priority"
+          label="Stage"
+          options={toOptions(stages)}
+          loadOptions={loadStages}
+          clearable
+        />
+        <ComboboxField
+          control={form.control}
           name="priority"
-          defaultValue={task?.priority ?? "NORMAL"}
-        >
-          <EnumOptions values={TaskPriority} />
-        </SelectField>
-        <SelectField
-          label="Status"
+          label="Priority"
+          options={enumOptions(TaskPriority)}
+        />
+        <ComboboxField
+          control={form.control}
           name="status"
-          defaultValue={task?.status ?? "TODO"}
-        >
-          {["TODO", "IN_PROGRESS", "REWORK", "CANCELLED"].map((s) => (
-            <option key={s}>{s}</option>
-          ))}
-        </SelectField>
-        <Field
-          label="Progress (%)"
+          label="Status"
+          options={enumOptions({
+            TODO: "TODO",
+            IN_PROGRESS: "IN_PROGRESS",
+            REWORK: "REWORK",
+            CANCELLED: "CANCELLED",
+          })}
+        />
+        <NumberField
+          control={form.control}
           name="progressPercent"
-          type="number"
+          label="Progress (%)"
           min={0}
           max={100}
-          defaultValue={task?.progressPercent ?? 0}
-          required
         />
-        <Field
-          label="Planned start"
+        <DateField
+          control={form.control}
           name="plannedStart"
-          type="date"
-          defaultValue={dateValue(task?.plannedStart)}
+          label="Planned start"
         />
-        <Field
-          label="Due date"
-          name="dueDate"
-          type="date"
-          defaultValue={dateValue(task?.dueDate)}
-        />
-        <Field
-          label="Estimated hours"
+        <DateField control={form.control} name="dueDate" label="Due date" />
+        <TextField
+          control={form.control}
           name="estimatedHours"
+          label="Estimated hours"
           inputMode="decimal"
-          defaultValue={task?.estimatedHours?.toString() ?? ""}
         />
       </div>
-    </ActionForm>
+    </ActionFormShell>
   );
 }

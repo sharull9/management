@@ -45,3 +45,51 @@ export const taskSubmissionInput = z.object({
   progressPercent: z.coerce.number().int().min(0).max(100),
   onBehalfOfWorkerId: id.nullable(),
 });
+
+const nullableDateInput = z
+  .union([date, z.literal(""), z.null()])
+  .transform((v) => (v === "" ? null : v));
+
+export const saveTaskInput = taskInput
+  .extend({
+    id: id.nullable(),
+    progressPercent: z.number().int().min(0).max(100),
+    plannedStart: nullableDateInput,
+    dueDate: nullableDateInput,
+    estimatedHours: z
+      .union([rate, z.literal(""), z.null()])
+      .transform((v) => (v === "" ? null : v)),
+  })
+  .refine((v) => !v.plannedStart || !v.dueDate || v.dueDate >= v.plannedStart, {
+    path: ["dueDate"],
+    message: "End date must be on or after start date.",
+  });
+export const taskOperationInput = z.discriminatedUnion("operation", [
+  z.object({ operation: z.literal("START") }),
+  z.object({ operation: z.literal("UNASSIGN"), workerId: id }),
+  z
+    .object({
+      operation: z.literal("ASSIGN"),
+      workerIds: z
+        .array(id)
+        .min(1)
+        .max(1000)
+        .refine((v) => new Set(v).size === v.length, "Duplicate workers."),
+      startDate: nullableDateInput,
+      endDate: nullableDateInput,
+    })
+    .refine((v) => !v.startDate || !v.endDate || v.endDate >= v.startDate, {
+      path: ["endDate"],
+      message: "End date must be on or after start date.",
+    }),
+  z.object({
+    operation: z.literal("DELAY"),
+    reason: text.min(1),
+    proposedDueDate: date,
+  }),
+]);
+export const taskFiltersInput = z.object({
+  search: z.string().max(150),
+  status: z.enum(TaskStatus).nullable(),
+  stageId: id.nullable(),
+});

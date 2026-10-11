@@ -29,3 +29,12 @@ export const attendanceRows = z
     }),
   )
   .max(1000);
+
+export const attendanceInput = z.object({
+  date,
+  rows: attendanceRows.refine(
+    (rows) => new Set(rows.map((r) => r.workerId)).size === rows.length,
+    "Duplicate worker rows.",
+  ),
+});
+export const attendanceDateInput = z.object({ date });

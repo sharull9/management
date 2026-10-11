@@ -1,118 +1,113 @@
 import "server-only";
-import { type ActionState, runAction } from "@/core/action-result";
+import type { z } from "zod";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
-import { value } from "@/core/form-data";
 import { audit } from "@/modules/project/server/action-helpers";
-import { attendanceRows, date } from "../schema";
+import type { attendanceInput } from "../schema";
 import { attendanceCost } from "./costing";
 
 export async function attendance(
   org: string,
   projectId: string,
-  _: ActionState,
-  data: FormData,
+  input: z.output<typeof attendanceInput>,
 ) {
-  return runAction(async () => {
-    const ctx = await requireProjectContext(org, projectId);
-    assertPermission(ctx, "attendance.record");
-    const day = date.parse(data.get("date"));
-    const rows = attendanceRows.parse(JSON.parse(value(data, "rows")));
-    if (new Set(rows.map((r) => r.workerId)).size !== rows.length)
-      throw new Error("Duplicate worker rows.");
-    await db.$transaction(
-      async (tx) => {
-        for (const row of rows) {
-          await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${projectId + row.workerId + day.toISOString()}))::text`;
-          const key = { workerId: row.workerId, date: day, projectId };
-          if (row.remove) {
-            const existing = await tx.attendance.findUnique({
-              where: { workerId_date_projectId: key },
-            });
-            if (existing) {
-              const entry = await tx.costEntry.findUnique({
-                where: {
-                  organizationId_sourceType_sourceId: {
-                    organizationId: ctx.org.id,
-                    sourceType: "ATTENDANCE",
-                    sourceId: existing.id,
-                  },
-                },
-              });
-              if (entry) {
-                await tx.costEntry.delete({ where: { id: entry.id } });
-                await audit(ctx, tx, "CostEntry", entry.id, "DELETE");
-              }
-              await tx.attendance.delete({ where: { id: existing.id } });
-              await audit(ctx, tx, "Attendance", existing.id, "DELETE");
-            }
-            continue;
-          }
-          const assignment = await tx.projectWorker.findFirst({
-            where: {
-              projectId,
-              workerId: row.workerId,
-              startDate: { lte: day },
-              OR: [{ endDate: null }, { endDate: { gte: day } }],
-              worker: { active: true },
-            },
-            include: { worker: true },
-          });
-          if (!assignment)
-            throw new Error("Worker is inactive or unassigned on this date.");
-          const { dayCost, otCost, totalCost } = attendanceCost(
-            {
-              ...assignment.worker,
-              dayRateOverride: assignment.dayRateOverride,
-              otHourlyRateOverride: assignment.otHourlyRateOverride,
-            },
-            row.status,
-            row.overtimeHours,
-          );
-          const fields = {
-            status: row.status,
-            hoursWorked: row.hoursWorked,
-            overtimeHours: row.overtimeHours,
-            recordedById: ctx.user.id,
-            dayCost,
-            otCost,
-            totalCost,
-          };
-          const attendance = await tx.attendance.upsert({
+  const ctx = await requireProjectContext(org, projectId);
+  assertPermission(ctx, "attendance.record");
+  const { date: day, rows } = input;
+  if (new Set(rows.map((r) => r.workerId)).size !== rows.length)
+    throw new Error("Duplicate worker rows.");
+  await db.$transaction(
+    async (tx) => {
+      for (const row of rows) {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${projectId + row.workerId + day.toISOString()}))::text`;
+        const key = { workerId: row.workerId, date: day, projectId };
+        if (row.remove) {
+          const existing = await tx.attendance.findUnique({
             where: { workerId_date_projectId: key },
-            create: { ...key, ...fields, organizationId: ctx.org.id },
-            update: fields,
           });
-          const cost = {
-            organizationId: ctx.org.id,
-            projectId,
-            date: day,
-            costType: "LABOUR" as const,
-            amount: totalCost,
-            description: `${assignment.worker.name}: ${row.status}`,
-            createdById: ctx.user.id,
-          };
-          const entry = await tx.costEntry.upsert({
-            where: {
-              organizationId_sourceType_sourceId: {
-                organizationId: ctx.org.id,
-                sourceType: "ATTENDANCE",
-                sourceId: attendance.id,
+          if (existing) {
+            const entry = await tx.costEntry.findUnique({
+              where: {
+                organizationId_sourceType_sourceId: {
+                  organizationId: ctx.org.id,
+                  sourceType: "ATTENDANCE",
+                  sourceId: existing.id,
+                },
               },
-            },
-            create: {
-              ...cost,
+            });
+            if (entry) {
+              await tx.costEntry.delete({ where: { id: entry.id } });
+              await audit(ctx, tx, "CostEntry", entry.id, "DELETE");
+            }
+            await tx.attendance.delete({ where: { id: existing.id } });
+            await audit(ctx, tx, "Attendance", existing.id, "DELETE");
+          }
+          continue;
+        }
+        const assignment = await tx.projectWorker.findFirst({
+          where: {
+            projectId,
+            workerId: row.workerId,
+            startDate: { lte: day },
+            OR: [{ endDate: null }, { endDate: { gte: day } }],
+            worker: { active: true },
+          },
+          include: { worker: true },
+        });
+        if (!assignment)
+          throw new Error("Worker is inactive or unassigned on this date.");
+        const { dayCost, otCost, totalCost } = attendanceCost(
+          {
+            ...assignment.worker,
+            dayRateOverride: assignment.dayRateOverride,
+            otHourlyRateOverride: assignment.otHourlyRateOverride,
+          },
+          row.status,
+          row.overtimeHours,
+        );
+        const fields = {
+          status: row.status,
+          hoursWorked: row.hoursWorked,
+          overtimeHours: row.overtimeHours,
+          recordedById: ctx.user.id,
+          dayCost,
+          otCost,
+          totalCost,
+        };
+        const attendance = await tx.attendance.upsert({
+          where: { workerId_date_projectId: key },
+          create: { ...key, ...fields, organizationId: ctx.org.id },
+          update: fields,
+        });
+        const cost = {
+          organizationId: ctx.org.id,
+          projectId,
+          date: day,
+          costType: "LABOUR" as const,
+          amount: totalCost,
+          description: `${assignment.worker.name}: ${row.status}`,
+          createdById: ctx.user.id,
+        };
+        const entry = await tx.costEntry.upsert({
+          where: {
+            organizationId_sourceType_sourceId: {
+              organizationId: ctx.org.id,
               sourceType: "ATTENDANCE",
               sourceId: attendance.id,
             },
-            update: cost,
-          });
-          await audit(ctx, tx, "Attendance", attendance.id, "UPSERT");
-          await audit(ctx, tx, "CostEntry", entry.id, "UPSERT");
-        }
-      },
-      { timeout: 30000 },
-    );
-    return undefined;
-  });
+          },
+          create: {
+            ...cost,
+            sourceType: "ATTENDANCE",
+            sourceId: attendance.id,
+          },
+          update: cost,
+        });
+        await audit(ctx, tx, "Attendance", attendance.id, "UPSERT");
+        await audit(ctx, tx, "CostEntry", entry.id, "UPSERT");
+      }
+    },
+    { timeout: 30000 },
+  );
+  return undefined;
 }

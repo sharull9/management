@@ -1,14 +1,24 @@
 import Link from "next/link";
-import { ActionForm } from "@/components/shared/action-form";
-import { DataTable } from "@/components/shared/data-table";
-import { Field, SelectField } from "@/components/shared/fields";
+import { EmptyState } from "@/components/shared/empty-state";
+import { toOptions } from "@/components/shared/form/enum-options";
 import { FormCard } from "@/components/shared/form-card";
-import { dateValue, Options } from "@/components/shared/form-options";
+import { dateValue } from "@/components/shared/form-options";
 import { Badge } from "@/components/ui/badge";
 import { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
-import { taskWorkAction } from "../../server/work-actions";
+import { taskFormValues } from "../../util";
+import {
+  AssignmentsTable,
+  TaskHistoryTable,
+  TaskSummaryTable,
+} from "../components/task-detail-tables";
 import { TaskForm } from "../components/task-form";
+import { TaskSubmissionForm } from "../components/task-submission-form";
+import {
+  TaskAssignmentForm,
+  TaskDelayForm,
+  TaskStartForm,
+} from "../components/task-work-forms";
 export async function TaskDetailView({
   org,
   projectId,
@@ -54,7 +64,11 @@ export async function TaskDetailView({
         },
       },
     }),
-    db.stage.findMany({ where: { projectId }, orderBy: { sequence: "asc" } }),
+    db.stage.findMany({
+      where: { projectId },
+      orderBy: { sequence: "asc" },
+      select: { id: true, name: true },
+    }),
     db.projectWorker.findMany({
       where: { projectId, worker: { active: true } },
       include: { worker: true },
@@ -77,7 +91,6 @@ export async function TaskDetailView({
       entityId: { in: task.submissions.map((s) => s.id) },
     },
   });
-  const action = taskWorkAction.bind(null, org, projectId, taskId);
   const manage = ctx.isAdmin || ctx.permissions.has("task.manage");
   const open = !["COMPLETED", "CANCELLED"].includes(task.status);
   const options = [
@@ -99,26 +112,16 @@ export async function TaskDetailView({
       <Badge variant="secondary">{task.status}</Badge>
       <FormCard title="Details">
         <p className="mb-4 whitespace-pre-wrap text-sm">{task.description}</p>
-        <DataTable
-          headings={[
-            "Priority",
-            "Due",
-            "Actual start",
-            "Completed",
-            "Progress",
-            "Estimated hours",
-          ]}
-          rows={[
+        <TaskSummaryTable
+          data={[
             {
               id: task.id,
-              cells: [
-                task.priority,
-                dateValue(task.dueDate),
-                dateValue(task.actualStart),
-                dateValue(task.completedAt),
-                `${task.progressPercent}%`,
-                task.estimatedHours?.toString() ?? "—",
-              ],
+              priority: task.priority,
+              due: dateValue(task.dueDate),
+              actualStart: dateValue(task.actualStart),
+              completed: dateValue(task.completedAt),
+              progress: `${task.progressPercent}%`,
+              estimatedHours: task.estimatedHours?.toString() ?? "—",
             },
           ]}
         />
@@ -128,104 +131,56 @@ export async function TaskDetailView({
           <TaskForm
             org={org}
             projectId={projectId}
-            task={task}
+            task={taskFormValues(task)}
             stages={stages}
           />
         </FormCard>
       )}
       {manage && ["TODO", "REWORK"].includes(task.status) && (
-        <ActionForm action={action} submit="Start work">
-          <input type="hidden" name="operation" value="START" />
-        </ActionForm>
+        <TaskStartForm org={org} projectId={projectId} taskId={taskId} />
       )}
       <FormCard title="Assigned workers">
-        <DataTable
-          headings={["Worker", "Dates", "Action"]}
-          rows={task.assignments.map((a) => ({
+        <AssignmentsTable
+          org={org}
+          projectId={projectId}
+          taskId={taskId}
+          canRemove={manage && open}
+          data={task.assignments.map((a) => ({
             id: a.id,
-            cells: [
-              a.worker.name,
-              `${dateValue(a.startDate)} / ${dateValue(a.endDate)}`,
-              manage && open ? (
-                <ActionForm
-                  key="remove"
-                  action={action}
-                  submit="Remove assignment"
-                  destructive
-                >
-                  <input type="hidden" name="operation" value="UNASSIGN" />
-                  <input type="hidden" name="workerId" value={a.workerId} />
-                </ActionForm>
-              ) : (
-                "—"
-              ),
-            ],
+            workerId: a.workerId,
+            worker: a.worker.name,
+            dates: `${dateValue(a.startDate)} / ${dateValue(a.endDate)}`,
           }))}
         />
         {manage && open && (
           <div className="mt-4">
-            <ActionForm action={action} submit="Assign worker">
-              <input type="hidden" name="operation" value="ASSIGN" />
-              <SelectField label="Project worker" name="workerId" required>
-                <Options rows={options} empty="Choose worker" />
-              </SelectField>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Assignment start" name="startDate" type="date" />
-                <Field label="Assignment end" name="endDate" type="date" />
-              </div>
-            </ActionForm>
+            <TaskAssignmentForm
+              org={org}
+              projectId={projectId}
+              taskId={taskId}
+              workers={toOptions(options)}
+            />
           </div>
         )}
       </FormCard>
       {(ctx.isAdmin || ctx.permissions.has("task.submit")) &&
         ["IN_PROGRESS", "REWORK"].includes(task.status) && (
           <FormCard title="Submit work">
-            <ActionForm action={action} submit="Submit for approval">
-              <input type="hidden" name="operation" value="SUBMIT" />
-              <Field label="Work note" name="note" required />
-              <Field
-                label="Progress percent"
-                name="progressPercent"
-                type="number"
-                min={0}
-                max={100}
-                defaultValue={task.progressPercent}
-                required
-              />
-              <SelectField
-                label="On behalf of worker"
-                name="onBehalfOfWorkerId"
-              >
-                <Options
-                  rows={task.assignments.map((a) => ({
-                    id: a.workerId,
-                    name: a.worker.name,
-                  }))}
-                  empty="Submitted by me"
-                />
-              </SelectField>
-              <Field
-                label="Work photos"
-                name="attachments"
-                type="file"
-                multiple
-                accept="image/jpeg,image/png,image/webp"
-              />
-            </ActionForm>
+            <TaskSubmissionForm
+              org={org}
+              projectId={projectId}
+              taskId={taskId}
+              progressPercent={task.progressPercent}
+              workers={task.assignments.map((a) => ({
+                value: a.workerId,
+                label: a.worker.name,
+              }))}
+            />
           </FormCard>
         )}
       {(ctx.isAdmin || ctx.permissions.has("task.delay.request")) && open && (
         <FormCard title="Request delay">
-          <ActionForm action={action} submit="Request delay approval">
-            <input type="hidden" name="operation" value="DELAY" />
-            <Field
-              label="Proposed due date"
-              name="proposedDueDate"
-              type="date"
-              required
-            />
-            <Field label="Delay reason" name="reason" required />
-          </ActionForm>
+          <TaskDelayForm org={org} projectId={projectId} taskId={taskId} />
         </FormCard>
       )}
       <FormCard title="Submissions and approval timeline">
@@ -260,9 +215,7 @@ export async function TaskDetailView({
             </ol>
           </div>
         ))}
-        {!task.submissions.length && (
-          <p className="text-sm text-muted-foreground">No submissions.</p>
-        )}
+        {!task.submissions.length && <EmptyState title="No submissions." />}
       </FormCard>
       <FormCard title="Delay history">
         {task.delays.map((d) => (
@@ -281,16 +234,15 @@ export async function TaskDetailView({
             </ol>
           </div>
         ))}
-        {!task.delays.length && (
-          <p className="text-sm text-muted-foreground">No delay requests.</p>
-        )}
+        {!task.delays.length && <EmptyState title="No delay requests." />}
       </FormCard>
       <FormCard title="Task history">
-        <DataTable
-          headings={["When", "Action", "Actor"]}
-          rows={history.map((h) => ({
+        <TaskHistoryTable
+          data={history.map((h) => ({
             id: h.id,
-            cells: [h.createdAt.toISOString(), h.action, h.user?.name ?? "—"],
+            when: h.createdAt.toISOString(),
+            action: h.action,
+            actor: h.user?.name ?? "—",
           }))}
         />
       </FormCard>

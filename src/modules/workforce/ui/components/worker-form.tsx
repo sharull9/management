@@ -1,12 +1,16 @@
-import { ActionForm } from "@/components/shared/action-form";
-import { Field, SelectField } from "@/components/shared/fields";
+"use client";
+import type { z } from "zod";
+import { ComboboxField } from "@/components/shared/combobox";
 import {
-  dateValue,
-  EnumOptions,
-  Options,
-} from "@/components/shared/form-options";
-import type { Worker } from "@/generated/prisma/client";
+  ActionFormShell,
+  CheckboxField,
+  DateField,
+  TextField,
+  useZodForm,
+} from "@/components/shared/form";
+import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
 import { PayType } from "@/generated/prisma/enums";
+import { saveWorkerInput } from "../../schema";
 import { saveWorkerAction } from "../../server/actions";
 export function WorkerForm({
   org,
@@ -14,80 +18,77 @@ export function WorkerForm({
   designations,
 }: {
   org: string;
-  worker?: Worker;
+  worker?: z.input<typeof saveWorkerInput>;
   designations: { id: string; name: string }[];
 }) {
+  const form = useZodForm<
+    z.input<typeof saveWorkerInput>,
+    z.output<typeof saveWorkerInput>
+  >(
+    saveWorkerInput,
+    worker ?? {
+      id: null,
+      name: "",
+      phone: "",
+      designationId: null,
+      payType: "MONTHLY",
+      salaryAmount: "0.00",
+      costDaysPerMonth: "30",
+      standardHoursPerDay: "8",
+      overtimeMultiplier: "1.5",
+      joinDate: "",
+      active: true,
+    },
+  );
   return (
-    <ActionForm
+    <ActionFormShell
+      form={form}
       action={saveWorkerAction.bind(null, org)}
       submit={worker ? "Save worker" : "Create worker"}
     >
-      {worker && <input type="hidden" name="id" value={worker.id} />}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="Worker name"
-          name="name"
-          defaultValue={worker?.name}
-          required
-        />
-        <Field label="Phone" name="phone" defaultValue={worker?.phone ?? ""} />
-        <SelectField
-          label="Designation"
+        <TextField control={form.control} name="name" label="Worker name" />
+        <TextField control={form.control} name="phone" label="Phone" />
+        <ComboboxField
+          control={form.control}
           name="designationId"
-          defaultValue={worker?.designationId ?? ""}
-        >
-          <Options rows={designations} />
-        </SelectField>
-        <SelectField
-          label="Pay type"
+          label="Designation"
+          options={toOptions(designations)}
+          clearable
+        />
+        <ComboboxField
+          control={form.control}
           name="payType"
-          defaultValue={worker?.payType ?? "MONTHLY"}
-        >
-          <EnumOptions values={PayType} />
-        </SelectField>
-        <Field
-          label="Salary / daily / hourly pay"
+          label="Pay type"
+          options={enumOptions(PayType)}
+        />
+        <TextField
+          control={form.control}
           name="salaryAmount"
+          label="Salary / daily / hourly pay"
           inputMode="decimal"
-          defaultValue={worker?.salaryAmount.toFixed(2) ?? "0.00"}
-          required
         />
-        <Field
-          label="Cost days per month"
+        <TextField
+          control={form.control}
           name="costDaysPerMonth"
+          label="Cost days per month"
           inputMode="decimal"
-          defaultValue={worker?.costDaysPerMonth.toString() ?? "30"}
-          required
         />
-        <Field
-          label="Standard hours per day"
+        <TextField
+          control={form.control}
           name="standardHoursPerDay"
+          label="Standard hours per day"
           inputMode="decimal"
-          defaultValue={worker?.standardHoursPerDay.toString() ?? "8"}
-          required
         />
-        <Field
-          label="Overtime multiplier"
+        <TextField
+          control={form.control}
           name="overtimeMultiplier"
+          label="Overtime multiplier"
           inputMode="decimal"
-          defaultValue={worker?.overtimeMultiplier.toString() ?? "1.5"}
-          required
         />
-        <Field
-          label="Join date"
-          name="joinDate"
-          type="date"
-          defaultValue={dateValue(worker?.joinDate)}
-        />
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="active"
-            defaultChecked={worker?.active ?? true}
-          />
-          Active
-        </label>
+        <DateField control={form.control} name="joinDate" label="Join date" />
+        <CheckboxField control={form.control} name="active" label="Active" />
       </div>
-    </ActionForm>
+    </ActionFormShell>
   );
 }

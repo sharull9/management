@@ -28,6 +28,20 @@ export const expenseInput = z.object({
   taskId: id.nullable(),
   partyId: id.nullable(),
   costType: z.enum(CostType),
-  amount: money.refine((v) => new Prisma.Decimal(v).gt(0)),
+  amount: money.refine(
+    (v) => /^\d{1,16}(?:\.\d{1,2})?$/.test(v) && new Prisma.Decimal(v).gt(0),
+  ),
   description: text.min(1),
+});
+
+export const costRecognitionInput = z.object({
+  materialCostRecognition: materialCostRecognitionInput,
+  confirmCostRecognitionChange: z.boolean(),
+});
+export const createExpenseInput = expenseInput.extend({ date });
+export const costFiltersInput = z.object({
+  costType: z.enum(CostType).nullable(),
+  stageId: id.nullable(),
+  from: z.union([date, z.literal("")]),
+  to: z.union([date, z.literal("")]),
 });

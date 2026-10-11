@@ -1,18 +1,12 @@
-import Link from "next/link";
-import { DataTable } from "@/components/shared/data-table";
-import { Field, SelectField } from "@/components/shared/fields";
+import { toOptions } from "@/components/shared/form/enum-options";
 import { FormCard } from "@/components/shared/form-card";
-import {
-  dateValue,
-  EnumOptions,
-  Options,
-} from "@/components/shared/form-options";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { dateValue } from "@/components/shared/form-options";
 import { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { TaskStatus } from "@/generated/prisma/enums";
+import { TaskFilters } from "../components/task-filters";
 import { TaskForm } from "../components/task-form";
+import { TasksTable } from "../components/tasks-table";
 export async function TasksView({
   org,
   projectId,
@@ -25,7 +19,11 @@ export async function TasksView({
   const ctx = await requireProjectContext(org, projectId);
   const filters = searchParams;
   const [stages, tasks] = await Promise.all([
-    db.stage.findMany({ where: { projectId }, orderBy: { sequence: "asc" } }),
+    db.stage.findMany({
+      where: { projectId },
+      orderBy: { sequence: "asc" },
+      select: { id: true, name: true },
+    }),
     db.task.findMany({
       where: {
         projectId,
@@ -43,52 +41,34 @@ export async function TasksView({
   return (
     <>
       <h2 className="text-lg font-medium">Tasks</h2>
-      <form className="grid items-end gap-4 sm:grid-cols-4">
-        <Field
-          label="Search tasks"
-          name="search"
-          defaultValue={filters.search}
-        />
-        <SelectField
-          label="Task status"
-          name="status"
-          defaultValue={filters.status ?? ""}
-        >
-          <option value="">All statuses</option>
-          <EnumOptions values={TaskStatus} />
-        </SelectField>
-        <SelectField
-          label="Stage filter"
-          name="stageId"
-          defaultValue={filters.stageId ?? ""}
-        >
-          <Options rows={stages} empty="All stages" />
-        </SelectField>
-        <Button type="submit">Filter tasks</Button>
-      </form>
-      {[...stages, { id: "", name: "Unallocated" }].map((s) => (
-        <FormCard key={s.id} title={s.name}>
-          <DataTable
-            headings={["Task", "Priority", "Status", "Due", "Progress"]}
-            rows={tasks
-              .filter((t) => (t.stageId ?? "") === s.id)
+      <TaskFilters
+        org={org}
+        projectId={projectId}
+        stages={toOptions(stages)}
+        defaults={{
+          search: filters.search ?? "",
+          status: Object.values(TaskStatus).includes(
+            filters.status as TaskStatus,
+          )
+            ? (filters.status as TaskStatus)
+            : null,
+          stageId: filters.stageId ?? null,
+        }}
+      />
+      {[...stages, { id: "", name: "Unallocated" }].map((stage) => (
+        <FormCard key={stage.id} title={stage.name}>
+          <TasksTable
+            org={org}
+            projectId={projectId}
+            data={tasks
+              .filter((t) => (t.stageId ?? "") === stage.id)
               .map((t) => ({
                 id: t.id,
-                cells: [
-                  <Link
-                    key="task"
-                    className="underline"
-                    href={`/${org}/projects/${projectId}/tasks/${t.id}`}
-                  >
-                    {t.code} · {t.title}
-                  </Link>,
-                  t.priority,
-                  <Badge key="status" variant="secondary">
-                    {t.status}
-                  </Badge>,
-                  dateValue(t.dueDate),
-                  `${t.progressPercent}%`,
-                ],
+                task: `${t.code} · ${t.title}`,
+                priority: t.priority,
+                status: t.status,
+                due: dateValue(t.dueDate),
+                progress: `${t.progressPercent}%`,
               }))}
           />
         </FormCard>

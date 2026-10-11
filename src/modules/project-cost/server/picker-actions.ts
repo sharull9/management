@@ -1,0 +1,66 @@
+"use server";
+import { z } from "zod";
+import type { Option } from "@/components/shared/combobox";
+import { assertPermission, requireProjectContext } from "@/core/context";
+import { db } from "@/core/db";
+export async function findCostStages(
+  org: string,
+  projectId: string,
+  query: string,
+): Promise<Option[]> {
+  const ctx = await requireProjectContext(org, projectId);
+  if (!ctx.isAdmin && !ctx.permissions.has("cost.view"))
+    assertPermission(ctx, "expense.create");
+  const search = z.string().max(150).parse(query);
+  return (
+    await db.stage.findMany({
+      where: { projectId, name: { contains: search, mode: "insensitive" } },
+      orderBy: { sequence: "asc" },
+      take: 50,
+      select: { id: true, name: true },
+    })
+  ).map((r) => ({ value: r.id, label: r.name }));
+}
+export async function findExpenseTasks(
+  org: string,
+  projectId: string,
+  query: string,
+): Promise<Option[]> {
+  const ctx = await requireProjectContext(org, projectId);
+  assertPermission(ctx, "expense.create");
+  const search = z.string().max(150).parse(query);
+  return (
+    await db.task.findMany({
+      where: {
+        projectId,
+        OR: [
+          { title: { contains: search, mode: "insensitive" } },
+          { code: { contains: search, mode: "insensitive" } },
+        ],
+      },
+      orderBy: { title: "asc" },
+      take: 50,
+      select: { id: true, title: true, code: true },
+    })
+  ).map((r) => ({ value: r.id, label: `${r.code} · ${r.title}` }));
+}
+export async function findExpenseParties(
+  org: string,
+  projectId: string,
+  query: string,
+): Promise<Option[]> {
+  const ctx = await requireProjectContext(org, projectId);
+  assertPermission(ctx, "expense.create");
+  const search = z.string().max(150).parse(query);
+  return (
+    await db.party.findMany({
+      where: {
+        tenantId: ctx.tenant.id,
+        displayName: { contains: search, mode: "insensitive" },
+      },
+      orderBy: { displayName: "asc" },
+      take: 50,
+      select: { id: true, displayName: true },
+    })
+  ).map((r) => ({ value: r.id, label: r.displayName }));
+}
