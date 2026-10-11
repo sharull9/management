@@ -11,14 +11,14 @@ import {
   partyTypeSchema,
 } from "../schema";
 import type { MasterKind } from "../type";
-import { flag, opt, val } from "./form-data";
+import { flag, type MasterInput, opt, val } from "./input-values";
 import { validateLocation } from "./service";
 export async function savePartyMaster(
   tx: Prisma.TransactionClient,
   tenantId: string,
   kind: MasterKind,
   rowId: string | null,
-  data: FormData,
+  data: MasterInput,
 ) {
   let entityId = rowId ?? "";
   switch (kind) {
@@ -38,7 +38,7 @@ export async function savePartyMaster(
           ? partyEmailSchema.parse(val(data, "email"))
           : null,
         phone: partyPhoneSchema.parse(opt(data, "phone")),
-        paymentTerms: partyPaymentTermsSchema.parse(val(data, "paymentTerms")),
+        paymentTerms: partyPaymentTermsSchema.parse(data.paymentTerms),
         creditLimit: partyCreditLimitSchema.parse(val(data, "creditLimit")),
       };
       if (!fields.isVendor && !fields.isCustomer)

@@ -11,13 +11,13 @@ import {
   name,
 } from "../schema";
 import type { MasterKind } from "../type";
-import { flag, opt, val } from "./form-data";
+import { flag, type MasterInput, opt, val } from "./input-values";
 export async function saveItemMaster(
   tx: Prisma.TransactionClient,
   tenantId: string,
   kind: MasterKind,
   rowId: string | null,
-  data: FormData,
+  data: MasterInput,
 ) {
   let entityId = rowId ?? "";
   switch (kind) {
@@ -67,7 +67,7 @@ export async function saveItemMaster(
       break;
     }
     case "level": {
-      const level = itemLevelSchema.parse(val(data, "level"));
+      const level = itemLevelSchema.parse(data.level);
       entityId = (
         await tx.itemLevelDefinition.upsert({
           where: { tenantId_level: { tenantId, level } },
@@ -178,10 +178,15 @@ export async function saveItemMaster(
       });
       for (const definition of definitions) {
         const mode = itemModeSchema.parse(
-            val(data, `mode${definition.level}`) || "NOT_USED",
+            val(data, `mode${definition.level as 1 | 2 | 3 | 4 | 5}`) ||
+              "NOT_USED",
           ),
-          required = flag(data, `required${definition.level}`);
-        const linkedIds = data.getAll(`links${definition.level}`).map(String);
+          required = flag(
+            data,
+            `required${definition.level as 1 | 2 | 3 | 4 | 5}`,
+          );
+        const linkedIds =
+          data[`links${definition.level as 1 | 2 | 3 | 4 | 5}`] ?? [];
         if (required && (mode === "NOT_USED" || !definition.enabled))
           throw new Error("Unused or disabled levels cannot be required.");
         if (linkedIds.some((v) => !definition.values.some((x) => x.id === v)))

@@ -1,6 +1,7 @@
 import "server-only";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
+import { serialiseMasterData } from "./serialise";
 export async function masterData(org: string) {
   const ctx = await requireOrgContext(org);
   assertPermission(ctx, "masters.manage");
@@ -57,8 +58,7 @@ export async function masterData(org: string) {
     db.state.findMany({ orderBy: { name: "asc" } }),
     db.city.findMany({ where: { tenantId }, orderBy: { name: "asc" } }),
   ]);
-  return {
-    ctx,
+  return serialiseMasterData({
     groups,
     uoms,
     categories,
@@ -70,7 +70,7 @@ export async function masterData(org: string) {
     countries,
     states,
     cities,
-  };
+  });
 }
 export async function pickerItems(tenantId: string, stockOnly = false) {
   const items = await db.item.findMany({

@@ -1,6 +1,6 @@
 import { PageHeading } from "@/components/shared/page-heading";
 import { masterData } from "../../server/queries";
-import { TaxMasters } from "../components/master-forms";
+import { TaxMasters } from "../components/tax-forms";
 
 export async function TaxView({ org }: { org: string }) {
   const data = await masterData(org);

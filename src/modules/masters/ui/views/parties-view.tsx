@@ -1,6 +1,6 @@
 import { PageHeading } from "@/components/shared/page-heading";
 import { masterData } from "../../server/queries";
-import { PartyMasters } from "../components/master-forms";
+import { PartyMasters } from "../components/party-forms";
 
 export async function PartiesView({ org }: { org: string }) {
   const data = await masterData(org);

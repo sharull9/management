@@ -1,15 +1,10 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
-import { ActionForm } from "@/components/shared/action-form";
 import {
   DataTable,
   DataTableColumnHeader,
 } from "@/components/shared/data-table/index";
-import { Field, SelectField } from "@/components/shared/fields";
-import {
-  deleteCityAction,
-  saveCityAction,
-} from "../../server/location-actions";
+import { CityForm, DeleteCityForm } from "./city-form";
 
 type CityRow = {
   id: string;
@@ -49,33 +44,15 @@ export function CitiesTable({
           <details>
             <summary className="cursor-pointer text-sm">Edit city</summary>
             <div className="min-w-56 space-y-4 pt-4">
-              <ActionForm action={saveCityAction.bind(null, org)}>
-                <input type="hidden" name="id" value={city.id} />
-                <Field
-                  label="City name"
-                  name="name"
-                  defaultValue={city.name}
-                  required
-                />
-                <SelectField
-                  label="State"
-                  name="stateId"
-                  defaultValue={city.stateId}
-                >
-                  {states.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.country.code} Â· {s.name}
-                    </option>
-                  ))}
-                </SelectField>
-              </ActionForm>
-              <ActionForm
-                action={deleteCityAction.bind(null, org)}
-                submit="Delete city"
-                destructive
-              >
-                <input type="hidden" name="id" value={city.id} />
-              </ActionForm>
+              <CityForm
+                org={org}
+                city={city}
+                states={states.map((s) => ({
+                  value: s.id,
+                  label: `${s.country.code} · ${s.name}`,
+                }))}
+              />
+              <DeleteCityForm org={org} id={city.id} />
             </div>
           </details>
         );

@@ -3,13 +3,13 @@ import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { decimal, name, taxAppliesToSchema, taxScopeSchema } from "../schema";
 import type { MasterKind } from "../type";
-import { flag, opt, val } from "./form-data";
+import { flag, type MasterInput, opt, val } from "./input-values";
 export async function saveTaxMaster(
   tx: Prisma.TransactionClient,
   tenantId: string,
   kind: MasterKind,
   rowId: string | null,
-  data: FormData,
+  data: MasterInput,
 ) {
   let entityId = rowId ?? "";
   switch (kind) {
@@ -44,9 +44,7 @@ export async function saveTaxMaster(
         await tx.taxGroup.findFirstOrThrow({
           where: { id: rowId, tenantId },
         });
-      const componentIds = [
-        ...new Set(data.getAll("componentIds").map(String)),
-      ];
+      const componentIds = [...new Set(data.componentIds ?? [])];
       if (
         (await tx.taxComponent.count({
           where: { id: { in: componentIds }, tenantId },

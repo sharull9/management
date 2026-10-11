@@ -1,6 +1,6 @@
 import { PageHeading } from "@/components/shared/page-heading";
 import { masterData } from "../../server/queries";
-import { UomMasters } from "../components/master-forms";
+import { UomMasters } from "../components/uom-forms";
 
 export async function UomsView({ org }: { org: string }) {
   const data = await masterData(org);

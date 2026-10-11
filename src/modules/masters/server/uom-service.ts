@@ -4,13 +4,13 @@ import { Prisma } from "@/generated/prisma/client";
 
 import { decimal, id, name } from "../schema";
 import type { MasterKind } from "../type";
-import { flag, val } from "./form-data";
+import { flag, type MasterInput, val } from "./input-values";
 export async function saveUomMaster(
   tx: Prisma.TransactionClient,
   tenantId: string,
   kind: MasterKind,
   rowId: string | null,
-  data: FormData,
+  data: MasterInput,
 ) {
   let entityId = rowId ?? "";
   switch (kind) {

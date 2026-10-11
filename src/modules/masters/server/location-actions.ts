@@ -1,22 +1,19 @@
 "use server";
 
-import { type ActionState, runAction } from "@/core/action-result";
+import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
-
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
-import { optional } from "@/core/form-data";
-import { id, saveCityInput } from "../schema";
+import { typedAction } from "@/core/typed-action";
+
+import { deleteCityInput, saveCityInput } from "../schema";
 export async function saveCityAction(
   orgSlug: string,
-  _: ActionState,
-  data: FormData,
+  data: z.input<typeof saveCityInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(saveCityInput, async ({ id: cityId, ...input }) => {
     const ctx = await requireOrgContext(orgSlug);
     assertPermission(ctx, "masters.manage");
-    const input = saveCityInput.parse(Object.fromEntries(data));
-    const cityId = optional(data, "id");
     await db.$transaction(async (tx) => {
       if (
         cityId &&
@@ -41,17 +38,15 @@ export async function saveCityAction(
       );
     });
     return undefined;
-  });
+  })(data);
 }
 export async function deleteCityAction(
   orgSlug: string,
-  _: ActionState,
-  data: FormData,
+  data: z.input<typeof deleteCityInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(deleteCityInput, async ({ id: cityId }) => {
     const ctx = await requireOrgContext(orgSlug);
     assertPermission(ctx, "masters.manage");
-    const cityId = id.parse(data.get("id"));
     await db.$transaction(async (tx) => {
       const city = await tx.city.findFirstOrThrow({
         where: { id: cityId, tenantId: ctx.tenant.id },
@@ -70,5 +65,5 @@ export async function deleteCityAction(
       );
     });
     return undefined;
-  });
+  })(data);
 }

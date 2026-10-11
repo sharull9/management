@@ -1,60 +1,59 @@
+"use client";
 import type { ReactNode } from "react";
-import { ActionForm } from "@/components/shared/action-form";
-import { SelectField } from "@/components/shared/fields";
-
+import type { UseFormReturn } from "react-hook-form";
+import type { z } from "zod";
+import { ActionFormShell, useZodForm } from "@/components/shared/form";
+import { deleteMasterInput, saveMasterInput } from "../../schema";
 import { deleteMasterAction, saveMasterAction } from "../../server/actions";
+import type { MasterKind } from "../../type";
 
+type Input = z.input<typeof saveMasterInput>;
 export function MasterForm({
   org,
   kind,
   id,
+  defaultValues,
   children,
 }: {
   org: string;
-  kind: string;
+  kind: MasterKind;
   id?: string;
-  children: ReactNode;
+  defaultValues: Omit<Input, "kind" | "id">;
+  children: (form: UseFormReturn<Input, unknown, Input>) => ReactNode;
 }) {
+  const form = useZodForm(saveMasterInput, { ...defaultValues, kind, id });
   return (
     <>
-      <ActionForm
+      <ActionFormShell
+        form={form}
         action={saveMasterAction.bind(null, org)}
         submit={id ? "Save changes" : "Create"}
       >
-        <input type="hidden" name="kind" value={kind} />
-        {id && <input type="hidden" name="id" value={id} />}
-        <div className="grid gap-4 sm:grid-cols-2">{children}</div>
-      </ActionForm>
-      {id && (
-        <ActionForm
-          action={deleteMasterAction.bind(null, org)}
-          submit="Delete"
-          destructive
-          className="mt-3"
-        >
-          <input type="hidden" name="kind" value={kind} />
-          <input type="hidden" name="id" value={id} />
-        </ActionForm>
-      )}
+        <div className="grid gap-4 sm:grid-cols-2">{children(form)}</div>
+      </ActionFormShell>
+      {id && <DeleteMasterForm org={org} kind={kind} id={id} />}
     </>
   );
 }
-export function Enum({
-  label,
-  name,
-  values,
-  selected,
+function DeleteMasterForm({
+  org,
+  kind,
+  id,
 }: {
-  label: string;
-  name: string;
-  values: string[];
-  selected?: string;
+  org: string;
+  kind: MasterKind;
+  id: string;
 }) {
+  const form = useZodForm(deleteMasterInput, { kind, id });
   return (
-    <SelectField label={label} name={name} defaultValue={selected}>
-      {values.map((v) => (
-        <option key={v}>{v}</option>
-      ))}
-    </SelectField>
+    <ActionFormShell
+      form={form}
+      action={deleteMasterAction.bind(null, org)}
+      submit="Delete"
+      destructive
+      className="mt-3"
+    >
+      {null}
+    </ActionFormShell>
   );
 }

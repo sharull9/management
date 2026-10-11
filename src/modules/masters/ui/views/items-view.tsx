@@ -1,6 +1,6 @@
 import { PageHeading } from "@/components/shared/page-heading";
 import { masterData } from "../../server/queries";
-import { ItemMasters } from "../components/master-forms";
+import { ItemMasters } from "../components/item-forms";
 
 export async function ItemsView({ org }: { org: string }) {
   const data = await masterData(org);

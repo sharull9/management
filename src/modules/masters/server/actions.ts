@@ -1,11 +1,16 @@
 "use server";
 
-import { type ActionState, runAction } from "@/core/action-result";
+import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
-import { id, masterKindSchema } from "../schema";
-import { opt, val } from "./form-data";
+import { typedAction } from "@/core/typed-action";
+import {
+  deleteMasterInput,
+  resolveVariantInput,
+  saveMasterInput,
+} from "../schema";
+
 import { saveItemMaster } from "./item-service";
 import { savePartyMaster } from "./party-service";
 import { resolveVariant } from "./service";
@@ -14,14 +19,13 @@ import { saveUomMaster } from "./uom-service";
 
 export async function saveMasterAction(
   org: string,
-  _: ActionState,
-  data: FormData,
+  data: z.input<typeof saveMasterInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(saveMasterInput, async (data) => {
     const ctx = await requireOrgContext(org);
     assertPermission(ctx, "masters.manage");
-    const kind = masterKindSchema.parse(val(data, "kind"));
-    const rowId = opt(data, "id");
+    const kind = data.kind;
+    const rowId = data.id ?? null;
     await db.$transaction(
       async (tx) => {
         await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`masters:${ctx.tenant.id}`}))::text`;
@@ -63,18 +67,17 @@ export async function saveMasterAction(
       },
       { timeout: 20000 },
     );
-  });
+  })(data);
 }
 export async function deleteMasterAction(
   org: string,
-  _: ActionState,
-  data: FormData,
+  data: z.input<typeof deleteMasterInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(deleteMasterInput, async (data) => {
     const ctx = await requireOrgContext(org);
     assertPermission(ctx, "masters.manage");
-    const kind = masterKindSchema.parse(val(data, "kind")),
-      rowId = id.parse(val(data, "id"));
+    const kind = data.kind,
+      rowId = data.id;
     await db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`masters:${ctx.tenant.id}`}))::text`;
       const where = { id: rowId, tenantId: ctx.tenant.id };
@@ -157,23 +160,25 @@ export async function deleteMasterAction(
         tx,
       );
     });
-  });
+  })(data);
 }
 export async function resolveVariantAction(
   org: string,
-  _: ActionState,
-  data: FormData,
+  data: z.input<typeof resolveVariantInput>,
 ) {
-  return runAction(async () => {
+  return typedAction(resolveVariantInput, async (data) => {
     const ctx = await requireOrgContext(org);
     assertPermission(ctx, "masters.manage");
+    if (!data.selection.itemId) throw new Error("Select item.");
+    const itemId = data.selection.itemId;
     await db.$transaction(async (tx) => {
-      const variant = await resolveVariant(
-        tx,
-        ctx.tenant.id,
-        id.parse(val(data, "itemId")),
-        Array.from({ length: 5 }, (_, i) => opt(data, `level${i + 1}`)),
-      );
+      const variant = await resolveVariant(tx, ctx.tenant.id, itemId, [
+        data.selection.level1,
+        data.selection.level2,
+        data.selection.level3,
+        data.selection.level4,
+        data.selection.level5,
+      ]);
       await writeAudit(
         {
           tenantId: ctx.tenant.id,
@@ -186,5 +191,5 @@ export async function resolveVariantAction(
         tx,
       );
     });
-  });
+  })(data);
 }

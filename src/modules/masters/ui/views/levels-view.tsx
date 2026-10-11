@@ -1,6 +1,6 @@
 import { PageHeading } from "@/components/shared/page-heading";
 import { masterData } from "../../server/queries";
-import { LevelMasters } from "../components/master-forms";
+import { LevelMasters } from "../components/category-level-forms";
 
 export async function LevelsView({ org }: { org: string }) {
   const data = await masterData(org);
