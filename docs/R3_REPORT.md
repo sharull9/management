@@ -149,3 +149,132 @@ The production build checks the compiled client/server imports as well.
 
 No push was performed. Environment secrets, generated Prisma code, storage and
 workflow data are excluded from the integration commits.
+
+## Runtime verification
+
+Verified on 2026-10-11 on `build/foundation`, using the existing localhost:3000
+Turbopack server and the migrated/seeded isolated PostgreSQL instance on port
+51265. Shells used the supplied local DATABASE_URL and BETTER_AUTH_URL; `.env`
+was not edited. The server was neither restarted nor stopped. Smoke fixtures
+remain in the database for inspection.
+
+### Service smoke and settlement
+
+`PHASE3B_SMOKE_CONFIRM=local-only pnpm smoke:phase3b` passed after fixing the
+history-link assertion. Every expected accounting result matched:
+
+- Receipt costs: P1 1000.00, P2 0.00; received quantities 10/20 on both POs.
+- Consumption: P1 +0.00, P2 +200.00. Transfer: P1 -300.00, P2 +0.00.
+- Vendor bill: payable 1053.00, variance -100.00; paid
+  400.00 -> 1053.00 -> void -> 400.00; outstanding 653.00.
+- Sale: payable 351.00, stock movement -2 / -200.00; receipt 351.00, PAID.
+- Final P1 stock 5 / value 500.00 / cost 600.00; P2 stock 9 / value 900.00 /
+  cost 200.00. Vendor balance and statement -653.00; customer balance 0.00.
+- All 13 approval document links across 10 document types returned HTTP 200
+  and rendered their expected document content. Unrelated negative cost entries
+  and unconfirmed cost-recognition changes were rejected.
+
+The successful smoke organization is `phase3b-1791719243573`; browser checks used
+the first run's retained organization, `phase3b-1791719143844`.
+The smoke log is `%TEMP%/r3-smoke.log`.
+
+`PAYMENTS_DB_TEST=local-only pnpm exec node --import tsx --test
+src/modules/payment/server/service.test.ts` passed: 1 test, 0 failures, no skips.
+Its fixtures rolled back.
+
+Standalone service calls logged best-effort reminder warnings: `after` lacks an
+HTTP request scope, and plain tsx does not compile `use workflow` functions.
+These calls do not verify queue delivery. The authenticated HTTP submission
+below ran the compiled workflow successfully without an app change.
+
+### Browser checks
+
+T3's collaborative Chromium preview signed in as `phase3b@example.test` with
+the throwaway smoke password. Screenshots are copied to `%TEMP%/r3-shots`,
+outside the repository.
+
+- **a PASS:** password Show/Hide changed the input type to text/password and
+  retained the value; sign-in succeeded. Screenshot `sign-in.png`.
+- **b PASS:** the city State combobox opened, local search for `Tamil` reduced
+  the options and selecting Tamil Nadu set the field. Procurement item search
+  for `Steel` returned no rows; `Smoke` returned `MATERIAL · Smoke material`.
+  The server log confirmed `findProcurementItems` received those queries.
+  Tax Components multi-select added CGST and SGST badges, then removed CGST
+  by selecting it again, leaving SGST. Screenshots `local-combobox.png`,
+  `purchase-request-two-lines.png`, `multiselect-added.png`, `multiselect-removed.png`.
+- **c PASS:** CityForm saved `R3 runtime city` and showed it in the city table.
+  Submitting an empty name displayed `Name is required.` beneath City name.
+  ProjectForm created `PRJ-0001 · R3 runtime project` and rendered its overview.
+  Procurement's useFieldArray added a second line, saved PR-0003 with quantities
+  2 and 3 at rate 100, displayed both lines and total 500.00, then submitted it
+  with status PENDING APPROVAL. Screenshots `validation.png`,
+  `project-created.png`, `purchase-request-two-lines.png`.
+- **d PASS:** approval history had 14 rows, 10 on page 1 and 4 on page 2.
+  Next revealed PR-0001 and the other older documents. Searching PR-0001
+  produced one row and reset pagination. Document sorting toggled ascending
+  and descending, with the displayed row order changing accordingly.
+  Empty city and new-project lists displayed their empty states.
+  Screenshot `table-sorted.png`; `project-created.png` includes empty lists.
+- **e PASS:** the vendor bill RHF form submitted payload JSON plus
+  `r3-invoice.png`, creating BILL-0002, invoice `R3-runtime-upload-20261011`,
+  a direct service line and payable 25.00. The attachment link opened;
+  authenticated fetch returned HTTP 200, image/png, the filename and all 68
+  original bytes unchanged. Screenshots `bill-upload.png`, `bill-saved.png`.
+- **f PASS:** browser submission of PR-0003 created approval request
+  `cmv3rh38u0007ywme270yborr` at 06:20:08.046 UTC. PostgreSQL contained three
+  deterministic APPROVAL_REMINDER rows for the eligible organization owner,
+  `phase3b@example.test`, at 06:20:27.850, 06:20:46.029 and 06:21:04.160 UTC.
+  The bell showed 3 unread. Marking reminder 3 read reduced it to 2; PostgreSQL
+  confirmed readAt 06:21:45.071 UTC. Generated workflow flow requests returned
+  HTTP 200. Screenshot `notifications.png`.
+
+### Fixes and final gates
+
+`502caa8` fixes `scripts/phase3b-smoke-links.ts`. R3's history DataTable renders
+only the first 10 rows in initial markup. The previous smoke wrongly required
+every link to appear as a rendered anchor. It now accepts either the rendered
+anchor or the serialized table row's href, then still fetches every destination
+and asserts its rendered content. Browser pagination independently verified the
+older links.
+
+`394ef42` fixes the workspace error screen's Try again button. It used
+Next 16.4's `reset()`, which re-renders the failed boundary without fetching
+fresh server content. It now uses `retry()` as specified in the installed
+`next/dist/docs/01-app/03-api-reference/03-file-conventions/error.md`.
+The original database failure showed that reset sent no fresh GET. After the
+fix, clicking Try again sent a new request. A temporary one-shot error in the
+locations view then verified full browser recovery to the city table after one
+click. The temporary probe was removed; no probe code was committed.
+
+README now points approval integration to concrete policy, service,
+authorization and handler files, removes the obsolete public-index description,
+and documents the local reminder check and standalone smoke limitation.
+
+- `pnpm exec tsc --noEmit`: PASS, no diagnostics.
+- `pnpm lint`: PASS, 513 files, no fixes.
+- `pnpm check:boundaries`: PASS, 508 files.
+- `pnpm test`: PASS, 108 total, 107 passed, 0 failed, 1 opt-in settlement test
+  skipped. That settlement test passed separately with the local opt-in above.
+- Next `/_next/mcp` get_compilation_issues: PASS, no issues across routes.
+  Initial get_errors: PASS, no configuration or browser-session errors before
+  the late database failures and controlled retry probe described below.
+
+The requested browser flows passed before a late repeat of the procurement
+list encountered an environment limitation: `Connection terminated
+unexpectedly` / Prisma P1017. The endpoint reports PostgreSQL 17.5 compiled
+for `wasm32-unknown-linux-gnu`, and pg_stat_activity exposes one backend.
+A standalone Prisma purchase-order query returned both orders sequentially;
+15 concurrent copies reproduced P1017 outside Next. Fresh database reads,
+including the notification query, still succeeded. The final procurement-list
+repeat therefore FAILED on this local database. Its concurrency/connection
+closure remains unresolved; no application pool or query workaround was added
+without evidence that it applies to native PostgreSQL. `%TEMP%/r3-query.cjs`
+and `r3-query-parallel.cjs` retain the isolated reproductions. Retry recovery
+was separately verified with a controlled one-shot server error as above.
+
+Production Postgres worker restart
+and production deployment were not exercised; local reminder delivery uses the
+bundled local world. Workflow launch remains best effort as documented above.
+No production build was repeated because this change only touches the smoke
+script, error-view callback and docs. No push occurred, and no environment file, generated Prisma
+client, storage file, screenshot or workflow data was committed.

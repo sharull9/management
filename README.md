@@ -104,6 +104,16 @@ all ten approval document links in the inbox/history, and verifies rendered docu
 content. Node-only hooks replace `next/headers` and the `server-only` sentinel in this
 process. The settlement test rolls back its fixtures. Neither command changes `.env`.
 
+### R3 local runtime check
+
+Run the smoke and settlement commands above, then sign in as the smoke user to
+check picker search, table pagination, form validation and attachment downloads.
+Set `APPROVAL_REMINDER_HOURS=0.005` in the dev-server shell before startup to
+verify three reminders about 18 seconds apart and the notification bell's
+mark-read action. Standalone `tsx` smoke calls are not Workflow SDK compiled
+HTTP actions and can log reminder-launch warnings; submit a document in the
+browser to verify delivery. Results are in [R3_REPORT.md](docs/R3_REPORT.md#runtime-verification).
+
 ## Access model
 
 - Platform administrators have `User.role = admin`. They create/suspend tenants in `/admin`.
@@ -143,8 +153,12 @@ process. The settlement test rolls back its fixtures. Neither command changes `.
 
 ## Approval integration for later phases
 
-`@/modules/approvals` exports `resolvePolicy`, `submitForApproval`,
-`actOnApproval`, `cancelApproval`, `listPendingForUser`, and `registerManagerResolver`.
+Import `resolvePolicy` from `@/modules/approvals/server/policy`;
+`submitForApproval`, `actOnApproval`, `cancelApproval`, and `listPendingForUser`
+from `@/modules/approvals/server/service`; and `registerManagerResolver`
+from `@/modules/approvals/server/authorization`. Register domain handlers with
+`registerApprovalHandler` from `@/modules/approvals/server/handlers`.
+There are no module barrels. See [the module map](docs/ARCHITECTURE.md#module-map).
 
 After a document action validates and authorizes its domain operation, call
 `submitForApproval({ orgSlug, documentType, documentId, title, amount, projectId, stageId })`.
@@ -260,7 +274,7 @@ src/components/           Forms, fields, shell and ordered policy editor
   ui/                     shadcn components
 src/lib/                  shadcn class-name utility
 src/core/                 Auth, Prisma, context, permissions, decimal math, audit, numbering, storage
-src/modules/              Feature server code, schemas, types, UI and public indexes
+src/modules/              Feature server code, schemas, types and UI; concrete file imports
 src/generated/prisma/     Generated and ignored
 storage/                  Runtime files, ignored
 ```
