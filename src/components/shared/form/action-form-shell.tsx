@@ -5,6 +5,7 @@ import type { FieldValues, UseFormReturn } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
+import type { ActionState } from "@/core/action-result";
 import { type TypedFormAction, useActionSubmit } from "./use-action-submit";
 
 export function ActionFormShell<
@@ -17,6 +18,7 @@ export function ActionFormShell<
   submit = "Save",
   className,
   destructive = false,
+  onSuccess,
 }: {
   form: UseFormReturn<TInput, unknown, TOutput>;
   action: TypedFormAction<TOutput>;
@@ -24,8 +26,9 @@ export function ActionFormShell<
   submit?: string;
   className?: string;
   destructive?: boolean;
+  onSuccess?: (result: ActionState) => void;
 }) {
-  const { onSubmit, pending, state } = useActionSubmit(form, action);
+  const { onSubmit, pending, state } = useActionSubmit(form, action, onSuccess);
   return (
     <form
       onSubmit={onSubmit}

@@ -45,8 +45,7 @@ import {
 } from "@/components/ui/sidebar";
 import { markNotificationReadAction } from "@/modules/notifications/server/actions";
 import { listNotifications } from "@/modules/notifications/server/queries";
-import { signOutAction } from "@/modules/organization-auth/server/actions";
-import { ActionForm } from "./action-form";
+import { UserMenu } from "./user-menu";
 
 export function AppShell({
   org,
@@ -183,25 +182,11 @@ export function AppShell({
             </SidebarGroup>
           ))}
         </SidebarContent>
-        <SidebarFooter className="border-t p-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger className="w-full truncate rounded-md p-2 text-left text-sm hover:bg-accent">
-              {user.name}
-              <span className="block truncate text-xs text-muted-foreground">
-                {user.email}
-              </span>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuLabel>My account</DropdownMenuLabel>
-              <DropdownMenuItem asChild>
-                <Link href="/">Organization picker</Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <div className="p-2">
-                <ActionForm action={signOutAction} submit="Sign out" />
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <SidebarFooter className="border-t">
+          <UserMenu
+            user={user}
+            links={[{ title: "All organizations", href: "/", icon: Building2 }]}
+          />
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>

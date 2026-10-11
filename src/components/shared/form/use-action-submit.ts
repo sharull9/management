@@ -14,6 +14,7 @@ export function useActionSubmit<
 >(
   form: UseFormReturn<TInput, unknown, TOutput>,
   action: TypedFormAction<TOutput>,
+  onSuccess?: (result: ActionState) => void,
 ) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -37,6 +38,7 @@ export function useActionSubmit<
         }
         if (result.error) toast.error(result.error);
         if (result.message) toast.success(result.message);
+        if (!result.error && !result.fieldErrors) onSuccess?.(result);
         if (result.redirectTo) {
           router.push(result.redirectTo);
           router.refresh();

@@ -1,14 +1,20 @@
+import type { ReactNode } from "react";
 export function PageHeading({
   title,
   description,
+  actions,
 }: {
   title: string;
   description: string;
+  actions?: ReactNode;
 }) {
   return (
-    <header className="space-y-2 pb-6">
-      <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-      <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
+    <header className="flex flex-wrap items-end justify-between gap-4 pb-6">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
+      </div>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
     </header>
   );
 }
