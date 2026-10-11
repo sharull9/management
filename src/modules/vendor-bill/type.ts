@@ -11,6 +11,7 @@ export type BillDraftLine = {
   discountPercent: string;
   taxGroupId: string | null;
   poRate?: string | null;
+  receiptName?: string;
 };
 export type BillInitial = {
   id?: string;

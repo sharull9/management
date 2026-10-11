@@ -7,16 +7,50 @@ import {
 import { db } from "@/core/db";
 import { moduleProjectWhere } from "@/modules/procurement/server/queries";
 import { billableReceipts } from "./calculations";
-export async function billOptions(org: string, editingBillId?: string) {
+export async function billOptions(
+  org: string,
+  editingBillId?: string,
+  selectedOrderId?: string,
+) {
   const ctx = await requireOrgContext(org);
   const projects = await db.project.findMany({
     where: moduleProjectWhere(ctx, "bill.create"),
     orderBy: { name: "asc" },
   });
+  const editing = editingBillId
+    ? await db.vendorBill.findFirstOrThrow({
+        where: {
+          id: editingBillId,
+          organizationId: ctx.org.id,
+          projectId: { in: projects.map((p) => p.id) },
+        },
+        include: { lines: true },
+      })
+    : null;
+  const orderId = selectedOrderId || editing?.purchaseOrderId;
+  const selectedOrder = orderId
+    ? await db.purchaseOrder.findFirstOrThrow({
+        where: {
+          id: orderId,
+          organizationId: ctx.org.id,
+          projectId: { in: projects.map((p) => p.id) },
+        },
+        include: { lines: true },
+      })
+    : null;
+  const selectedVendors = [
+    editing?.partyId,
+    selectedOrder?.vendorPartyId,
+  ].filter((id): id is string => !!id);
+  const selectedGroups = [
+    ...(editing?.lines ?? []),
+    ...(selectedOrder?.lines ?? []),
+  ].flatMap((l) => (l.taxGroupId ? [l.taxGroupId] : []));
   const [vendors, uoms, groups, variants, orders] = await Promise.all([
     db.party.findMany({
       where: { tenantId: ctx.tenant.id, isVendor: true },
       orderBy: { displayName: "asc" },
+      take: 25,
     }),
     db.uom.findMany({
       where: { OR: [{ tenantId: ctx.tenant.id }, { tenantId: null }] },
@@ -25,6 +59,7 @@ export async function billOptions(org: string, editingBillId?: string) {
     db.taxGroup.findMany({
       where: { tenantId: ctx.tenant.id },
       orderBy: { name: "asc" },
+      take: 25,
     }),
     db.itemVariant.findMany({
       where: { item: { tenantId: ctx.tenant.id } },
@@ -32,6 +67,7 @@ export async function billOptions(org: string, editingBillId?: string) {
     }),
     db.purchaseOrder.findMany({
       where: {
+        id: orderId ?? "",
         organizationId: ctx.org.id,
         projectId: { in: projects.map((p) => p.id) },
         status: {
@@ -51,6 +87,7 @@ export async function billOptions(org: string, editingBillId?: string) {
             },
             goodsReceiptLineRows: {
               where: { receipt: { status: "APPROVED" } },
+              include: { receipt: { select: { code: true } } },
               orderBy: { createdAt: "asc" },
             },
           },
@@ -59,6 +96,27 @@ export async function billOptions(org: string, editingBillId?: string) {
       orderBy: { createdAt: "desc" },
     }),
   ]);
+  vendors.push(
+    ...(await db.party.findMany({
+      where: {
+        tenantId: ctx.tenant.id,
+        isVendor: true,
+        id: {
+          in: selectedVendors.filter((id) => !vendors.some((v) => v.id === id)),
+        },
+      },
+    })),
+  );
+  groups.push(
+    ...(await db.taxGroup.findMany({
+      where: {
+        tenantId: ctx.tenant.id,
+        id: {
+          in: selectedGroups.filter((id) => !groups.some((g) => g.id === id)),
+        },
+      },
+    })),
+  );
   return {
     projects: projects.map((p) => ({
       id: p.id,
@@ -90,6 +148,9 @@ export async function billOptions(org: string, editingBillId?: string) {
         ).map((receipt) => ({
           poLineId: l.id,
           grnLineId: receipt.grnLineId,
+          receiptName:
+            l.goodsReceiptLineRows.find((r) => r.id === receipt.grnLineId)
+              ?.receipt.code ?? "Legacy receipt",
           itemVariantId: l.itemVariantId,
           description: l.description || l.variant.name,
           qty: receipt.qty,
@@ -144,7 +205,14 @@ export async function billList(
   const vendors = await db.party.findMany({
     where: { tenantId: ctx.tenant.id, isVendor: true },
     orderBy: { displayName: "asc" },
+    take: 25,
   });
+  if (filters.partyId && !vendors.some((v) => v.id === filters.partyId)) {
+    const selected = await db.party.findFirst({
+      where: { id: filters.partyId, tenantId: ctx.tenant.id, isVendor: true },
+    });
+    if (selected) vendors.push(selected);
+  }
   const writable = await db.project.count({
     where: moduleProjectWhere(ctx, "bill.create"),
   });

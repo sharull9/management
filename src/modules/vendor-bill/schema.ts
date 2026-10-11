@@ -28,3 +28,57 @@ export const billInput = z.object({
   notes: z.string().trim().max(4000).default(""),
   lines: z.array(billLineInput).min(1).max(100),
 });
+
+export const billDocumentInput = z.object({ id });
+export const billFilterInput = z.object({
+  projectId: id.nullable(),
+  partyId: id.nullable(),
+  status: z
+    .enum([
+      "DRAFT",
+      "PENDING_APPROVAL",
+      "APPROVED",
+      "PARTIALLY_PAID",
+      "PAID",
+      "CANCELLED",
+    ])
+    .nullable(),
+  overdue: z.literal("1").nullable(),
+});
+
+export const billAttachmentInput = z
+  .instanceof(File)
+  .refine(
+    (file) => file.size > 0 && file.size <= 900000,
+    "Select a PDF or image up to 900 KB.",
+  )
+  .refine(
+    (file) =>
+      ["application/pdf", "image/png", "image/jpeg"].includes(file.type),
+    "Only PDF, PNG and JPEG files are supported.",
+  );
+
+export const billFormInput = billInput.extend({
+  dueDate: z.union([date, z.literal("").transform(() => null), z.null()]),
+  attachment: billAttachmentInput.nullable(),
+});
+export const billAttachmentFormInput = billDocumentInput.extend({
+  attachment: billAttachmentInput,
+});
+
+// Keep files outside the JSON payload; validate the complete upload at the server boundary.
+export const billUploadInput = z
+  .instanceof(FormData)
+  .transform((data, ctx) => {
+    try {
+      const payload = z.string().max(250000).parse(data.get("payload"));
+      const parsed: unknown = JSON.parse(payload);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+        throw new Error();
+      return { ...parsed, attachment: data.get("attachment") ?? null };
+    } catch {
+      ctx.addIssue({ code: "custom", message: "Invalid bill payload." });
+      return z.NEVER;
+    }
+  })
+  .pipe(billFormInput);

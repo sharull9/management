@@ -1,12 +1,23 @@
 import Link from "next/link";
-import { ActionForm } from "@/components/shared/action-form";
 import { ApprovalTimeline } from "@/components/shared/approval-timeline";
-import { Field } from "@/components/shared/fields";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
-import { attachBillAction, submitBillAction } from "../../server/actions";
+import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { billDetail, billOptions } from "../../server/queries";
 import type { BillDraftLine } from "../../type";
+import {
+  AttachBillForm,
+  SubmitBillForm,
+} from "../components/bill-document-forms";
 import { BillForm } from "../components/vendor-bill-form";
 
 const day = (date: Date | null) => date?.toISOString().slice(0, 10) ?? "";
@@ -33,6 +44,7 @@ export async function BillDetail({
     discountPercent: l.discountPercent.toString(),
     taxGroupId: l.taxGroupId,
     poRate: l.poRate?.toString() ?? null,
+    receiptName: l.grnLine?.receipt.code,
   }));
   return (
     <div className="space-y-6">
@@ -53,26 +65,30 @@ export async function BillDetail({
           >
             {row.purchaseOrder.code}
           </Link>
-          <div className="mt-2 space-y-2">
+          <ItemGroup className="mt-2">
             {row.purchaseOrder.goodsReceiptRows.map((r) => (
-              <p key={r.id}>
-                <Link
-                  className="underline"
-                  href={`/${org}/procurement/receipts/${r.id}`}
-                >
-                  {r.code}
-                </Link>{" "}
-                · {r.status}
-              </p>
+              <Item key={r.id} variant="outline">
+                <ItemContent>
+                  <ItemTitle>
+                    <Link
+                      className="underline"
+                      href={`/${org}/procurement/receipts/${r.id}`}
+                    >
+                      {r.code}
+                    </Link>{" "}
+                    · {r.status}
+                  </ItemTitle>
+                </ItemContent>
+              </Item>
             ))}
-          </div>
+          </ItemGroup>
         </FormCard>
       )}
       <FormCard title="Bill lines">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr>
+          <Table className="w-full text-left text-sm">
+            <TableHeader>
+              <TableRow>
                 {[
                   "Description",
                   "Qty",
@@ -86,26 +102,36 @@ export async function BillDetail({
                   "Total",
                   "GRN",
                 ].map((h) => (
-                  <th key={h} className="p-2">
+                  <TableHead key={h} className="p-2">
                     {h}
-                  </th>
+                  </TableHead>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {row.lines.map((l) => (
-                <tr key={l.id} className="border-t">
-                  <td className="p-2">{l.description}</td>
-                  <td className="p-2">{l.qty.toString()}</td>
-                  <td className="p-2">{l.uom.code}</td>
-                  <td className="p-2">{l.poRate?.toString() ?? ""}</td>
-                  <td className="p-2">{l.rate.toString()}</td>
-                  <td className="p-2">{l.discountPercent.toString()}</td>
-                  <td className="p-2">{l.varianceAmount.toFixed(2)}</td>
-                  <td className="p-2">{l.lineSubtotal.toFixed(2)}</td>
-                  <td className="p-2">{l.lineTax.toFixed(2)}</td>
-                  <td className="p-2">{l.lineTotal.toFixed(2)}</td>
-                  <td className="p-2">
+                <TableRow key={l.id} className="border-t">
+                  <TableCell className="p-2">{l.description}</TableCell>
+                  <TableCell className="p-2">{l.qty.toString()}</TableCell>
+                  <TableCell className="p-2">{l.uom.code}</TableCell>
+                  <TableCell className="p-2">
+                    {l.poRate?.toString() ?? ""}
+                  </TableCell>
+                  <TableCell className="p-2">{l.rate.toString()}</TableCell>
+                  <TableCell className="p-2">
+                    {l.discountPercent.toString()}
+                  </TableCell>
+                  <TableCell className="p-2">
+                    {l.varianceAmount.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="p-2">
+                    {l.lineSubtotal.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="p-2">{l.lineTax.toFixed(2)}</TableCell>
+                  <TableCell className="p-2">
+                    {l.lineTotal.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="p-2">
                     {l.grnLine && (
                       <Link
                         className="underline"
@@ -114,24 +140,29 @@ export async function BillDetail({
                         {l.grnLine.receipt.code}
                       </Link>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       </FormCard>
       <FormCard title="Tax breakdown and totals">
-        <ul className="space-y-2 text-sm">
+        <ItemGroup>
           {row.lines.flatMap((l) =>
             l.taxes.map((t) => (
-              <li key={t.id}>
-                {l.description} · {t.name} {t.rate.toString()}%{" "}
-                {t.isWithholding ? "(withholding)" : ""}: {t.amount.toFixed(2)}
-              </li>
+              <Item key={t.id} variant="outline">
+                <ItemContent>
+                  <ItemTitle>
+                    {l.description} · {t.name} {t.rate.toString()}%{" "}
+                    {t.isWithholding ? "(withholding)" : ""}:{" "}
+                    {t.amount.toFixed(2)}
+                  </ItemTitle>
+                </ItemContent>
+              </Item>
             )),
           )}
-        </ul>
+        </ItemGroup>
         <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
           <dt>Subtotal before discount</dt>
           <dd>{row.subtotal.toFixed(2)}</dd>
@@ -154,58 +185,52 @@ export async function BillDetail({
         </dl>
       </FormCard>
       <FormCard title="Vendor invoice attachments">
-        <div className="space-y-2">
+        <ItemGroup>
           {attachments.map((a) => (
-            <p key={a.id}>
-              <a
-                className="underline"
-                href={`/${org}/procurement/bills/${row.id}/attachments/${a.id}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {a.filename}
-              </a>
-            </p>
+            <Item key={a.id} variant="outline">
+              <ItemContent>
+                <ItemTitle>
+                  <a
+                    className="underline"
+                    href={`/${org}/procurement/bills/${row.id}/attachments/${a.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {a.filename}
+                  </a>
+                </ItemTitle>
+              </ItemContent>
+            </Item>
           ))}
-          {!attachments.length && (
-            <p className="text-sm text-muted-foreground">No attachments yet.</p>
-          )}
-        </div>
+          {!attachments.length && <EmptyState title="No attachments yet." />}
+        </ItemGroup>
         {canEdit && (
           <div className="mt-4">
-            <ActionForm
-              action={attachBillAction.bind(null, org)}
-              submit="Attach vendor invoice"
-            >
-              <input type="hidden" name="id" value={row.id} />
-              <Field
-                label="Vendor invoice copy (PDF, PNG or JPEG, max 900 KB)"
-                name="file"
-                type="file"
-                accept="application/pdf,image/png,image/jpeg"
-                required
-              />
-            </ActionForm>
+            <AttachBillForm org={org} billId={row.id} />
           </div>
         )}
       </FormCard>
       <FormCard title="Allocated payments">
-        {row.allocations.map((a) => (
-          <p className="text-sm" key={a.id}>
-            <Link
-              className="underline"
-              href={`/${org}/finance/payments/${a.paymentId}`}
-            >
-              {a.payment.code}
-            </Link>{" "}
-            · {day(a.payment.date)} · {a.amount.toFixed(2)} {row.currency} ·{" "}
-            {a.payment.status}
-          </p>
-        ))}
+        <ItemGroup>
+          {row.allocations.map((a) => (
+            <Item key={a.id} variant="outline">
+              <ItemContent>
+                <ItemTitle>
+                  <Link
+                    className="underline"
+                    href={`/${org}/finance/payments/${a.paymentId}`}
+                  >
+                    {a.payment.code}
+                  </Link>{" "}
+                  · {day(a.payment.date)} · {a.amount.toFixed(2)} {row.currency}{" "}
+                  · {a.payment.status}
+                </ItemTitle>
+              </ItemContent>
+            </Item>
+          ))}
+        </ItemGroup>
         {!row.allocations.length && (
-          <p className="text-sm text-muted-foreground">
-            No payments allocated.
-          </p>
+          <EmptyState title="No payments allocated." />
         )}
       </FormCard>
       {options && (
@@ -228,12 +253,7 @@ export async function BillDetail({
               initialLines={initialLines}
             />
           </FormCard>
-          <ActionForm
-            action={submitBillAction.bind(null, org)}
-            submit="Submit for approval"
-          >
-            <input type="hidden" name="id" value={row.id} />
-          </ActionForm>
+          <SubmitBillForm org={org} billId={row.id} />
         </>
       )}
       <ApprovalTimeline org={org} approvals={approvals} variant="bill" />
