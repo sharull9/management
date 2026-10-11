@@ -53,6 +53,7 @@ Cross-module consumers use the main entry files below. Modules without cross-mod
 | `dashboard` | Organization dashboard | None |
 | `item-variant` | Pure variant identity and level configuration | `util` |
 | `masters` | Tenant locations, items, UOMs, parties and taxes | `server/location-actions`, `server/queries`, `server/service` |
+| `notifications` | Scoped in-app notifications, latest items and mark-read actions | `server/queries`, `server/actions`, `schema` |
 | `organization` | Organizations, members, roles, numbering and user provisioning | `server/actions`, `server/member-actions`, `server/numbering-actions`, `server/provision-user`, `server/role-actions` |
 | `organization-auth` | Setup, sign-in and sign-out actions | `server/actions` |
 | `payment` | Requests, payments, allocations, voids, balances, aging and statements | `constants`, `schema`, `server/allocation-service`, `server/approval`, `server/balances`, `server/payment-service`, `server/queries`, `server/request-service`, `server/statement`, `server/submission`, `server/void-service` |
@@ -69,6 +70,49 @@ Cross-module consumers use the main entry files below. Modules without cross-mod
 | `uom` | Pure unit conversion | `util` |
 | `vendor-bill` | Vendor bills, receipt reservations, variance costing and attachments | `constants`, `schema`, `server/approval`, `server/attachment`, `server/service` |
 | `workforce` | Workers, designations and availability | `server/actions`, `server/availability` |
+
+## Workflows
+
+Workflow DevKit orchestrators and steps live in `src/modules/<module>/workflows/`.
+Orchestrators use `"use workflow"`; database and other I/O live in `"use step"`
+functions. Start runs after commit, never inside database transactions. Steps must
+be idempotent under retries. Do not post money or cost ledger entries inside workflows.
+
+Approval reminders capture the initial pending step and delay at submission. The
+delay defaults to 24 hours; a positive `APPROVAL_REMINDER_HOURS` overrides it,
+including fractional hours for local verification. Each wake locks and re-reads
+the request, checks that the same step is pending, resolves eligible users through
+the engine authorization rules, and inserts notifications with deterministic IDs.
+Runs stop after three reminders or when the captured step is no longer pending.
+They do not advance approvals or change approvers.
+
+When submission owns the transaction it awaits commit before starting. For
+caller-owned transactions in Server Functions, `next/server`'s `after` registers
+a callback that runs after the response. The callback reads with the root client;
+a rolled-back request is absent and is skipped. Scheduling/start failures are
+logged and never fail submission. Non-HTTP callers with a caller-owned transaction
+must call `startApprovalReminder(request.id, request.steps[0].id)` after their transaction resolves,
+because `after` requires a Next request context. This best-effort launch has a
+crash window between commit and start; guaranteed delivery would require an outbox.
+
+`withWorkflow` generates `/.well-known/workflow/v1/flow` and
+`/.well-known/workflow/v1/webhook/:token`; generated files are SDK-ignored. The
+proxy excludes the workflow prefix. Keep `WORKFLOW_PUBLIC_MANIFEST` unset in
+production; enabling it publishes `/.well-known/workflow/v1/manifest.json`.
+Development uses the bundled local world and ignored `.workflow-data/` directory.
+
+Self-hosted production uses `@workflow/world-postgres`. Set `WORKFLOW_TARGET_WORLD`
+and `WORKFLOW_POSTGRES_URL` as shown in `.env.example`, and run `pnpm exec bootstrap`
+with that URL to apply the world's own idempotent migrations. Run a long-lived
+worker, not a serverless process. Before enabling this world, the deployment's
+Next instrumentation `register()` must dynamically import `workflow/runtime`
+and call `(await getWorld()).start?.()` for the Node runtime so queued work resumes
+on restart. That startup adapter is a deployment prerequisite outside this wave's
+owned paths. `WORKFLOW_LOCAL_BASE_URL` points workers at the app, usually loopback.
+The reference Postgres world ships without HTTP authentication: block external
+access to the flow route at ingress while allowing worker delivery. Do not put it
+back behind the session proxy. See the installed world's README and
+[Postgres world docs](https://workflow-sdk.dev/worlds/postgres).
 
 ## Shared infrastructure and integration checks
 

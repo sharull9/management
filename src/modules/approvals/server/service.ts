@@ -12,6 +12,7 @@ import { canActOnStep } from "./authorization";
 import { getApprovalHandler } from "./handlers";
 import { nextStep, snapshotSteps } from "./logic";
 import { resolvePolicy, type Scope } from "./policy";
+import { deferApprovalReminder, startApprovalReminder } from "./start-reminder";
 
 export { canActOnStep, registerManagerResolver } from "./authorization";
 export { resolvePolicy } from "./policy";
@@ -62,6 +63,9 @@ export async function submitForApproval(
       tx,
     );
     const request = await tx.approvalRequest.create({
+      include: {
+        steps: { where: { status: "PENDING" }, select: { id: true } },
+      },
       data: {
         organizationId: ctx.org.id,
         documentType: input.documentType,
@@ -88,7 +92,15 @@ export async function submitForApproval(
     );
     return request;
   };
-  return transaction ? execute(transaction) : db.$transaction(execute);
+  const request = await (transaction
+    ? execute(transaction)
+    : db.$transaction(execute));
+  const step = request.steps[0];
+  if (step) {
+    if (transaction) deferApprovalReminder(request.id, step.id);
+    else await startApprovalReminder(request.id, step.id);
+  }
+  return request;
 }
 export async function actOnApproval(
   stepId: string,

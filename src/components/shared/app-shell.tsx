@@ -1,5 +1,6 @@
 "use client";
 import {
+  Bell,
   Building2,
   ChevronDown,
   FolderKanban,
@@ -11,6 +12,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +22,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemTitle,
+} from "@/components/ui/item";
 import {
   Sidebar,
   SidebarContent,
@@ -33,6 +43,8 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { markNotificationReadAction } from "@/modules/notifications/server/actions";
+import { listNotifications } from "@/modules/notifications/server/queries";
 import { signOutAction } from "@/modules/organization-auth/server/actions";
 import { ActionForm } from "./action-form";
 
@@ -196,11 +208,131 @@ export function AppShell({
         <header className="flex h-14 items-center gap-3 border-b px-4">
           <SidebarTrigger />
           <span className="text-sm text-muted-foreground">{org.name}</span>
+          <NotificationBell key={org.slug} orgSlug={org.slug} />
         </header>
         <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-8">
           {children}
         </div>
       </SidebarInset>
     </SidebarProvider>
+  );
+}
+
+function NotificationBell({ orgSlug }: { orgSlug: string }) {
+  const [data, setData] = useState<
+    Awaited<ReturnType<typeof listNotifications>>
+  >({ unreadCount: 0, latest: [] });
+  const [error, setError] = useState<string>();
+  const [loaded, setLoaded] = useState(false);
+  const [pending, startTransition] = useTransition();
+  useEffect(() => {
+    let active = true;
+    listNotifications({ orgSlug })
+      .then((result) => {
+        if (active) {
+          setData(result);
+          setLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (active) setError("Unable to load notifications.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [orgSlug]);
+  const reload = () =>
+    startTransition(async () => {
+      try {
+        setData(await listNotifications({ orgSlug }));
+        setLoaded(true);
+        setError(undefined);
+      } catch {
+        setError("Unable to load notifications.");
+      }
+    });
+  return (
+    <DropdownMenu
+      onOpenChange={(open) => {
+        if (open) reload();
+      }}
+    >
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="ml-auto"
+          aria-label={`Notifications, ${data.unreadCount} unread`}
+        >
+          <Bell className="size-4" />
+          {data.unreadCount > 0 && (
+            <span className="text-xs tabular-nums">{data.unreadCount}</span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="max-h-96 w-80 overflow-y-auto"
+      >
+        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
+        {error ? (
+          <p role="alert" className="px-2 text-sm text-destructive">
+            {error}
+          </p>
+        ) : !loaded ? (
+          <output className="px-2 text-sm">Loading notifications...</output>
+        ) : data.latest.length === 0 ? (
+          <Empty>
+            <EmptyHeader>
+              <EmptyTitle>No notifications</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          data.latest.map((notification) => (
+            <Item
+              key={notification.id}
+              size="sm"
+              variant={notification.read ? "default" : "muted"}
+            >
+              <ItemContent>
+                <DropdownMenuItem asChild>
+                  <Link href={notification.href}>
+                    <ItemTitle>{notification.title}</ItemTitle>
+                  </Link>
+                </DropdownMenuItem>
+                <ItemDescription>{notification.body}</ItemDescription>
+                {!notification.read && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() =>
+                      startTransition(async () => {
+                        try {
+                          const result = await markNotificationReadAction({
+                            orgSlug,
+                            id: notification.id,
+                          });
+                          if (result.error) {
+                            setError(result.error);
+                            return;
+                          }
+                          setData(await listNotifications({ orgSlug }));
+                          setError(undefined);
+                        } catch {
+                          setError("Unable to mark notification as read.");
+                        }
+                      })
+                    }
+                  >
+                    Mark as read
+                  </Button>
+                )}
+              </ItemContent>
+            </Item>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

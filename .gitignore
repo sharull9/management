@@ -44,3 +44,5 @@ next-env.d.ts
 # prisma
 /src/generated
 /storage
+/.workflow-data/
+/.swc

@@ -79,6 +79,7 @@ enum ApprovalStepStatus {
 }
 
 model User {
+  notifications         Notification[]
   paymentRequestRows    PaymentRequest[]
   paymentRows           Payment[]
   paymentAllocationRows PaymentAllocation[]
@@ -178,6 +179,7 @@ model Verification {
 }
 
 model Tenant {
+  notifications    Notification[]
   id               String                @id @default(cuid())
   name             String
   slug             String                @unique
@@ -219,6 +221,7 @@ model TenantMember {
 }
 
 model Organization {
+  notifications     Notification[]
   vendorBillRows     VendorBill[]
   paymentRequestRows PaymentRequest[]
   paymentRows        Payment[]
@@ -768,6 +771,26 @@ model ApprovalPolicyStep {
 
   @@unique([policyId, sequence])
   @@map("approval_policy_steps")
+}
+
+model Notification {
+  id             String       @id @default(cuid())
+  tenantId       String
+  organizationId String
+  userId         String
+  kind           String
+  title          String
+  body           String
+  href           String
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+  tenant         Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([tenantId, organizationId, userId, createdAt])
+  @@map("notifications")
 }
 
 model ApprovalRequest {
