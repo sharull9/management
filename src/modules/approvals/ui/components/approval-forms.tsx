@@ -12,8 +12,8 @@ import {
 } from "../../server/actions";
 
 const decisions = [
-  { value: "APPROVE", label: "Approve" },
-  { value: "REJECT", label: "Reject" },
+  { value: "APPROVE", label: "Approve", tone: "green" as const },
+  { value: "REJECT", label: "Reject", tone: "red" as const },
 ];
 
 export function ApprovalDecisionForm({

@@ -2,68 +2,53 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
-import { CityForm, DeleteCityForm } from "./city-form";
 
-type CityRow = {
+export type CityRow = {
   id: string;
   name: string;
-  stateId: string;
-  state: { name: string; country: { code: string } };
+  state: string;
+  country: string;
 };
-type StateOption = { id: string; name: string; country: { code: string } };
+
+const columns: ColumnDef<CityRow>[] = [
+  {
+    accessorKey: "name",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="City" />
+    ),
+  },
+  {
+    accessorKey: "state",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="State" />
+    ),
+  },
+  {
+    accessorKey: "country",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Country" />
+    ),
+  },
+];
 
 export function CitiesTable({
   org,
   cities,
-  states,
 }: {
   org: string;
   cities: CityRow[];
-  states: StateOption[];
 }) {
-  const columns: ColumnDef<CityRow>[] = [
-    {
-      accessorKey: "name",
-      header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="City" />
-      ),
-    },
-    {
-      id: "location",
-      accessorFn: (city) => `${city.state.name} · ${city.state.country.code}`,
-      header: "State / country",
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => {
-        const city = row.original;
-        return (
-          <details>
-            <summary className="cursor-pointer text-sm">Edit city</summary>
-            <div className="min-w-56 space-y-4 pt-4">
-              <CityForm
-                org={org}
-                city={city}
-                states={states.map((s) => ({
-                  value: s.id,
-                  label: `${s.country.code} · ${s.name}`,
-                }))}
-              />
-              <DeleteCityForm org={org} id={city.id} />
-            </div>
-          </details>
-        );
-      },
-    },
-  ];
   return (
     <DataTable
       columns={columns}
       data={cities}
       getRowId={(city) => city.id}
       searchPlaceholder="Search cities…"
-      emptyState={{ title: "No cities yet." }}
+      rowHref={(city) => `/${org}/masters/locations/${city.id}`}
+      emptyState={{
+        title: "No cities yet.",
+        description: "Add a city to use it on parties and addresses.",
+      }}
     />
   );
 }

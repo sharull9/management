@@ -114,6 +114,7 @@ export function PolicyEditor({
           label="Project"
           options={options.projects}
           loadOptions={projects}
+          queryKey={["approval-projects", org]}
           disabled={scope === "org"}
           clearable
           searchPlaceholder="Search projects"
@@ -125,6 +126,7 @@ export function PolicyEditor({
           label="Stage"
           options={projectId === draft?.projectId ? options.stages : []}
           loadOptions={stages}
+          queryKey={["approval-stages", org, projectId]}
           disabled={scope !== "stage" || !projectId}
           clearable
           searchPlaceholder="Search stages"
@@ -152,6 +154,7 @@ export function PolicyEditor({
                 label="Custom role"
                 options={options.roles}
                 loadOptions={roles}
+                queryKey={["approval-roles", org]}
                 clearable
                 searchPlaceholder="Search roles"
               />
@@ -163,6 +166,7 @@ export function PolicyEditor({
                 label="Approver"
                 options={options.users}
                 loadOptions={users}
+                queryKey={["approval-users", org]}
                 clearable
                 searchPlaceholder="Search members"
               />

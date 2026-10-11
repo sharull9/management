@@ -3,6 +3,10 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { z } from "zod";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
+import { SideSheet } from "@/components/shared/overlay/side-sheet";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { Separator } from "@/components/ui/separator";
+import { formatMoney } from "@/core/format";
 import type { budgetLineInput } from "../../schema";
 import { BudgetLineForm, DeleteBudgetForm } from "./budget-forms";
 export type BudgetRow = {
@@ -12,6 +16,7 @@ export type BudgetRow = {
   amount: string;
   actual: string;
   remaining: string;
+  currency: string;
 };
 export type BudgetLineRow = BudgetRow & z.input<typeof budgetLineInput>;
 const baseColumns: ColumnDef<BudgetRow>[] = [
@@ -20,11 +25,38 @@ const baseColumns: ColumnDef<BudgetRow>[] = [
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Type" />
     ),
+    cell: ({ row }) => (
+      <StatusBadge status={row.original.costType} tone="neutral" />
+    ),
   },
   { accessorKey: "stage", header: "Stage" },
-  { accessorKey: "amount", header: "Budget" },
-  { accessorKey: "actual", header: "Actual" },
-  { accessorKey: "remaining", header: "Remaining" },
+  {
+    accessorKey: "amount",
+    header: () => <div className="text-right">Budget</div>,
+    cell: ({ row }) => (
+      <div className="text-right tabular-nums">
+        {formatMoney(row.original.amount, row.original.currency)}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "actual",
+    header: () => <div className="text-right">Actual</div>,
+    cell: ({ row }) => (
+      <div className="text-right tabular-nums">
+        {formatMoney(row.original.actual, row.original.currency)}
+      </div>
+    ),
+  },
+  {
+    accessorKey: "remaining",
+    header: () => <div className="text-right">Remaining</div>,
+    cell: ({ row }) => (
+      <div className="text-right tabular-nums">
+        {formatMoney(row.original.remaining, row.original.currency)}
+      </div>
+    ),
+  },
 ];
 export function BudgetSummaryTable({ data }: { data: BudgetRow[] }) {
   return (
@@ -56,36 +88,73 @@ export function BudgetLinesTable({
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Type" />
       ),
+      cell: ({ row }) => (
+        <StatusBadge status={row.original.costType} tone="neutral" />
+      ),
     },
     { accessorKey: "stage", header: "Stage" },
-    { accessorKey: "amount", header: "Budget" },
-    { accessorKey: "actual", header: "Actual for type/stage" },
-    { accessorKey: "remaining", header: "Remaining vs line" },
-    { accessorKey: "note", header: "Note" },
+    {
+      accessorKey: "amount",
+      header: () => <div className="text-right">Budget</div>,
+      cell: ({ row }) => (
+        <div className="text-right tabular-nums">
+          {formatMoney(row.original.amount, row.original.currency)}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "actual",
+      header: () => <div className="text-right">Actual for type/stage</div>,
+      cell: ({ row }) => (
+        <div className="text-right tabular-nums">
+          {formatMoney(row.original.actual, row.original.currency)}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "remaining",
+      header: () => <div className="text-right">Remaining vs line</div>,
+      cell: ({ row }) => (
+        <div className="text-right tabular-nums">
+          {formatMoney(row.original.remaining, row.original.currency)}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "note",
+      header: "Note",
+      cell: ({ row }) => (
+        <span className="text-muted-foreground">{row.original.note}</span>
+      ),
+    },
     {
       id: "actions",
-      header: "Actions",
+      header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) =>
         manage ? (
-          <div className="space-y-4">
-            <details>
-              <summary className="cursor-pointer">Edit line</summary>
+          <SideSheet
+            title="Edit budget line"
+            description={`${row.original.costType} \u00b7 ${row.original.stage}`}
+            trigger="Edit"
+            triggerVariant="outline"
+            triggerSize="sm"
+          >
+            <div className="space-y-6">
               <BudgetLineForm
                 org={org}
                 projectId={projectId}
                 line={row.original}
                 stages={stages}
               />
-            </details>
-            <DeleteBudgetForm
-              org={org}
-              projectId={projectId}
-              id={row.original.id}
-            />
-          </div>
-        ) : (
-          "\u2014"
-        ),
+              <Separator />
+              <DeleteBudgetForm
+                org={org}
+                projectId={projectId}
+                id={row.original.id}
+              />
+            </div>
+          </SideSheet>
+        ) : null,
     },
   ];
   return (

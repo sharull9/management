@@ -34,9 +34,15 @@ export function DashboardProjectsTable({
         row.original.usage === null ? (
           "—"
         ) : (
-          <div className="min-w-32 space-y-2">
-            <span>{row.original.usage}%</span>
-            <Progress value={Math.min(100, Number(row.original.usage))} />
+          <div className="flex min-w-40 items-center gap-3">
+            <Progress
+              value={Math.min(100, Number(row.original.usage))}
+              className="w-24 bg-foreground/10"
+              aria-label={`${row.original.usage}% of budget used`}
+            />
+            <span className="w-14 text-right tabular-nums">
+              {row.original.usage}%
+            </span>
           </div>
         ),
     },

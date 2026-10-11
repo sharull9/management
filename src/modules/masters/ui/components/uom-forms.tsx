@@ -1,29 +1,47 @@
 "use client";
-import { ComboboxField } from "@/components/shared/combobox/combobox-field";
+import { EmptyState } from "@/components/shared/empty-state";
 import { CheckboxField } from "@/components/shared/form/checkbox-field";
-import { toOptions } from "@/components/shared/form/enum-options";
 import { TextField } from "@/components/shared/form/text-field";
 import { FormCard } from "@/components/shared/form-card";
-import { Item, ItemContent } from "@/components/ui/item";
+import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import type { MasterData as Data } from "../../type";
 import { MasterForm } from "./master-form";
-export function UomMasters({ org, data: d }: { org: string; data: Data }) {
+
+type GroupRow = Data["groups"][number];
+type UomRow = Data["uoms"][number];
+
+/** Create (no `group`) or rename form for one UOM group. */
+export function UomGroupForm({
+  org,
+  group,
+}: {
+  org: string;
+  group?: GroupRow;
+}) {
+  const listHref = `/${org}/masters/uoms`;
   return (
-    <>
-      <FormCard title="Create UOM group with base unit">
-        <MasterForm
-          org={org}
-          kind="uomGroup"
-          defaultValues={{ name: "", key: "", baseCode: "", baseName: "" }}
-        >
-          {(form) => (
+    <MasterForm
+      org={org}
+      kind="uomGroup"
+      id={group?.id}
+      afterCreate={listHref}
+      afterDelete={listHref}
+      defaultValues={
+        group
+          ? { name: group.name ?? "" }
+          : { name: "", key: "", baseCode: "", baseName: "" }
+      }
+    >
+      {(form) => (
+        <>
+          <TextField
+            control={form.control}
+            label="Group name"
+            name="name"
+            required
+          />
+          {!group && (
             <>
-              <TextField
-                control={form.control}
-                label="Group name"
-                name="name"
-                required
-              />
               <TextField
                 control={form.control}
                 label="Group key"
@@ -44,139 +62,98 @@ export function UomMasters({ org, data: d }: { org: string; data: Data }) {
               />
             </>
           )}
-        </MasterForm>
-      </FormCard>
-      {d.groups.map((g) => (
-        <FormCard
-          key={g.id}
-          title={`${g.name}${!g.tenantId ? " · System (read-only)" : ""}`}
-        >
-          {g.tenantId && (
-            <MasterForm
-              org={org}
-              kind="uomGroup"
-              id={g.id}
-              defaultValues={{ name: g.name ?? "" }}
-            >
-              {(form) => (
-                <>
-                  <TextField
-                    control={form.control}
-                    label="Group name"
-                    name="name"
-                    required
-                  />
-                </>
-              )}
-            </MasterForm>
-          )}
-          {d.uoms
-            .filter((u) => u.groupId === g.id)
-            .map((u) => (
-              <Item key={u.id} variant="outline">
-                <ItemContent>
-                  <details className="mt-3 rounded border p-3">
-                    <summary>
+        </>
+      )}
+    </MasterForm>
+  );
+}
+
+/** Create (no `unit`) or edit form for one unit inside a group. */
+function UomForm({
+  org,
+  groupId,
+  unit,
+}: {
+  org: string;
+  groupId: string;
+  unit?: UomRow;
+}) {
+  return (
+    <MasterForm
+      org={org}
+      kind="uom"
+      id={unit?.id}
+      defaultValues={{
+        groupId,
+        code: unit?.code ?? "",
+        name: unit?.name ?? "",
+        factor: unit?.factor ?? "1",
+        isBase: unit?.isBase ?? false,
+      }}
+    >
+      {(form) => (
+        <>
+          <TextField control={form.control} label="Code" name="code" required />
+          <TextField control={form.control} label="Name" name="name" required />
+          <TextField
+            control={form.control}
+            label="Factor to base"
+            name="factor"
+            required
+          />
+          <CheckboxField
+            control={form.control}
+            label="Base unit"
+            name="isBase"
+          />
+        </>
+      )}
+    </MasterForm>
+  );
+}
+
+/** Units and conversion factors of a group, with the add-unit form. */
+export function UomUnits({
+  org,
+  data: d,
+  group,
+}: {
+  org: string;
+  data: Data;
+  group: GroupRow;
+}) {
+  const units = d.uoms.filter((u) => u.groupId === group.id);
+  return (
+    <div className="space-y-4">
+      {units.length ? (
+        <ItemGroup>
+          {units.map((u) => (
+            <Item key={u.id} variant="outline">
+              <ItemContent>
+                <details>
+                  <summary>
+                    <ItemTitle className="inline-flex">
                       {u.code} · {u.name} · factor {u.factor}
                       {u.isBase ? " · Base" : ""}
                       {!u.tenantId ? " · System" : ""}
-                    </summary>
-                    {u.tenantId && (
-                      <MasterForm
-                        org={org}
-                        kind="uom"
-                        id={u.id}
-                        defaultValues={{
-                          groupId: g.id,
-                          code: u.code ?? "",
-                          name: u.name ?? "",
-                          factor: u.factor ?? "",
-                          isBase: u.isBase ?? false,
-                        }}
-                      >
-                        {(form) => (
-                          <>
-                            <TextField
-                              control={form.control}
-                              label="Code"
-                              name="code"
-                              required
-                            />
-                            <TextField
-                              control={form.control}
-                              label="Name"
-                              name="name"
-                              required
-                            />
-                            <TextField
-                              control={form.control}
-                              label="Factor to base"
-                              name="factor"
-                              required
-                            />
-                            <CheckboxField
-                              control={form.control}
-                              label="Base unit"
-                              name="isBase"
-                            />
-                          </>
-                        )}
-                      </MasterForm>
-                    )}
-                  </details>
-                </ItemContent>
-              </Item>
-            ))}
-        </FormCard>
-      ))}
-      <FormCard title="Create unit">
-        <MasterForm
-          org={org}
-          kind="uom"
-          defaultValues={{
-            groupId: null,
-            code: "",
-            name: "",
-            factor: "1",
-            isBase: false,
-          }}
-        >
-          {(form) => (
-            <>
-              <ComboboxField
-                control={form.control}
-                label="Group"
-                name="groupId"
-                options={toOptions(d.groups)}
-                clearable
-              />
-              <TextField
-                control={form.control}
-                label="Code"
-                name="code"
-                required
-              />
-              <TextField
-                control={form.control}
-                label="Name"
-                name="name"
-                required
-              />
-              <TextField
-                control={form.control}
-                label="Factor to base"
-                name="factor"
-                required
-              />
-              <CheckboxField
-                control={form.control}
-                label="Base unit"
-                name="isBase"
-              />
-            </>
-          )}
-        </MasterForm>
+                    </ItemTitle>
+                  </summary>
+                  {u.tenantId && (
+                    <div className="mt-3">
+                      <UomForm org={org} groupId={group.id} unit={u} />
+                    </div>
+                  )}
+                </details>
+              </ItemContent>
+            </Item>
+          ))}
+        </ItemGroup>
+      ) : (
+        <EmptyState title="No units yet." />
+      )}
+      <FormCard title="Add unit">
+        <UomForm org={org} groupId={group.id} />
       </FormCard>
-    </>
+    </div>
   );
 }

@@ -1,16 +1,26 @@
-import { PageHeading } from "@/components/shared/page-heading";
 import { masterData } from "../../server/queries";
-import { CategoryMasters } from "../components/category-level-forms";
+import { categoryPath } from "../category-path";
+import { CategoriesTable } from "../components/categories-table";
+import { MasterListPage } from "../components/master-pages";
 
 export async function CategoriesView({ org }: { org: string }) {
   const data = await masterData(org);
   return (
-    <>
-      <PageHeading
-        title="Item categories"
-        description="Shared across organizations in this tenant."
+    <MasterListPage
+      title="Item categories"
+      description="Shared across organizations in this tenant."
+      newHref={`/${org}/masters/categories/new`}
+      newLabel="New category"
+    >
+      <CategoriesTable
+        org={org}
+        categories={data.categories.map((c) => ({
+          id: c.id,
+          name: c.name,
+          parent: c.parentId ? categoryPath(data.categories, c.parentId) : "",
+          items: data.items.filter((i) => i.categoryId === c.id).length,
+        }))}
       />
-      <CategoryMasters org={org} data={data} />
-    </>
+    </MasterListPage>
   );
 }

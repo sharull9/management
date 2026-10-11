@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Loading from "@/components/shared/page-loading";
-import { FinanceNew } from "@/modules/payment/ui/views/payments-new-view";
+import { PaymentsNew } from "@/modules/payment/ui/views/payments-new-view";
 
 type Props = {
   params: Promise<{ org: string }>;
@@ -14,7 +14,7 @@ type Props = {
 async function Content({ params, searchParams }: Props) {
   const { org } = await params;
   const search = await searchParams;
-  return <FinanceNew org={org} kind="payments" requestId={search.requestId} />;
+  return <PaymentsNew org={org} requestId={search.requestId} />;
 }
 export default function Page(props: Props) {
   return (

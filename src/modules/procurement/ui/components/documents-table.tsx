@@ -3,7 +3,7 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { Decimal } from "@/core/decimal";
 
 export type DocumentRow = {
@@ -14,6 +14,8 @@ export type DocumentRow = {
   date: string;
   total: string | null;
   destination: string;
+  vendor: string;
+  order: string;
   href: string;
 };
 const columns: ColumnDef<DocumentRow>[] = [
@@ -32,11 +34,7 @@ const columns: ColumnDef<DocumentRow>[] = [
   {
     accessorKey: "status",
     header: "Status",
-    cell: ({ row }) => (
-      <Badge variant="secondary">
-        {row.original.status.replaceAll("_", " ")}
-      </Badge>
-    ),
+    cell: ({ row }) => <StatusBadge status={row.original.status} />,
   },
   {
     accessorKey: "date",
@@ -59,10 +57,44 @@ const columns: ColumnDef<DocumentRow>[] = [
   },
   { accessorKey: "destination", header: "Destination" },
 ];
-export function DocumentsTable({ data }: { data: DocumentRow[] }) {
+const vendorColumn: ColumnDef<DocumentRow> = {
+  accessorKey: "vendor",
+  header: ({ column }) => (
+    <DataTableColumnHeader column={column} title="Vendor" />
+  ),
+};
+const orderColumn: ColumnDef<DocumentRow> = {
+  accessorKey: "order",
+  header: "Purchase order",
+};
+function columnsFor(kind: string) {
+  return columns
+    .filter((column) => {
+      const key = "accessorKey" in column ? column.accessorKey : "";
+      if (key === "destination") return kind === "transfers";
+      if (key === "total") return kind !== "receipts" && kind !== "transfers";
+      return true;
+    })
+    .flatMap((column) =>
+      "accessorKey" in column && column.accessorKey === "status"
+        ? [
+            ...(kind === "orders" ? [vendorColumn] : []),
+            ...(kind === "receipts" ? [orderColumn] : []),
+            column,
+          ]
+        : [column],
+    );
+}
+export function DocumentsTable({
+  data,
+  kind,
+}: {
+  data: DocumentRow[];
+  kind: string;
+}) {
   return (
     <DataTable
-      columns={columns}
+      columns={columnsFor(kind)}
       data={data}
       getRowId={(r) => r.id}
       rowHref={(r) => r.href}

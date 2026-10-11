@@ -4,6 +4,7 @@ import { type ReactNode, useActionState, useEffect } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import type { ActionState } from "@/core/action-result";
+import { useCloseOverlay } from "./overlay/overlay-context";
 
 export type FormAction = (
   state: ActionState,
@@ -24,14 +25,16 @@ export function ActionForm({
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const router = useRouter();
+  const closeOverlay = useCloseOverlay();
   useEffect(() => {
     if (state.error) toast.error(state.error);
     if (state.message) toast.success(state.message);
+    if (state.message && !state.error) closeOverlay?.();
     if (state.redirectTo) {
       router.push(state.redirectTo);
       router.refresh();
     }
-  }, [state, router]);
+  }, [state, router, closeOverlay]);
   return (
     <form action={formAction} className={className}>
       <fieldset disabled={pending} className="space-y-4 border-0 p-0">

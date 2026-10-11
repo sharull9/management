@@ -1,4 +1,13 @@
-import { FormCard } from "@/components/shared/form-card";
+import { SideSheet } from "@/components/shared/overlay/side-sheet";
+import { SectionHeader } from "@/components/shared/section-header";
+import { UrlTabs } from "@/components/shared/url-tabs";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { projectUserOptions } from "@/modules/project/server/queries";
@@ -37,64 +46,122 @@ export async function TeamView({
   const manage = ctx.isAdmin || ctx.permissions.has("project.edit");
   return (
     <>
-      <h2 className="text-lg font-medium">Project team</h2>
-      <FormCard title="Members">
-        <MembersTable
-          org={org}
-          projectId={projectId}
-          manage={manage}
-          data={members.map((member) => ({
-            id: member.id,
-            userId: member.userId,
-            name: member.user.name,
-            role: member.role?.name ?? "\u2014",
-            manager: member.isManager ? "Yes" : "No",
-          }))}
-        />
-        {manage && (
-          <div className="mt-4">
-            <MemberForm
-              org={org}
-              projectId={projectId}
-              users={users}
-              roles={roles.map((role) => ({ id: role.id, name: role.name }))}
-            />
-          </div>
-        )}
-      </FormCard>
-      <FormCard title="Worker assignments">
-        <WorkersTable
-          org={org}
-          projectId={projectId}
-          manage={manage}
-          data={assignments.map((assignment) => {
-            const overlaps = assignment.worker.projects.filter(
-              (other) =>
-                other.id !== assignment.id && rangesOverlap(assignment, other),
-            );
-            return {
-              id: assignment.id,
-              workerId: assignment.workerId,
-              name: assignment.worker.name,
-              startDate: assignment.startDate.toISOString().slice(0, 10),
-              endDate: assignment.endDate?.toISOString().slice(0, 10) ?? "",
-              dayRateOverride: assignment.dayRateOverride?.toString() ?? "",
-              otHourlyRateOverride:
-                assignment.otHourlyRateOverride?.toString() ?? "",
-              notes: assignment.notes ?? "",
-              confirmOverlap: false,
-              availability: overlaps.length
-                ? `${overlaps.length} overlapping assignment(s)`
-                : "Available",
-            };
-          })}
-        />
-      </FormCard>
-      {manage && (
-        <FormCard title="Assign worker">
-          <WorkerForm org={org} projectId={projectId} workers={workers} />
-        </FormCard>
-      )}
+      <SectionHeader
+        title="Project team"
+        description="People with access to this project and the workers assigned to it."
+      />
+      <UrlTabs
+        tabs={[
+          {
+            value: "members",
+            label: "Members",
+            count: members.length,
+            content: (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Members</CardTitle>
+                  {manage && (
+                    <CardAction>
+                      <SideSheet
+                        title="Add member"
+                        trigger="Add member"
+                        triggerIcon="plus"
+                        triggerSize="sm"
+                        width="md"
+                      >
+                        <MemberForm
+                          org={org}
+                          projectId={projectId}
+                          users={users}
+                          roles={roles.map((role) => ({
+                            id: role.id,
+                            name: role.name,
+                          }))}
+                        />
+                      </SideSheet>
+                    </CardAction>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <MembersTable
+                    org={org}
+                    projectId={projectId}
+                    manage={manage}
+                    data={members.map((member) => ({
+                      id: member.id,
+                      userId: member.userId,
+                      name: member.user.name,
+                      role: member.role?.name ?? "\u2014",
+                      manager: member.isManager ? "Yes" : "No",
+                    }))}
+                  />
+                </CardContent>
+              </Card>
+            ),
+          },
+          {
+            value: "workers",
+            label: "Worker assignments",
+            count: assignments.length,
+            content: (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Worker assignments</CardTitle>
+                  {manage && (
+                    <CardAction>
+                      <SideSheet
+                        title="Assign worker"
+                        trigger="Assign worker"
+                        triggerIcon="plus"
+                        triggerSize="sm"
+                      >
+                        <WorkerForm
+                          org={org}
+                          projectId={projectId}
+                          workers={workers}
+                        />
+                      </SideSheet>
+                    </CardAction>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <WorkersTable
+                    org={org}
+                    projectId={projectId}
+                    manage={manage}
+                    data={assignments.map((assignment) => {
+                      const overlaps = assignment.worker.projects.filter(
+                        (other) =>
+                          other.id !== assignment.id &&
+                          rangesOverlap(assignment, other),
+                      );
+                      return {
+                        id: assignment.id,
+                        workerId: assignment.workerId,
+                        name: assignment.worker.name,
+                        startDate: assignment.startDate
+                          .toISOString()
+                          .slice(0, 10),
+                        endDate:
+                          assignment.endDate?.toISOString().slice(0, 10) ?? "",
+                        dayRateOverride:
+                          assignment.dayRateOverride?.toString() ?? "",
+                        otHourlyRateOverride:
+                          assignment.otHourlyRateOverride?.toString() ?? "",
+                        notes: assignment.notes ?? "",
+                        confirmOverlap: false,
+                        availability: overlaps.length
+                          ? `${overlaps.length} overlapping assignment(s)`
+                          : "Available",
+                      };
+                    })}
+                  />
+                </CardContent>
+              </Card>
+            ),
+          },
+        ]}
+      />
     </>
   );
 }

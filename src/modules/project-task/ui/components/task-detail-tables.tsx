@@ -57,28 +57,6 @@ export function AssignmentsTable({
     />
   );
 }
-export type TaskSummaryRow = {
-  id: string;
-  priority: string;
-  due: string;
-  actualStart: string;
-  completed: string;
-  progress: string;
-  estimatedHours: string;
-};
-const summaryColumns: ColumnDef<TaskSummaryRow>[] = [
-  { accessorKey: "priority", header: "Priority" },
-  { accessorKey: "due", header: "Due" },
-  { accessorKey: "actualStart", header: "Actual start" },
-  { accessorKey: "completed", header: "Completed" },
-  { accessorKey: "progress", header: "Progress" },
-  { accessorKey: "estimatedHours", header: "Estimated hours" },
-];
-export function TaskSummaryTable({ data }: { data: TaskSummaryRow[] }) {
-  return (
-    <DataTable columns={summaryColumns} data={data} getRowId={(r) => r.id} />
-  );
-}
 export type TaskHistoryRow = {
   id: string;
   when: string;

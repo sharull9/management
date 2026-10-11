@@ -3,9 +3,10 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { Option } from "@/components/shared/combobox/combobox";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
+import { SideSheet } from "@/components/shared/overlay/side-sheet";
+import { RowDeleteMenu } from "@/components/shared/row-delete-menu";
 import { removeMemberAction } from "../../server/member-actions";
 import { MemberForm } from "./member-form";
-import { RecordDeleteForm } from "./record-delete-form";
 export type MemberRow = {
   id: string;
   name: string;
@@ -47,11 +48,15 @@ export function MembersTable({
     },
     {
       id: "actions",
-      header: "Actions",
+      header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => (
-        <details>
-          <summary className="cursor-pointer text-sm">Edit access</summary>
-          <div className="min-w-56 space-y-4 pt-4">
+        <div className="flex items-center justify-end gap-1">
+          <SideSheet
+            title={`Edit access · ${row.original.name}`}
+            trigger="Edit access"
+            triggerVariant="outline"
+            triggerSize="sm"
+          >
             <MemberForm
               org={org}
               customRoles={roles}
@@ -63,13 +68,15 @@ export function MembersTable({
                 roleId: row.original.roleId,
               }}
             />
-            <RecordDeleteForm
-              id={row.original.id}
-              action={removeMemberAction.bind(null, org)}
-              submit="Remove member"
-            />
-          </div>
-        </details>
+          </SideSheet>
+          <RowDeleteMenu
+            rowLabel={row.original.name}
+            itemLabel="Remove member"
+            title={`Remove ${row.original.name}?`}
+            description="They lose access to this organization. Their past records are kept."
+            run={() => removeMemberAction(org, { id: row.original.id })}
+          />
+        </div>
       ),
     },
   ];

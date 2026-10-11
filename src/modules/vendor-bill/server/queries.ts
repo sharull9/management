@@ -1,4 +1,5 @@
 import "server-only";
+import { parseMultiParam } from "@/components/shared/filter-bar/multi-param";
 import {
   assertPermission,
   requireOrgContext,
@@ -186,17 +187,22 @@ export async function billList(
     where: moduleProjectWhere(ctx, "bill.view"),
     orderBy: { name: "asc" },
   });
-  const status = billStatuses.find((s) => s === filters.status);
+  const projectIds = parseMultiParam(filters.projectId);
+  const partyIds = parseMultiParam(filters.partyId);
+  const statuses = parseMultiParam(filters.status).filter(
+    (s): s is (typeof billStatuses)[number] =>
+      billStatuses.some((known) => known === s),
+  );
   const rows = await db.vendorBill.findMany({
     where: {
       organizationId: ctx.org.id,
       projectId: {
         in: projects
-          .filter((p) => !filters.projectId || p.id === filters.projectId)
+          .filter((p) => !projectIds.length || projectIds.includes(p.id))
           .map((p) => p.id),
       },
-      ...(filters.partyId ? { partyId: filters.partyId } : {}),
-      ...(status ? { status } : {}),
+      ...(partyIds.length ? { partyId: { in: partyIds } } : {}),
+      ...(statuses.length ? { status: { in: statuses } } : {}),
     },
     include: { project: true, party: true },
     orderBy: { date: "desc" },
@@ -207,12 +213,19 @@ export async function billList(
     orderBy: { displayName: "asc" },
     take: 25,
   });
-  if (filters.partyId && !vendors.some((v) => v.id === filters.partyId)) {
-    const selected = await db.party.findFirst({
-      where: { id: filters.partyId, tenantId: ctx.tenant.id, isVendor: true },
-    });
-    if (selected) vendors.push(selected);
-  }
+  const missingVendors = partyIds.filter(
+    (id) => !vendors.some((v) => v.id === id),
+  );
+  if (missingVendors.length)
+    vendors.push(
+      ...(await db.party.findMany({
+        where: {
+          id: { in: missingVendors },
+          tenantId: ctx.tenant.id,
+          isVendor: true,
+        },
+      })),
+    );
   const writable = await db.project.count({
     where: moduleProjectWhere(ctx, "bill.create"),
   });

@@ -1,5 +1,6 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
+import type { ReactNode } from "react";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 
@@ -27,9 +28,16 @@ const ledgerColumns: ColumnDef<LedgerRow>[] = [
   { accessorKey: "source", header: "Source" },
   { accessorKey: "amount", header: "Amount" },
 ];
-export function CostLedgerTable({ data }: { data: LedgerRow[] }) {
+export function CostLedgerTable({
+  data,
+  toolbar,
+}: {
+  data: LedgerRow[];
+  toolbar?: ReactNode;
+}) {
   return (
     <DataTable
+      toolbar={toolbar}
       columns={ledgerColumns}
       data={data}
       getRowId={(r) => r.id}

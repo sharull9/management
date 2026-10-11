@@ -1,17 +1,19 @@
 import "server-only";
+import { parseMultiParam } from "@/components/shared/filter-bar/multi-param";
 import { agingBucket, Decimal } from "./allocation";
 
 import type { FinanceData } from "./queries";
 export function partyBalances(d: FinanceData, partyId?: string, type?: string) {
+  const types = parseMultiParam(type).filter(
+    (t) => t === "vendor" || t === "customer",
+  );
   return d.parties
     .filter(
       (p) =>
         (!partyId || p.id === partyId) &&
-        (type === "vendor"
-          ? p.isVendor
-          : type === "customer"
-            ? p.isCustomer
-            : true),
+        (!types.length ||
+          (types.includes("vendor") && p.isVendor) ||
+          (types.includes("customer") && p.isCustomer)),
     )
     .flatMap((party) => {
       const bills = d.bills.filter((b) => b.partyId === party.id),

@@ -5,6 +5,7 @@ import { useRef, useState, useTransition } from "react";
 import type { FieldValues, Path, UseFormReturn } from "react-hook-form";
 import { toast } from "sonner";
 import type { ActionState } from "@/core/action-result";
+import { isNavigationSignal } from "./navigation-signal";
 
 export type TypedFormAction<T> = (input: T) => Promise<ActionState>;
 
@@ -43,10 +44,15 @@ export function useActionSubmit<
           router.push(result.redirectTo);
           router.refresh();
         }
-      } catch {
-        const error = "Unable to submit. Please try again.";
-        setState({ error });
-        toast.error(error);
+      } catch (error) {
+        // A redirect means the action succeeded and the router is navigating.
+        if (isNavigationSignal(error)) {
+          onSuccess?.({});
+          return;
+        }
+        const message = "Unable to submit. Please try again.";
+        setState({ error: message });
+        toast.error(message);
       } finally {
         submitting.current = false;
       }

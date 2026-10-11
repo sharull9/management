@@ -1,82 +1,54 @@
 "use client";
-import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
-import type { z } from "zod";
 import type { Option } from "@/components/shared/combobox/combobox";
-import { ComboboxField } from "@/components/shared/combobox/combobox-field";
-import { useZodForm } from "@/components/shared/form/use-zod-form";
-import { Button } from "@/components/ui/button";
+import {
+  FilterBar,
+  FilterMultiSelect,
+  FilterToggle,
+} from "@/components/shared/filter-bar/filter-bar";
+import { enumOptions } from "@/components/shared/form/enum-options";
+import { statusTone } from "@/components/shared/status-badge-tone";
 import { billFilterInput } from "../../schema";
 import { findBillVendors } from "../../server/picker-actions";
 
+const statuses = enumOptions(
+  Object.fromEntries(
+    billFilterInput.shape.status
+      .unwrap()
+      .options.map((value) => [value, value]),
+  ),
+).map((option) => ({ ...option, tone: statusTone(option.value) }));
+
 export function BillFilters({
   org,
-  initial,
   projects,
   vendors,
 }: {
   org: string;
-  initial: z.input<typeof billFilterInput>;
   projects: Option[];
   vendors: Option[];
 }) {
-  const form = useZodForm(billFilterInput, initial);
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const loadVendors = useMemo(
     () => findBillVendors.bind(null, org, "bill.view"),
     [org],
   );
   return (
-    <form
-      className="grid gap-4 md:grid-cols-5"
-      onSubmit={form.handleSubmit((values) => {
-        const search = new URLSearchParams(searchParams.toString());
-        for (const [key, value] of Object.entries(values))
-          if (value) search.set(key, value);
-          else search.delete(key);
-        router.replace(`/${org}/procurement/bills?${search}`);
-      })}
-    >
-      <ComboboxField
-        control={form.control}
+    <FilterBar>
+      <FilterMultiSelect
         name="projectId"
         label="Project"
         options={projects}
-        clearable
-        placeholder="All projects"
+        queryKey={["projects", org, "bill"]}
       />
-      <ComboboxField
-        control={form.control}
+      <FilterMultiSelect
         name="partyId"
         label="Vendor"
         options={vendors}
         loadOptions={loadVendors}
-        clearable
-        placeholder="All vendors"
+        queryKey={["vendors", org, "bill-filter"]}
       />
-      <ComboboxField
-        control={form.control}
-        name="status"
-        label="Status"
-        options={billFilterInput.shape.status.unwrap().options.map((value) => ({
-          value,
-          label: value.replaceAll("_", " "),
-        }))}
-        clearable
-        placeholder="All statuses"
-      />
-      <ComboboxField
-        control={form.control}
-        name="overdue"
-        label="Due"
-        options={[{ value: "1", label: "Overdue with balance" }]}
-        clearable
-        placeholder="All bills"
-      />
-      <Button className="self-end" variant="outline" type="submit">
-        Apply filters
-      </Button>
-    </form>
+      <FilterMultiSelect name="status" label="Status" options={statuses} />
+      <FilterToggle name="overdue" label="Overdue with balance" />
+    </FilterBar>
   );
 }

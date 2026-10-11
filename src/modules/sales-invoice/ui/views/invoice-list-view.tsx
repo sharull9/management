@@ -1,9 +1,13 @@
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { EmptyState } from "@/components/shared/empty-state";
+import { parseMultiParam } from "@/components/shared/filter-bar/multi-param";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
-import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { StatTiles } from "@/components/shared/stat-tiles";
+import { Button } from "@/components/ui/button";
 import { Decimal } from "@/core/decimal";
+import { formatMoney } from "@/core/format";
 import { isInvoiceOverdue } from "../../server/calculations";
 import { salesData } from "../../server/queries";
 import { InvoiceFilters } from "../components/invoice-filters";
@@ -16,13 +20,15 @@ export async function InvoiceList({
   org: string;
   filters: Record<string, string | undefined>;
 }) {
+  const customerIds = parseMultiParam(filters.customerId);
+  const statuses = parseMultiParam(filters.status);
   const d = await salesData(org, filters.projectId, "sales.view", {
-    customerIds: filters.customerId ? [filters.customerId] : [],
+    customerIds,
   });
   const rows = d.invoices.filter(
     (r) =>
-      (!filters.customerId || r.partyId === filters.customerId) &&
-      (!filters.status || r.status === filters.status) &&
+      (!customerIds.length || customerIds.includes(r.partyId)) &&
+      (!statuses.length || statuses.includes(r.status)) &&
       (filters.overdue !== "1" ||
         isInvoiceOverdue(
           {
@@ -43,63 +49,68 @@ export async function InvoiceList({
       <PageHeading
         title="Sales invoices"
         description="Track customer billing, approvals and balances."
+        actions={
+          <Button asChild>
+            <Link
+              href={`/${org}/sales/invoices/new${filters.projectId ? `?projectId=${filters.projectId}` : ""}`}
+            >
+              <Plus data-icon="inline-start" />
+              New invoice
+            </Link>
+          </Button>
+        }
       />
-      <Link
-        className="underline"
-        href={`/${org}/sales/invoices/new${filters.projectId ? `?projectId=${filters.projectId}` : ""}`}
-      >
-        New invoice
-      </Link>
-      <FormCard title="Filters">
-        <InvoiceFilters
-          org={org}
-          filters={filters}
-          customers={d.customers.map((row) => ({
-            value: row.id,
-            label: row.displayName,
-          }))}
-          projects={d.projects
-            .filter((row) => row.id === filters.projectId)
-            .map((row) => ({ value: row.id, label: row.name }))}
-        />
-      </FormCard>
-      {filters.projectId && (
-        <FormCard title="Project billing">
-          <p className="text-sm">
-            Approved invoices in the current filters, grouped by currency.
-          </p>
-          <ItemGroup>
-            {currencies.map((currency) => {
-              const invoices = billing.filter((r) => r.currency === currency);
-              const payable = invoices.reduce(
-                (a, r) => a.add(r.payableTotal),
-                new Decimal(0),
-              );
-              const received = invoices.reduce(
-                (a, r) => a.add(r.receivedTotal),
-                new Decimal(0),
-              );
-              return (
-                <Item key={currency} variant="outline">
-                  <ItemContent>
-                    <ItemTitle>
-                      {currency}: billed {payable.toFixed(2)} · received{" "}
-                      {received.toFixed(2)} · balance{" "}
-                      {payable.sub(received).toFixed(2)}
-                    </ItemTitle>
-                  </ItemContent>
-                </Item>
-              );
-            })}
-          </ItemGroup>
-          {!currencies.length && (
-            <EmptyState title="No approved invoices in these filters." />
-          )}
-        </FormCard>
-      )}
+      {filters.projectId &&
+        (currencies.length ? (
+          currencies.map((currency) => {
+            const invoices = billing.filter((r) => r.currency === currency);
+            const payable = invoices.reduce(
+              (a, r) => a.add(r.payableTotal),
+              new Decimal(0),
+            );
+            const received = invoices.reduce(
+              (a, r) => a.add(r.receivedTotal),
+              new Decimal(0),
+            );
+            return (
+              <StatTiles
+                key={currency}
+                stats={[
+                  {
+                    label: "Billed",
+                    value: formatMoney(payable, currency),
+                    detail: "Approved invoices in these filters",
+                  },
+                  {
+                    label: "Received",
+                    value: formatMoney(received, currency),
+                  },
+                  {
+                    label: "Balance",
+                    value: formatMoney(payable.sub(received), currency),
+                  },
+                ]}
+              />
+            );
+          })
+        ) : (
+          <EmptyState title="No approved invoices in these filters." />
+        ))}
       <FormCard title="Invoices">
         <InvoicesTable
           org={org}
+          toolbar={
+            <InvoiceFilters
+              org={org}
+              customers={d.customers.map((row) => ({
+                value: row.id,
+                label: row.displayName,
+              }))}
+              projects={d.projects
+                .filter((row) => row.id === filters.projectId)
+                .map((row) => ({ value: row.id, label: row.name }))}
+            />
+          }
           rows={rows.map((row) => ({
             id: row.id,
             code: row.code,

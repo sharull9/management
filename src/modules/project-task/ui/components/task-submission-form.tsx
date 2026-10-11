@@ -65,6 +65,7 @@ export function TaskSubmissionForm({
         label="On behalf of worker"
         options={workers}
         loadOptions={loadWorkers}
+        queryKey={["submission-workers", org, projectId, taskId]}
         clearable
         placeholder="Submitted by me"
       />

@@ -159,6 +159,7 @@ export function BillForm({
                 onChange={selectOrder}
                 options={order ? [{ value: order.id, label: order.name }] : []}
                 loadOptions={loaders.orders}
+                queryKey={["bill-orders", org]}
                 clearable
                 disabled={busy}
                 placeholder="Direct bill (services / no PO)"
@@ -178,6 +179,7 @@ export function BillForm({
             label="Vendor"
             options={toOptions(vendors)}
             loadOptions={loaders.vendors}
+            queryKey={["vendors", org, "bill"]}
             disabled={busy || !!values.purchaseOrderId}
           />
           <TextField
@@ -321,6 +323,7 @@ export function BillForm({
                   label="Tax group"
                   options={toOptions(groups)}
                   loadOptions={loaders.groups}
+                  queryKey={["tax-groups", org, "bill"]}
                   clearable
                   disabled={busy}
                 />

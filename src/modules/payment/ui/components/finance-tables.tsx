@@ -1,8 +1,10 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
+import type { ReactNode } from "react";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { formatMoney } from "@/core/format";
 import { Decimal } from "../../server/allocation";
 export type FinanceRow = {
   id: string;
@@ -41,7 +43,7 @@ const financeColumns: ColumnDef<FinanceRow>[] = [
   {
     accessorKey: "status",
     header: "Status",
-    cell: ({ row }) => <Badge variant="outline">{row.original.status}</Badge>,
+    cell: ({ row }) => <StatusBadge status={row.original.status} />,
   },
   {
     accessorKey: "amount",
@@ -49,21 +51,24 @@ const financeColumns: ColumnDef<FinanceRow>[] = [
       <DataTableColumnHeader column={column} title="Amount" />
     ),
     sortingFn: (a, b) => new Decimal(a.original.amount).cmp(b.original.amount),
-    cell: ({ row }) => `${row.original.currency} ${row.original.amount}`,
+    cell: ({ row }) => formatMoney(row.original.amount, row.original.currency),
   },
   { accessorKey: "allocation", header: "Allocation" },
 ];
 export function FinanceTable({
+  toolbar,
   org,
   requests,
   data,
 }: {
+  toolbar?: ReactNode;
   org: string;
   requests: boolean;
   data: FinanceRow[];
 }) {
   return (
     <DataTable
+      toolbar={toolbar}
       columns={financeColumns}
       data={data}
       searchPlaceholder="Search documents, parties or projects..."
@@ -126,16 +131,19 @@ const balanceColumns: ColumnDef<BalanceRow>[] = [
   ),
 ];
 export function BalancesTable({
+  toolbar,
   org,
   projectId,
   data,
 }: {
+  toolbar?: ReactNode;
   org: string;
   projectId?: string;
   data: BalanceRow[];
 }) {
   return (
     <DataTable
+      toolbar={toolbar}
       columns={balanceColumns}
       data={data}
       getRowId={(r) => r.id}
@@ -206,9 +214,16 @@ const statementColumns: ColumnDef<StatementRow>[] = (
     { accessorKey: "balance", header: "Running balance" },
   ] satisfies ColumnDef<StatementRow>[]
 ).map((column) => ({ ...column, enableSorting: false }));
-export function StatementTable({ data }: { data: StatementRow[] }) {
+export function StatementTable({
+  data,
+  toolbar,
+}: {
+  data: StatementRow[];
+  toolbar?: ReactNode;
+}) {
   return (
     <DataTable
+      toolbar={toolbar}
       columns={statementColumns}
       data={data}
       getRowId={(r) => r.id}

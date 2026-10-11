@@ -1,5 +1,7 @@
+import { parseMultiParam } from "@/components/shared/filter-bar/multi-param";
 import { dateValue } from "@/components/shared/form/date-value";
 import { FormCard } from "@/components/shared/form-card";
+import { CreateSheet } from "@/components/shared/overlay/side-sheet";
 import { PageHeading } from "@/components/shared/page-heading";
 import {
   canViewProjectCost,
@@ -8,6 +10,7 @@ import {
   requireOrgContext,
 } from "@/core/context";
 import { db } from "@/core/db";
+import { formatMoney } from "@/core/format";
 import { ProjectStatus } from "@/generated/prisma/enums";
 import { budgetUsage } from "@/modules/project-cost/server/budget-usage";
 import { projectUserOptions } from "../../server/queries";
@@ -23,16 +26,16 @@ export async function ProjectsView({
 }) {
   const ctx = await requireOrgContext(org);
   const filters = searchParams;
+  const statuses = parseMultiParam(filters.status).filter(
+    (value): value is ProjectStatus =>
+      Object.values(ProjectStatus).includes(value as ProjectStatus),
+  );
   const [projects, users, customers, costs] = await Promise.all([
     db.project.findMany({
       where: {
         organizationId: ctx.org.id,
         ...projectAccessWhere(ctx),
-        ...(Object.values(ProjectStatus).includes(
-          filters.status as ProjectStatus,
-        )
-          ? { status: filters.status as ProjectStatus }
-          : {}),
+        ...(statuses.length ? { status: { in: statuses } } : {}),
         ...(filters.search
           ? {
               OR: [
@@ -71,14 +74,28 @@ export async function ProjectsView({
       <PageHeading
         title="Projects"
         description="Track delivery, workforce and project costs."
-      />
-      <ProjectFilters
-        org={org}
-        search={filters.search}
-        status={filters.status}
+        actions={
+          (ctx.isAdmin || ctx.permissions.has("project.create")) && (
+            <CreateSheet
+              label="New project"
+              description="Set the client, manager, budget and schedule."
+            >
+              <ProjectForm
+                org={org}
+                currency={ctx.org.baseCurrency}
+                users={users}
+                customers={customers.map((c) => ({
+                  id: c.id,
+                  name: c.displayName,
+                }))}
+              />
+            </CreateSheet>
+          )
+        }
       />
       <FormCard title="Projects">
         <ProjectsTable
+          toolbar={<ProjectFilters />}
           org={org}
           data={projects.map((project) => {
             const projectCost = canViewProjectCost(ctx, project);
@@ -95,9 +112,11 @@ export async function ProjectsView({
               dates: `${dateValue(project.startDate)} / ${dateValue(project.endDate)}`,
               status: project.status,
               budget: projectCost
-                ? `${project.currency} ${project.budgetAmount.toFixed(2)}`
+                ? formatMoney(project.budgetAmount, project.currency)
                 : "\u2014",
-              spent: projectCost ? spent : "\u2014",
+              spent: projectCost
+                ? formatMoney(spent, project.currency)
+                : "\u2014",
               used: projectCost
                 ? `${budgetUsage(project.budgetAmount, spent).percent}%`
                 : "\u2014",
@@ -105,19 +124,6 @@ export async function ProjectsView({
           })}
         />
       </FormCard>
-      {(ctx.isAdmin || ctx.permissions.has("project.create")) && (
-        <FormCard title="Create project">
-          <ProjectForm
-            org={org}
-            currency={ctx.org.baseCurrency}
-            users={users}
-            customers={customers.map((c) => ({
-              id: c.id,
-              name: c.displayName,
-            }))}
-          />
-        </FormCard>
-      )}
     </>
   );
 }

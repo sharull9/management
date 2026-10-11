@@ -8,6 +8,7 @@ import { enumOptions, toOptions } from "@/components/shared/form/enum-options";
 import { MaterialCostRecognitionField } from "@/components/shared/form/material-cost-recognition-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
+import { statusTone } from "@/components/shared/status-badge-tone";
 import { ProjectStatus } from "@/generated/prisma/enums";
 import { projectFormInput } from "../../schema";
 import { saveProjectAction } from "../../server/actions";
@@ -80,6 +81,7 @@ export function ProjectForm({
           label="Client"
           options={toOptions(customers)}
           loadOptions={loadCustomers}
+          queryKey={["customers", org, project?.id ?? null]}
           clearable
         />
         <ComboboxField
@@ -88,13 +90,17 @@ export function ProjectForm({
           label="Manager"
           options={toOptions(users)}
           loadOptions={loadMembers}
+          queryKey={["project-members", org, project?.id ?? null]}
           clearable
         />
         <ComboboxField
           control={form.control}
           name="status"
           label="Status"
-          options={enumOptions(ProjectStatus)}
+          options={enumOptions(ProjectStatus).map((option) => ({
+            ...option,
+            tone: statusTone(option.value),
+          }))}
         />
         <TextField
           control={form.control}

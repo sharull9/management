@@ -89,6 +89,7 @@ export function RequestForm({
               .filter((p) => p.isVendor)
               .map((p) => ({ value: p.id, label: p.name }))}
             loadOptions={parties}
+            queryKey={["payment-parties", org, "request"]}
             onChange={clear}
           />
           <PaymentChoice
@@ -101,6 +102,7 @@ export function RequestForm({
               description: p.currency,
             }))}
             loadOptions={projects}
+            queryKey={["payment-projects", org, "request"]}
             clearable={data.allowOrganization}
             placeholder={`Organization | ${data.baseCurrency}`}
             onChange={clear}

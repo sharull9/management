@@ -10,7 +10,12 @@ import { signInAction } from "../../server/actions";
 export function SignInForm() {
   const form = useZodForm(signInInput, { email: "", password: "" });
   return (
-    <ActionFormShell form={form} action={signInAction} submit="Sign in">
+    <ActionFormShell
+      form={form}
+      action={signInAction}
+      submit="Sign in"
+      submitClassName="w-full self-stretch"
+    >
       <TextField
         control={form.control}
         name="email"

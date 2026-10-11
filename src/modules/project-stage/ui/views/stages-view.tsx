@@ -1,7 +1,17 @@
 import { EmptyState } from "@/components/shared/empty-state";
-import { FormCard } from "@/components/shared/form-card";
-import { Badge } from "@/components/ui/badge";
-import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { CreateSheet, SideSheet } from "@/components/shared/overlay/side-sheet";
+import { SectionHeader } from "@/components/shared/section-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item";
+import { Separator } from "@/components/ui/separator";
 import { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { projectUserOptions } from "@/modules/project/server/queries";
@@ -24,29 +34,60 @@ export async function StagesView({
     projectUserOptions(ctx.org.id),
   ]);
   const manage = ctx.isAdmin || ctx.permissions.has("stage.manage");
+  const managerOptions = [
+    ...new Map(
+      [
+        ...users,
+        ...stages.flatMap((stage) =>
+          stage.manager
+            ? [{ id: stage.manager.id, name: stage.manager.name }]
+            : [],
+        ),
+      ].map((user) => [user.id, user]),
+    ).values(),
+  ];
   return (
     <>
-      <h2 className="text-lg font-medium">Stages</h2>
-      <p className="text-sm text-muted-foreground">
-        Stages run in sequence order. Edit the sequence to reorder.
-      </p>
-      <ItemGroup>
+      <SectionHeader
+        title="Stages"
+        description="Stages run in sequence order. Edit the sequence to reorder."
+        actions={
+          manage && (
+            <CreateSheet label="New stage">
+              <StageForm
+                org={org}
+                projectId={projectId}
+                users={managerOptions}
+                nextSequence={(stages.at(-1)?.sequence ?? 0) + 1}
+              />
+            </CreateSheet>
+          )
+        }
+      />
+      <ItemGroup className="gap-2">
         {stages.map((s) => (
-          <Item key={s.id} variant="outline">
+          <Item key={s.id} variant="outline" className="bg-card">
+            <ItemMedia className="flex size-8 items-center justify-center rounded-md bg-muted text-sm font-semibold tabular-nums text-muted-foreground">
+              {s.sequence}
+            </ItemMedia>
             <ItemContent>
-              <ItemTitle>
-                {s.sequence}. {s.name}
-              </ItemTitle>
-              <div className="mb-4 flex gap-3 text-sm">
-                <Badge variant="secondary">{s.status}</Badge>
-                <span>{s.manager?.name ?? "No stage manager"}</span>
-              </div>
+              <ItemTitle>{s.name}</ItemTitle>
+              <ItemDescription>
+                {s.manager?.name ?? "No stage manager"}
+                {s.startDate &&
+                  ` · ${s.startDate.toISOString().slice(0, 10)} → ${s.endDate?.toISOString().slice(0, 10) ?? "Open"}`}
+              </ItemDescription>
+            </ItemContent>
+            <ItemActions>
+              <StatusBadge status={s.status} />
               {manage && (
-                <details>
-                  <summary className="cursor-pointer text-sm">
-                    Edit stage
-                  </summary>
-                  <div className="space-y-4 pt-4">
+                <SideSheet
+                  title={`Edit ${s.name}`}
+                  trigger="Edit"
+                  triggerVariant="outline"
+                  triggerSize="sm"
+                >
+                  <div className="space-y-6">
                     <StageForm
                       org={org}
                       projectId={projectId}
@@ -61,58 +102,22 @@ export async function StagesView({
                           s.startDate?.toISOString().slice(0, 10) ?? "",
                         endDate: s.endDate?.toISOString().slice(0, 10) ?? "",
                       }}
-                      users={[
-                        ...new Map(
-                          [
-                            ...users,
-                            ...stages.flatMap((stage) =>
-                              stage.manager
-                                ? [
-                                    {
-                                      id: stage.manager.id,
-                                      name: stage.manager.name,
-                                    },
-                                  ]
-                                : [],
-                            ),
-                          ].map((user) => [user.id, user]),
-                        ).values(),
-                      ]}
+                      users={managerOptions}
                     />
+                    <Separator />
                     <DeleteStageForm
                       org={org}
                       projectId={projectId}
                       id={s.id}
                     />
                   </div>
-                </details>
+                </SideSheet>
               )}
-            </ItemContent>
+            </ItemActions>
           </Item>
         ))}
       </ItemGroup>
       {!stages.length && <EmptyState title="No stages yet." />}
-      {manage && (
-        <FormCard title="Create stage">
-          <StageForm
-            org={org}
-            projectId={projectId}
-            users={[
-              ...new Map(
-                [
-                  ...users,
-                  ...stages.flatMap((stage) =>
-                    stage.manager
-                      ? [{ id: stage.manager.id, name: stage.manager.name }]
-                      : [],
-                  ),
-                ].map((user) => [user.id, user]),
-              ).values(),
-            ]}
-            nextSequence={(stages.at(-1)?.sequence ?? 0) + 1}
-          />
-        </FormCard>
-      )}
     </>
   );
 }

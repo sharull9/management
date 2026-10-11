@@ -1,8 +1,9 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
+import type { ReactNode } from "react";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/shared/status-badge";
 export type ProjectRow = {
   id: string;
   code: string;
@@ -34,26 +35,28 @@ const columns: ColumnDef<ProjectRow>[] = [
   {
     accessorKey: "status",
     header: "Status",
-    cell: ({ row }) => <Badge variant="secondary">{row.original.status}</Badge>,
+    cell: ({ row }) => <StatusBadge status={row.original.status} />,
   },
   { accessorKey: "budget", header: "Budget" },
   { accessorKey: "spent", header: "Spent" },
   { accessorKey: "used", header: "Used" },
 ];
 export function ProjectsTable({
+  toolbar,
   org,
   data,
 }: {
+  toolbar?: ReactNode;
   org: string;
   data: ProjectRow[];
 }) {
   return (
     <DataTable
+      toolbar={toolbar}
       columns={columns}
       data={data}
       getRowId={(row) => row.id}
       rowHref={(row) => `/${org}/projects/${row.id}`}
-      searchPlaceholder="Search projects..."
       emptyState={{ title: "No projects found." }}
     />
   );

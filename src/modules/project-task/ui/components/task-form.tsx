@@ -9,6 +9,7 @@ import { NumberField } from "@/components/shared/form/number-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { TextareaField } from "@/components/shared/form/textarea-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
+import { statusTone } from "@/components/shared/status-badge-tone";
 import { TaskPriority } from "@/generated/prisma/enums";
 import { saveTaskInput } from "../../schema";
 import { saveTaskAction } from "../../server/actions";
@@ -65,6 +66,7 @@ export function TaskForm({
           label="Stage"
           options={toOptions(stages)}
           loadOptions={loadStages}
+          queryKey={["task-stages", org, projectId]}
           clearable
         />
         <ComboboxField
@@ -82,7 +84,10 @@ export function TaskForm({
             IN_PROGRESS: "IN_PROGRESS",
             REWORK: "REWORK",
             CANCELLED: "CANCELLED",
-          })}
+          }).map((option) => ({
+            ...option,
+            tone: statusTone(option.value),
+          }))}
         />
         <NumberField
           control={form.control}

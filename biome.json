@@ -45,7 +45,10 @@
       }
     },
     {
-      "includes": ["src/components/ui/item.tsx"],
+      "includes": [
+        "src/components/ui/item.tsx",
+        "src/components/ui/button-group.tsx"
+      ],
       "linter": {
         "rules": {
           "a11y": {

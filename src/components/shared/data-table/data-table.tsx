@@ -10,9 +10,14 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
+import { Search } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
+import { type ReactNode, useState } from "react";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import {
   Table,
   TableBody,
@@ -33,6 +38,8 @@ export type DataTableProps<TData> = {
   onRowClick?: (row: TData) => void;
   rowHref?: (row: TData) => string;
   emptyState?: EmptyStateProps;
+  /** Controls shown beside the search box, typically a FilterBar. */
+  toolbar?: ReactNode;
 };
 
 // TanStack v8 returns mutable functions. Keep this component outside React Compiler memoization.
@@ -45,6 +52,7 @@ export function DataTable<TData>({
   onRowClick,
   rowHref,
   emptyState = { title: "No records found." },
+  toolbar,
 }: DataTableProps<TData>) {
   "use no memo";
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -63,24 +71,34 @@ export function DataTable<TData>({
     initialState: { pagination: { pageSize } },
   });
   return (
-    <div className="flex flex-col gap-4">
-      {searchPlaceholder && (
-        <Input
-          type="search"
-          aria-label={searchPlaceholder}
-          placeholder={searchPlaceholder}
-          value={globalFilter}
-          onChange={(event) => table.setGlobalFilter(event.target.value)}
-          className="max-w-sm"
-        />
+    <div className="flex min-w-0 flex-col gap-4">
+      {(searchPlaceholder || toolbar) && (
+        <div className="flex flex-wrap items-center gap-2">
+          {searchPlaceholder && (
+            <InputGroup className="w-full sm:w-64">
+              <InputGroupAddon>
+                <Search />
+              </InputGroupAddon>
+              <InputGroupInput
+                type="search"
+                aria-label={searchPlaceholder}
+                placeholder={searchPlaceholder}
+                value={globalFilter}
+                onChange={(event) => table.setGlobalFilter(event.target.value)}
+              />
+            </InputGroup>
+          )}
+          {toolbar}
+        </div>
       )}
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
-            <TableRow key={group.id}>
+            <TableRow key={group.id} className="hover:bg-transparent">
               {group.headers.map((header) => (
                 <TableHead
                   key={header.id}
+                  className="h-9 text-xs font-medium text-muted-foreground"
                   colSpan={header.colSpan}
                   aria-sort={
                     header.column.getIsSorted() === "asc"
@@ -125,7 +143,7 @@ export function DataTable<TData>({
                     {index === 0 && rowHref ? (
                       <Link
                         href={rowHref(row.original)}
-                        className="underline underline-offset-4"
+                        className="font-medium underline-offset-4 hover:text-primary hover:underline"
                       >
                         {flexRender(
                           cell.column.columnDef.cell,
@@ -135,7 +153,7 @@ export function DataTable<TData>({
                     ) : index === 0 && onRowClick ? (
                       <button
                         type="button"
-                        className="cursor-pointer text-left"
+                        className="cursor-pointer text-left font-medium underline-offset-4 hover:text-primary hover:underline"
                         onClick={() => onRowClick(row.original)}
                       >
                         {flexRender(

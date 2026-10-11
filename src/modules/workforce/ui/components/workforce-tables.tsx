@@ -1,17 +1,13 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { z } from "zod";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
-import { EmptyState } from "@/components/shared/empty-state";
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "@/components/ui/item";
+import { SideSheet } from "@/components/shared/overlay/side-sheet";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { Separator } from "@/components/ui/separator";
 import type { saveWorkerInput } from "../../schema";
 import { DesignationForm } from "./designation-form";
 import { WorkerForm } from "./worker-form";
@@ -30,11 +26,13 @@ export function WorkersTable({
   data,
   designations,
   manage,
+  toolbar,
 }: {
   org: string;
   data: WorkerRow[];
   designations: { id: string; name: string }[];
   manage: boolean;
+  toolbar?: ReactNode;
 }) {
   const columns: ColumnDef<WorkerRow>[] = [
     {
@@ -47,33 +45,45 @@ export function WorkersTable({
     { accessorKey: "designation", header: "Designation" },
     { accessorKey: "payType", header: "Pay type" },
     { accessorKey: "salary", header: "Salary" },
-    { accessorKey: "active", header: "Active" },
     {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) =>
-        manage ? (
-          <details>
-            <summary className="cursor-pointer">Edit worker</summary>
-            <div className="min-w-64 pt-4">
-              <WorkerForm
-                org={org}
-                worker={row.original.edit}
-                designations={designations}
-              />
-            </div>
-          </details>
-        ) : (
-          "—"
-        ),
+      accessorKey: "active",
+      header: "Status",
+      cell: ({ row }) => (
+        <StatusBadge
+          status={row.original.active === "Yes" ? "ACTIVE" : "INACTIVE"}
+        />
+      ),
     },
+    ...(manage
+      ? [
+          {
+            id: "actions",
+            header: () => <span className="sr-only">Actions</span>,
+            cell: ({ row }) => (
+              <SideSheet
+                title={`Edit ${row.original.name}`}
+                description={row.original.code}
+                trigger="Edit"
+                triggerVariant="outline"
+                triggerSize="sm"
+              >
+                <WorkerForm
+                  org={org}
+                  worker={row.original.edit}
+                  designations={designations}
+                />
+              </SideSheet>
+            ),
+          } satisfies ColumnDef<WorkerRow>,
+        ]
+      : []),
   ];
   return (
     <DataTable
+      toolbar={toolbar}
       columns={columns}
       data={data}
       getRowId={(r) => r.id}
-      searchPlaceholder="Search workers…"
       emptyState={{ title: "No workers." }}
     />
   );
@@ -93,9 +103,11 @@ export type AvailabilityRow = {
 export function AvailabilityTable({
   org,
   data,
+  toolbar,
 }: {
   org: string;
   data: AvailabilityRow[];
+  toolbar?: ReactNode;
 }) {
   const columns: ColumnDef<AvailabilityRow>[] = [
     {
@@ -104,33 +116,44 @@ export function AvailabilityTable({
         <DataTableColumnHeader column={column} title="Worker" />
       ),
     },
-    { accessorKey: "availability", header: "Availability" },
+    {
+      accessorKey: "availability",
+      header: "Availability",
+      cell: ({ row }) => (
+        <StatusBadge
+          status={row.original.availability}
+          tone={
+            row.original.availability === "Free"
+              ? "green"
+              : row.original.availability === "Busy"
+                ? "amber"
+                : "neutral"
+          }
+        />
+      ),
+    },
     {
       id: "projects",
       header: "Current / upcoming projects",
       cell: ({ row }) =>
         row.original.projects.length ? (
-          <ItemGroup>
+          <ul className="space-y-1">
             {row.original.projects.map((p) => (
-              <Item key={p.id}>
-                <ItemContent>
-                  <ItemTitle>
-                    <Link
-                      className="underline"
-                      href={`/${org}/projects/${p.projectId}`}
-                    >
-                      {p.name}
-                    </Link>
-                  </ItemTitle>
-                  <ItemDescription>
-                    {p.start} to {p.end || "Open"}
-                  </ItemDescription>
-                </ItemContent>
-              </Item>
+              <li key={p.id} className="flex flex-wrap items-baseline gap-x-2">
+                <Link
+                  className="font-medium underline-offset-4 hover:text-primary hover:underline"
+                  href={`/${org}/projects/${p.projectId}`}
+                >
+                  {p.name}
+                </Link>
+                <span className="text-xs text-muted-foreground">
+                  {p.start} → {p.end || "Open"}
+                </span>
+              </li>
             ))}
-          </ItemGroup>
+          </ul>
         ) : (
-          <EmptyState title="No current or upcoming projects." />
+          <span className="text-muted-foreground">None</span>
         ),
     },
   ];
@@ -139,7 +162,7 @@ export function AvailabilityTable({
       columns={columns}
       data={data}
       getRowId={(r) => r.id}
-      searchPlaceholder="Search availability…"
+      toolbar={toolbar}
       emptyState={{ title: "No workers." }}
     />
   );
@@ -160,12 +183,21 @@ export function DesignationsTable({
     },
     {
       id: "actions",
-      header: "Actions",
+      header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) => (
-        <div className="space-y-4">
-          <DesignationForm org={org} designation={row.original} />
-          <DesignationForm org={org} designation={row.original} remove />
-        </div>
+        <SideSheet
+          title={`Edit ${row.original.name}`}
+          trigger="Edit"
+          triggerVariant="outline"
+          triggerSize="sm"
+          width="md"
+        >
+          <div className="space-y-6">
+            <DesignationForm org={org} designation={row.original} />
+            <Separator />
+            <DesignationForm org={org} designation={row.original} remove />
+          </div>
+        </SideSheet>
       ),
     },
   ];

@@ -4,6 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import { isNavigationSignal } from "@/components/shared/form/navigation-signal";
 import { PasswordField } from "@/components/shared/form/password-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
@@ -151,7 +152,8 @@ export function TenantStatusDialog({
             : `${tenant.name} is active again.`,
         );
         onOpenChange(false);
-      } catch {
+      } catch (error) {
+        if (isNavigationSignal(error)) return;
         toast.error("Unable to update the tenant. Please try again.");
       }
     });

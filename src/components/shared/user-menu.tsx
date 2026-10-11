@@ -1,6 +1,7 @@
 "use client";
-import { ChevronsUpDown, LogOut } from "lucide-react";
+import { ChevronsUpDown, LogOut, Monitor, Moon, Sun } from "lucide-react";
 import Link from "next/link";
+import { useTheme } from "next-themes";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -10,7 +11,12 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -19,12 +25,19 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { signOutAction } from "@/modules/organization-auth/server/actions";
+import { isNavigationSignal } from "./form/navigation-signal";
 
 export type UserMenuLink = {
   title: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
 };
+
+const themes = [
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "light", label: "Light", icon: Sun },
+  { value: "system", label: "System", icon: Monitor },
+];
 
 function initials(name: string) {
   return name
@@ -59,12 +72,14 @@ export function UserMenu({
   links?: UserMenuLink[];
 }) {
   const [pending, startTransition] = useTransition();
+  const { theme, setTheme } = useTheme();
   const signOut = () =>
     startTransition(async () => {
       try {
         const result = await signOutAction({}, new FormData());
         if (result.error) toast.error(result.error);
-      } catch {
+      } catch (error) {
+        if (isNavigationSignal(error)) return;
         toast.error("Unable to sign out. Please try again.");
       }
     });
@@ -105,6 +120,26 @@ export function UserMenu({
                 </DropdownMenuGroup>
               </>
             )}
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Moon />
+                Appearance
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+                  {themes.map((option) => (
+                    <DropdownMenuRadioItem
+                      key={option.value}
+                      value={option.value}
+                    >
+                      <option.icon />
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"

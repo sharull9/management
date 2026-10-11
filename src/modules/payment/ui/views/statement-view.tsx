@@ -5,7 +5,6 @@ import { financeData } from "../../server/queries";
 import { partyStatement } from "../../server/statement";
 import { FinanceFilters } from "../components/finance-filters";
 import { StatementTable } from "../components/finance-tables";
-import { ProjectFilter } from "../components/project-filter";
 export async function StatementPage({
   org,
   partyId,
@@ -38,24 +37,24 @@ export async function StatementPage({
         title={`${party.displayName} statement`}
         description={`Chronological activity in ${selected}. Positive balance is due from the party; negative balance is due to the party. Allocations do not change the net position. Running balances include all activity, even when searching.`}
       />
-      <FinanceFilters
-        fields={[
-          {
-            name: "currency",
-            label: "Currency",
-            value: selected,
-            options: (currencies.length ? currencies : [selected]).map(
-              (value) => ({ value, label: value }),
-            ),
-          },
-        ]}
-      />
-      <ProjectFilter
-        org={org}
-        projects={d.projects.map((p) => ({ id: p.id, name: p.name }))}
-        projectId={projectId}
-      />
       <StatementTable
+        toolbar={
+          <FinanceFilters
+            org={org}
+            projects={d.projects.map((p) => ({ id: p.id, name: p.name }))}
+            fields={[
+              {
+                name: "currency",
+                label: "Currency",
+                clearable: false,
+                fallback: selected,
+                options: (currencies.length ? currencies : [selected]).map(
+                  (value) => ({ value, label: value }),
+                ),
+              },
+            ]}
+          />
+        }
         data={entries.map((e) => ({
           id: e.id,
           date: e.date.toISOString(),

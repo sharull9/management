@@ -9,18 +9,8 @@ import { toOptions } from "@/components/shared/form/enum-options";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { findProjectMembers } from "@/modules/project/server/picker-actions";
-import {
-  memberInput,
-  removeMemberInput,
-  removeWorkerInput,
-  workerInput,
-} from "../../schema";
-import {
-  removeMemberAction,
-  removeWorkerAction,
-  saveWorkerAction,
-  teamAction,
-} from "../../server/actions";
+import { memberInput, workerInput } from "../../schema";
+import { saveWorkerAction, teamAction } from "../../server/actions";
 import { findWorkers } from "../../server/picker-actions";
 
 type Choice = { id: string; name: string };
@@ -72,30 +62,6 @@ export function MemberForm({
         name="isManager"
         label="Project manager"
       />
-    </ActionFormShell>
-  );
-}
-export function RemoveMemberForm({
-  org,
-  projectId,
-  userId,
-}: {
-  org: string;
-  projectId: string;
-  userId: string;
-}) {
-  const form = useZodForm<
-    z.input<typeof removeMemberInput>,
-    z.output<typeof removeMemberInput>
-  >(removeMemberInput, { userId });
-  return (
-    <ActionFormShell
-      form={form}
-      action={removeMemberAction.bind(null, org, projectId)}
-      submit="Remove member"
-      destructive
-    >
-      {null}
     </ActionFormShell>
   );
 }
@@ -170,32 +136,6 @@ export function WorkerForm({
         name="confirmOverlap"
         label="Confirm overlapping assignments"
       />
-    </ActionFormShell>
-  );
-}
-export function RemoveWorkerForm({
-  org,
-  projectId,
-  id,
-  workerId,
-}: {
-  org: string;
-  projectId: string;
-  id: string;
-  workerId: string;
-}) {
-  const form = useZodForm<
-    z.input<typeof removeWorkerInput>,
-    z.output<typeof removeWorkerInput>
-  >(removeWorkerInput, { id, workerId });
-  return (
-    <ActionFormShell
-      form={form}
-      action={removeWorkerAction.bind(null, org, projectId)}
-      submit="Remove worker"
-      destructive
-    >
-      {null}
     </ActionFormShell>
   );
 }

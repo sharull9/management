@@ -1,19 +1,7 @@
 "use client";
-import {
-  Bell,
-  Building2,
-  ChevronDown,
-  FolderKanban,
-  LayoutDashboard,
-  ListChecks,
-  MapPin,
-  Settings,
-  Users,
-} from "lucide-react";
+import { Building2, Check, ChevronsUpDown, HardHat } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,13 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Empty, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemTitle,
-} from "@/components/ui/item";
+import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
   SidebarContent,
@@ -43,9 +25,16 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { markNotificationReadAction } from "@/modules/notifications/server/actions";
-import { listNotifications } from "@/modules/notifications/server/queries";
+import { appNav, findNavLocation, isNavActive } from "./app-nav";
+import { CommandMenu } from "./command-menu";
+import { NotificationBell } from "./notification-bell";
+import { RuneGlyph } from "./rune-glyph";
 import { UserMenu } from "./user-menu";
+
+export const navButtonClass =
+  "h-[30px] gap-2 text-sidebar-foreground hover:text-sidebar-accent-foreground [&>svg]:text-faint hover:[&>svg]:text-sidebar-accent-foreground data-[active=true]:bg-sidebar-primary/12 data-[active=true]:text-[color-mix(in_oklab,var(--sidebar-primary)_70%,var(--foreground))] data-[active=true]:shadow-[0_0_0_1px_color-mix(in_oklab,var(--sidebar-primary)_28%,transparent)] data-[active=true]:hover:bg-sidebar-primary/16 data-[active=true]:[&>svg]:text-sidebar-primary data-[active=true]:[--glyph-light:color-mix(in_oklab,var(--sidebar-primary)_40%,white)] data-[active=true]:[--glyph-mid:var(--sidebar-primary)] data-[active=true]:[--glyph-shade:var(--sidebar-primary)] data-[active=true]:[--glyph-deep:color-mix(in_oklab,var(--sidebar-primary)_55%,black)]";
+export const navLabelClass =
+  "h-7 text-[11px] font-medium tracking-[0.08em] text-faint uppercase";
 
 export function AppShell({
   org,
@@ -59,31 +48,52 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const links = [
-    { title: "Dashboard", path: "", icon: LayoutDashboard },
-    { title: "Projects", path: "/projects", icon: FolderKanban },
-    { title: "Approvals", path: "/approvals", icon: ListChecks },
-    { title: "Workforce", path: "/workforce", icon: Users },
-    { title: "Settings", path: "/settings", icon: Settings },
-  ];
+  const base = `/${org.slug}`;
+  const location = findNavLocation(pathname, base);
   return (
     <SidebarProvider>
       <Sidebar>
-        <SidebarHeader className="border-b p-4">
-          <p className="text-sm font-semibold text-muted-foreground">
-            Management
-          </p>
+        <SidebarHeader className="gap-3 border-b p-3">
+          <div className="flex items-center gap-2.5 px-1">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_1px_2px_rgb(0_0_0/0.3)]">
+              <HardHat className="size-4" />
+            </span>
+            <span className="grid min-w-0 leading-tight">
+              <span className="truncate text-sm font-semibold tracking-tight text-sidebar-accent-foreground">
+                Management
+              </span>
+              <span className="truncate text-xs text-sidebar-foreground">
+                Projects &amp; costing
+              </span>
+            </span>
+          </div>
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex w-full items-center gap-2 rounded-md p-2 text-left text-sm font-medium hover:bg-accent">
-              <Building2 className="size-4 shrink-0" />
-              <span className="truncate">{org.name}</span>
-              <ChevronDown className="ml-auto size-4 shrink-0" />
+            <DropdownMenuTrigger className="flex w-full items-center gap-2 rounded-lg border bg-background/60 p-2 text-left text-sm outline-hidden transition-colors hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring">
+              <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-sidebar-accent text-[11px] font-semibold text-sidebar-accent-foreground">
+                {org.name.charAt(0).toUpperCase()}
+              </span>
+              <span className="grid min-w-0 flex-1 leading-tight">
+                <span className="truncate font-medium text-sidebar-accent-foreground">
+                  {org.name}
+                </span>
+                <span className="truncate text-xs text-sidebar-foreground">
+                  {org.tenantName}
+                </span>
+              </span>
+              <ChevronsUpDown className="size-4 shrink-0 text-faint" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
+            <DropdownMenuContent
+              align="start"
+              className="w-(--radix-dropdown-menu-trigger-width) min-w-56"
+            >
               <DropdownMenuLabel>Switch organization</DropdownMenuLabel>
               {organizations.map((item) => (
                 <DropdownMenuItem key={item.slug} asChild>
-                  <Link href={`/${item.slug}`}>{item.name}</Link>
+                  <Link href={`/${item.slug}`}>
+                    <Building2 />
+                    <span className="flex-1 truncate">{item.name}</span>
+                    {item.slug === org.slug && <Check />}
+                  </Link>
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
@@ -92,88 +102,24 @@ export function AppShell({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <p className="truncate text-xs text-muted-foreground">
-            {org.tenantName}
-          </p>
         </SidebarHeader>
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-            <SidebarMenu>
-              {links.map((link) => {
-                const href = `/${org.slug}${link.path}`;
-                return (
-                  <SidebarMenuItem key={href}>
+        <SidebarContent className="gap-0 py-1">
+          {appNav.map((group) => (
+            <SidebarGroup key={group.title} className="py-1.5">
+              <SidebarGroupLabel className={navLabelClass}>
+                {group.title}
+              </SidebarGroupLabel>
+              <SidebarMenu className="gap-px">
+                {group.links.map((link) => (
+                  <SidebarMenuItem key={link.path}>
                     <SidebarMenuButton
                       asChild
-                      isActive={
-                        pathname === href ||
-                        (!!link.path && pathname.startsWith(`${href}/`))
-                      }
+                      isActive={isNavActive(pathname, base, link.path)}
+                      className={navButtonClass}
                     >
-                      <Link href={href}>
-                        <link.icon />
+                      <Link href={`${base}${link.path}`}>
+                        <RuneGlyph name={link.glyph} />
                         <span>{link.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroup>
-          {[
-            {
-              title: "Procurement",
-              links: [
-                ["Purchase requests", "procurement/requests"],
-                ["Purchase orders", "procurement/orders"],
-                ["Goods receipts", "procurement/receipts"],
-                ["Vendor bills", "procurement/bills"],
-                ["Payments", "finance/payments"],
-                ["Payment requests", "finance/payment-requests"],
-              ],
-            },
-            {
-              title: "Sales",
-              links: [
-                ["Invoices", "sales/invoices"],
-                ["Receipts", "sales/receipts"],
-                ["Balances", "finance/balances"],
-              ],
-            },
-            {
-              title: "Inventory",
-              links: [
-                ["Stock", "inventory/stock"],
-                ["Consumption", "inventory/consumption"],
-                ["Transfers", "inventory/transfers"],
-              ],
-            },
-            {
-              title: "Masters",
-              links: [
-                ["UOMs", "masters/uoms"],
-                ["Categories", "masters/categories"],
-                ["Item levels", "masters/levels"],
-                ["Items", "masters/items"],
-                ["Parties", "masters/parties"],
-                ["Tax", "masters/tax"],
-                ["Locations", "masters/locations"],
-              ],
-            },
-          ].map((group) => (
-            <SidebarGroup key={group.title}>
-              <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
-              <SidebarMenu>
-                {group.links.map(([title, path]) => (
-                  <SidebarMenuItem key={path}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname.startsWith(`/${org.slug}/${path}`)}
-                    >
-                      <Link href={`/${org.slug}/${path}`}>
-                        <MapPin />
-                        <span>{title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -182,142 +128,60 @@ export function AppShell({
             </SidebarGroup>
           ))}
         </SidebarContent>
-        <SidebarFooter className="border-t">
+        <SidebarFooter className="border-t p-2">
           <UserMenu
             user={user}
             links={[{ title: "All organizations", href: "/", icon: Building2 }]}
           />
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
-        <header className="flex h-14 items-center gap-3 border-b px-4">
-          <SidebarTrigger />
-          <span className="text-sm text-muted-foreground">{org.name}</span>
-          <NotificationBell key={org.slug} orgSlug={org.slug} />
+      <SidebarInset className="min-w-0">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-3 border-b bg-background/85 px-4 backdrop-blur-md md:px-6">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="h-4!" />
+          <nav aria-label="Breadcrumb" className="min-w-0 text-sm">
+            <ol className="flex items-center gap-1.5">
+              <li className="hidden truncate text-muted-foreground sm:block">
+                <Link href={base} className="hover:text-foreground">
+                  {org.name}
+                </Link>
+              </li>
+              {location && (
+                <>
+                  <li aria-hidden className="hidden text-faint sm:block">
+                    /
+                  </li>
+                  <li className="hidden text-muted-foreground md:block">
+                    {location.group.title}
+                  </li>
+                  <li aria-hidden className="hidden text-faint md:block">
+                    /
+                  </li>
+                  <li className="truncate font-medium">
+                    <Link
+                      href={`${base}${location.link.path}`}
+                      aria-current={
+                        pathname === `${base}${location.link.path}`
+                          ? "page"
+                          : undefined
+                      }
+                    >
+                      {location.link.title}
+                    </Link>
+                  </li>
+                </>
+              )}
+            </ol>
+          </nav>
+          <div className="ml-auto flex flex-1 items-center justify-end gap-2">
+            <CommandMenu orgSlug={org.slug} organizations={organizations} />
+            <NotificationBell key={org.slug} orgSlug={org.slug} />
+          </div>
         </header>
-        <div className="mx-auto w-full max-w-6xl space-y-6 p-4 md:p-8">
+        <div className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 md:px-8 md:py-8">
           {children}
         </div>
       </SidebarInset>
     </SidebarProvider>
-  );
-}
-
-function NotificationBell({ orgSlug }: { orgSlug: string }) {
-  const [data, setData] = useState<
-    Awaited<ReturnType<typeof listNotifications>>
-  >({ unreadCount: 0, latest: [] });
-  const [error, setError] = useState<string>();
-  const [loaded, setLoaded] = useState(false);
-  const [pending, startTransition] = useTransition();
-  useEffect(() => {
-    let active = true;
-    listNotifications({ orgSlug })
-      .then((result) => {
-        if (active) {
-          setData(result);
-          setLoaded(true);
-        }
-      })
-      .catch(() => {
-        if (active) setError("Unable to load notifications.");
-      });
-    return () => {
-      active = false;
-    };
-  }, [orgSlug]);
-  const reload = () =>
-    startTransition(async () => {
-      try {
-        setData(await listNotifications({ orgSlug }));
-        setLoaded(true);
-        setError(undefined);
-      } catch {
-        setError("Unable to load notifications.");
-      }
-    });
-  return (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (open) reload();
-      }}
-    >
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-auto"
-          aria-label={`Notifications, ${data.unreadCount} unread`}
-        >
-          <Bell className="size-4" />
-          {data.unreadCount > 0 && (
-            <span className="text-xs tabular-nums">{data.unreadCount}</span>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="max-h-96 w-80 overflow-y-auto"
-      >
-        <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-        {error ? (
-          <p role="alert" className="px-2 text-sm text-destructive">
-            {error}
-          </p>
-        ) : !loaded ? (
-          <output className="px-2 text-sm">Loading notifications...</output>
-        ) : data.latest.length === 0 ? (
-          <Empty>
-            <EmptyHeader>
-              <EmptyTitle>No notifications</EmptyTitle>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          data.latest.map((notification) => (
-            <Item
-              key={notification.id}
-              size="sm"
-              variant={notification.read ? "default" : "muted"}
-            >
-              <ItemContent>
-                <DropdownMenuItem asChild>
-                  <Link href={notification.href}>
-                    <ItemTitle>{notification.title}</ItemTitle>
-                  </Link>
-                </DropdownMenuItem>
-                <ItemDescription>{notification.body}</ItemDescription>
-                {!notification.read && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={pending}
-                    onClick={() =>
-                      startTransition(async () => {
-                        try {
-                          const result = await markNotificationReadAction({
-                            orgSlug,
-                            id: notification.id,
-                          });
-                          if (result.error) {
-                            setError(result.error);
-                            return;
-                          }
-                          setData(await listNotifications({ orgSlug }));
-                          setError(undefined);
-                        } catch {
-                          setError("Unable to mark notification as read.");
-                        }
-                      })
-                    }
-                  >
-                    Mark as read
-                  </Button>
-                )}
-              </ItemContent>
-            </Item>
-          ))
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

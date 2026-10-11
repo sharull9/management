@@ -111,6 +111,7 @@ export function PaymentForm({
             )
             .map((p) => ({ value: p.id, label: p.name }))}
           loadOptions={parties}
+          queryKey={["payment-parties", org, direction]}
           onChange={clear}
         />
         <PaymentChoice
@@ -123,6 +124,7 @@ export function PaymentForm({
             description: p.currency,
           }))}
           loadOptions={projects}
+          queryKey={["payment-projects", org]}
           clearable={data.allowOrganization}
           placeholder={`Organization | ${data.baseCurrency}`}
           onChange={clear}

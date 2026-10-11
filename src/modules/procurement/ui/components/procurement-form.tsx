@@ -177,6 +177,7 @@ export function ProcurementForm({
                 data.stages.filter((s) => s.projectId === projectId),
               )}
               loadOptions={projectId ? loaders.stages : undefined}
+              queryKey={["procurement", "stages", org, kind, projectId]}
             />
             <ComboboxField
               control={form.control}
@@ -187,6 +188,7 @@ export function ProcurementForm({
                 data.tasks.filter((t) => t.projectId === projectId),
               )}
               loadOptions={projectId ? loaders.tasks : undefined}
+              queryKey={["procurement", "tasks", org, kind, projectId]}
             />
           </>
         )}
@@ -209,6 +211,7 @@ export function ProcurementForm({
               data.sites.filter((s) => s.projectId === projectId),
             )}
             loadOptions={projectId ? loaders.sites : undefined}
+            queryKey={["procurement", "sites", org, kind, projectId]}
           />
         )}
         {kind === "orders" && (
@@ -219,6 +222,7 @@ export function ProcurementForm({
               label="Vendor"
               options={toOptions(data.vendors)}
               loadOptions={projectId ? loaders.vendors : undefined}
+              queryKey={["vendors", org, kind, projectId]}
             />
             <ComboboxField
               control={form.control}
@@ -261,6 +265,7 @@ export function ProcurementForm({
                 data.orders.filter((o) => o.projectId === projectId),
               )}
               loadOptions={projectId ? loaders.orders : undefined}
+              queryKey={["procurement", "orders", org, kind, projectId]}
             />
             <TextField
               control={form.control}

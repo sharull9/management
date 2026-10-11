@@ -1,57 +1,25 @@
 "use client";
-import { useRouter, useSearchParams } from "next/navigation";
-import { z } from "zod";
-import { ComboboxField } from "@/components/shared/combobox/combobox-field";
-import { ActionFormShell } from "@/components/shared/form/action-form-shell";
+import {
+  FilterBar,
+  FilterMultiSelect,
+  FilterSearch,
+} from "@/components/shared/filter-bar/filter-bar";
 import { enumOptions } from "@/components/shared/form/enum-options";
-import { TextField } from "@/components/shared/form/text-field";
-import { useZodForm } from "@/components/shared/form/use-zod-form";
+import { statusTone } from "@/components/shared/status-badge-tone";
 import { ProjectStatus } from "@/generated/prisma/enums";
-import { projectFilterInput } from "../../schema";
-export function ProjectFilters({
-  org,
-  search = "",
-  status = null,
-}: {
-  org: string;
-  search?: string;
-  status?: string | null;
-}) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const form = useZodForm<
-    z.input<typeof projectFilterInput>,
-    z.output<typeof projectFilterInput>
-  >(projectFilterInput, {
-    search,
-    status: z.enum(ProjectStatus).safeParse(status).success
-      ? (status as ProjectStatus)
-      : null,
-  });
+
+export function ProjectFilters() {
   return (
-    <ActionFormShell
-      form={form}
-      submit="Filter projects"
-      className="grid items-end gap-4 sm:grid-cols-3"
-      action={async (input) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (input.search) params.set("search", input.search);
-        else params.delete("search");
-        if (input.status) params.set("status", input.status);
-        else params.delete("status");
-        router.replace(`/${org}/projects?${params}`, { scroll: false });
-        return {};
-      }}
-    >
-      <TextField control={form.control} name="search" label="Search" />
-      <ComboboxField
-        control={form.control}
+    <FilterBar>
+      <FilterSearch placeholder="Search name or code…" />
+      <FilterMultiSelect
         name="status"
         label="Status"
-        options={enumOptions(ProjectStatus)}
-        placeholder="All statuses"
-        clearable
+        options={enumOptions(ProjectStatus).map((option) => ({
+          ...option,
+          tone: statusTone(option.value),
+        }))}
       />
-    </ActionFormShell>
+    </FilterBar>
   );
 }

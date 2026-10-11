@@ -37,7 +37,7 @@ export function ProfileForm() {
 
 `useZodForm(schema, defaultValues)` returns RHF's form. `ActionFormShell` takes `form`, `action`, `children`, optional `submit`, `className`, `destructive`. It disables controls during submission, prevents duplicate requests, shows sonner notifications and an inline error, maps `ActionState.fieldErrors` to RHF errors and handles returned `redirectTo` with router.push/refresh. Existing runAction redirects retain Next's control flow. For custom layouts, `useActionSubmit(form, action)` returns `onSubmit`, `pending`, `state`.
 
-`TextField`, `NumberField`, `TextareaField`, `DateField`, `CheckboxField`, `PasswordField` take `control`, typed `name`, `label`, optional `description`. Text, textarea, number and password accept additional input attributes. Date accepts `min`, `max`, `disabled`; checkbox accepts `disabled`. Number values are numbers or `null` when cleared; dates are `YYYY-MM-DD` strings; checkboxes are booleans. Match schema/defaults to these values. `PasswordInput` also works outside RHF with ordinary input props and an accessible show/hide toggle.
+`TextField`, `NumberField`, `TextareaField`, `DateField`, `CheckboxField`, `PasswordField` take `control`, typed `name`, `label`, optional `description`. Text, textarea, number and password accept additional input attributes. Date accepts `min`, `max`, `disabled`, `placeholder`; checkbox accepts `disabled`. Never use native `type="date"` inputs: `DateField` renders the shared shadcn `DatePicker` (`@/components/shared/date-picker/date-picker`, Popover + Calendar), which also works outside RHF with `value`/`onChange` strings. Parse and format its values with `fromDateValue`/`toDateValue` from `date-picker/date-value`, which treat `YYYY-MM-DD` as a local calendar date. Number values are numbers or `null` when cleared; dates are `YYYY-MM-DD` strings; checkboxes are booleans. Match schema/defaults to these values. `PasswordInput` also works outside RHF with ordinary input props and an accessible show/hide toggle.
 
 Example: `organization-auth/ui/components/sign-in-form.tsx`, rendered by `organization/ui/views/sign-in-view.tsx`. Sign-out still uses FormData.
 
@@ -184,3 +184,13 @@ Use Empty when rows are empty.
 Import `dateValue` from `@/components/shared/form/date-value`. Filters use Combobox fields and `router.replace` with search parameters, preserving unrelated query values and deleting cleared filters. Upload and sign-out forms may retain `ActionForm` with shadcn Field primitives.
 
 The retained `ActionForm` import is `@/components/shared/action-form`. Sign-out ignores its FormData payload; upload actions validate metadata with Zod and files with explicit size/type checks or a file schema. Vendor bill and task upload components can retain RHF for metadata and send files in FormData.
+
+## Display and theme
+
+The theme lives in `src/app/globals.css`: a dark graphite palette with an indigo primary (default) and a matching light palette, switched by next-themes from the user menu. Use semantic tokens (`bg-card`, `text-muted-foreground`, `text-faint`, `bg-tag-green` …) rather than raw colours.
+
+- `StatusBadge` (`@/components/shared/status-badge`) renders an enum status such as `PENDING_APPROVAL` as a colour-coded, sentence-case pill. Tones come from `statusTone` in `status-badge-tone.ts`; add new statuses there.
+- `StatTiles` (`@/components/shared/stat-tiles`) renders a row of KPI tiles with optional icon, detail and link.
+- `formatMoney(amount, currency)` (`@/core/format`) formats amounts for display with Indian grouping, e.g. `₹6,30,725.99`. Use it only for display; keep `toFixed(2)` strings for form defaults and submitted values.
+- `PageHeading` accepts an optional `eyebrow`; `FormCard` accepts optional `description` and `action`.
+- App navigation is defined once in `@/components/shared/app-nav`; the sidebar, breadcrumbs and Ctrl/⌘K command menu all read it.

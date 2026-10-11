@@ -1,13 +1,7 @@
-import Link from "next/link";
+import { FolderKanban, ListChecks, TriangleAlert, Wallet } from "lucide-react";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "@/components/ui/item";
+import { type StatTile, StatTiles } from "@/components/shared/stat-tiles";
 import {
   canViewProjectCost,
   projectAccessWhere,
@@ -15,6 +9,7 @@ import {
   requireOrgContext,
 } from "@/core/context";
 import { db } from "@/core/db";
+import { formatMoney } from "@/core/format";
 import { Prisma } from "@/generated/prisma/client";
 import { listPendingForUser } from "@/modules/approvals/server/service";
 import { budgetUsage } from "@/modules/project-cost/server/budget-usage";
@@ -78,50 +73,48 @@ export async function DashboardView({ org }: { org: string }) {
     );
   if (!monthTotals.size)
     monthTotals.set(ctx.org.baseCurrency, new Prisma.Decimal(0));
+  const stats: StatTile[] = [
+    {
+      label: "Active projects",
+      value: projects.length,
+      icon: FolderKanban,
+      href: `/${org}/projects`,
+    },
+    {
+      label: "Pending approvals",
+      value: pending.length,
+      detail: pending.length ? "Waiting on you" : "You're all caught up",
+      icon: ListChecks,
+      href: `/${org}/approvals`,
+    },
+    {
+      label: "Overdue tasks",
+      value: overdue.length,
+      detail: overdue.length ? "Past their due date" : "Nothing overdue",
+      icon: TriangleAlert,
+    },
+  ];
+  if (showCost)
+    stats.push({
+      label: "Spent this month",
+      value: Array.from(monthTotals, ([currency, total]) =>
+        formatMoney(total, currency),
+      ).join(" · "),
+      detail: today.toLocaleString("en-IN", {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      }),
+      icon: Wallet,
+    });
   return (
     <>
       <PageHeading
+        eyebrow="Dashboard"
         title={ctx.org.name}
         description="Project delivery and cost summary."
       />
-      <ItemGroup className="grid gap-4 sm:grid-cols-3">
-        <Item variant="outline">
-          <ItemContent>
-            <ItemTitle>Active projects</ItemTitle>
-            <ItemDescription className="text-3xl font-semibold">
-              {projects.length}
-            </ItemDescription>
-          </ItemContent>
-        </Item>
-        <Item variant="outline">
-          <ItemContent>
-            <ItemTitle>Pending approvals for you</ItemTitle>
-            <ItemDescription>
-              <Link
-                className="text-3xl font-semibold underline"
-                href={`/${org}/approvals`}
-              >
-                {pending.length}
-              </Link>
-            </ItemDescription>
-          </ItemContent>
-        </Item>
-        {showCost && (
-          <Item variant="outline">
-            <ItemContent>
-              <ItemTitle>Spent this month</ItemTitle>
-              {Array.from(monthTotals, ([currency, total]) => (
-                <ItemDescription
-                  key={currency}
-                  className="text-2xl font-semibold"
-                >
-                  {currency} {total.toFixed(2)}
-                </ItemDescription>
-              ))}
-            </ItemContent>
-          </Item>
-        )}
-      </ItemGroup>
+      <StatTiles stats={stats} />
       <FormCard title="Active projects">
         <DashboardProjectsTable
           org={org}
@@ -135,9 +128,9 @@ export async function DashboardView({ org }: { org: string }) {
               id: p.id,
               project: `${p.code} · ${p.name}`,
               budget: projectCost
-                ? `${p.currency} ${p.budgetAmount.toFixed(2)}`
+                ? formatMoney(p.budgetAmount, p.currency)
                 : "—",
-              spent: projectCost ? spent.toFixed(2) : "—",
+              spent: projectCost ? formatMoney(spent, p.currency) : "—",
               usage: projectCost ? String(usage.percent) : null,
             };
           })}

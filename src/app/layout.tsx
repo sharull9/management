@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { cn } from "cn";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { QueryProvider } from "@/components/shared/query-provider";
+import { ThemeProvider } from "@/components/shared/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
@@ -22,11 +26,20 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
+      className={cn(
+        geistSans.variable,
+        geistMono.variable,
+        `h-full antialiased`,
+      )}
     >
       <body className="min-h-full flex flex-col">
-        {children}
-        <Toaster richColors />
+        <NuqsAdapter>
+          <ThemeProvider>
+            <QueryProvider>{children}</QueryProvider>
+            <Toaster richColors />
+          </ThemeProvider>
+        </NuqsAdapter>
       </body>
     </html>
   );

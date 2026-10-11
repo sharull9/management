@@ -3,7 +3,7 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/shared/status-badge";
 import type { PolicyRow } from "../../type";
 import { PolicyEditor } from "./policy-editor";
 
@@ -27,9 +27,7 @@ export function PoliciesTable({
       accessorKey: "active",
       header: "Status",
       cell: ({ row }) => (
-        <Badge variant="secondary">
-          {row.original.active ? "Active" : "Inactive"}
-        </Badge>
+        <StatusBadge status={row.original.active ? "ACTIVE" : "INACTIVE"} />
       ),
     },
     { accessorKey: "stepCount", header: "Steps" },

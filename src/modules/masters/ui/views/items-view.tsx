@@ -1,16 +1,30 @@
-import { PageHeading } from "@/components/shared/page-heading";
 import { masterData } from "../../server/queries";
-import { ItemMasters } from "../components/item-forms";
+import { ItemsTable } from "../components/items-table";
+import { MasterListPage } from "../components/master-pages";
 
 export async function ItemsView({ org }: { org: string }) {
   const data = await masterData(org);
+  const categories = new Map(data.categories.map((c) => [c.id, c.name]));
   return (
-    <>
-      <PageHeading
-        title="Items and variants"
-        description="Shared across organizations in this tenant."
+    <MasterListPage
+      title="Items"
+      description="Shared across organizations in this tenant."
+      newHref={`/${org}/masters/items/new`}
+      newLabel="New item"
+    >
+      <ItemsTable
+        org={org}
+        items={data.items.map((item) => ({
+          id: item.id,
+          code: item.code,
+          name: item.name,
+          category: (item.categoryId && categories.get(item.categoryId)) || "",
+          type: item.type,
+          uom: item.stockUom.name,
+          variants: item.variants.length,
+          active: item.active,
+        }))}
       />
-      <ItemMasters org={org} data={data} />
-    </>
+    </MasterListPage>
   );
 }

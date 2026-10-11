@@ -1,31 +1,13 @@
 "use client";
-import { ActionFormShell } from "@/components/shared/form/action-form-shell";
 import { FieldFrame } from "@/components/shared/form/field-frame";
 import { useActionSubmit } from "@/components/shared/form/use-action-submit";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
+import { useCloseOverlay } from "@/components/shared/overlay/overlay-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { billAttachmentFormInput, billDocumentInput } from "../../schema";
-import { attachBillAction, submitBillAction } from "../../server/actions";
+import { billAttachmentFormInput } from "../../schema";
+import { attachBillAction } from "../../server/actions";
 
-export function SubmitBillForm({
-  org,
-  billId,
-}: {
-  org: string;
-  billId: string;
-}) {
-  const form = useZodForm(billDocumentInput, { id: billId });
-  return (
-    <ActionFormShell
-      form={form}
-      action={submitBillAction.bind(null, org)}
-      submit="Submit for approval"
-    >
-      {null}
-    </ActionFormShell>
-  );
-}
 export function AttachBillForm({
   org,
   billId,
@@ -33,13 +15,18 @@ export function AttachBillForm({
   org: string;
   billId: string;
 }) {
+  const closeOverlay = useCloseOverlay();
   const form = useZodForm(billAttachmentFormInput, { id: billId });
-  const { onSubmit, pending, state } = useActionSubmit(form, (input) => {
-    const data = new FormData();
-    data.set("id", input.id);
-    data.set("file", input.attachment);
-    return attachBillAction(org, {}, data);
-  });
+  const { onSubmit, pending, state } = useActionSubmit(
+    form,
+    (input) => {
+      const data = new FormData();
+      data.set("id", input.id);
+      data.set("file", input.attachment);
+      return attachBillAction(org, {}, data);
+    },
+    () => closeOverlay?.(),
+  );
   return (
     <form onSubmit={onSubmit} aria-busy={pending}>
       <fieldset disabled={pending} className="space-y-4 border-0 p-0">

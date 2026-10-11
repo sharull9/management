@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { FieldGroup } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import type { ActionState } from "@/core/action-result";
+import { cn } from "@/lib/utils";
+import { useCloseOverlay } from "../overlay/overlay-context";
 import { type TypedFormAction, useActionSubmit } from "./use-action-submit";
 
 export function ActionFormShell<
@@ -17,6 +19,7 @@ export function ActionFormShell<
   children,
   submit = "Save",
   className,
+  submitClassName,
   destructive = false,
   onSuccess,
 }: {
@@ -25,10 +28,19 @@ export function ActionFormShell<
   children: ReactNode;
   submit?: string;
   className?: string;
+  submitClassName?: string;
   destructive?: boolean;
   onSuccess?: (result: ActionState) => void;
 }) {
-  const { onSubmit, pending, state } = useActionSubmit(form, action, onSuccess);
+  const closeOverlay = useCloseOverlay();
+  const { onSubmit, pending, state } = useActionSubmit(
+    form,
+    action,
+    (result) => {
+      onSuccess?.(result);
+      closeOverlay?.();
+    },
+  );
   return (
     <form
       onSubmit={onSubmit}
@@ -50,7 +62,7 @@ export function ActionFormShell<
           type="submit"
           disabled={pending}
           variant={destructive ? "destructive" : "default"}
-          className="self-start"
+          className={cn("self-start", submitClassName)}
         >
           {pending && <Spinner data-icon="inline-start" />}
           {pending ? "Saving…" : submit}

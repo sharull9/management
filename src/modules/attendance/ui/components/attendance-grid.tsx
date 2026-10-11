@@ -9,6 +9,7 @@ import { enumOptions } from "@/components/shared/form/enum-options";
 import { TextField } from "@/components/shared/form/text-field";
 import type { TypedFormAction } from "@/components/shared/form/use-action-submit";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
+import { statusTone } from "@/components/shared/status-badge-tone";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -22,6 +23,11 @@ import { AttendanceStatus } from "@/generated/prisma/enums";
 import { attendanceInput } from "../../schema";
 import { attendanceCost } from "../../server/costing";
 import type { AttendanceRow } from "../../type";
+
+const statusOptions = enumOptions(AttendanceStatus).map((option) => ({
+  ...option,
+  tone: statusTone(option.value),
+}));
 export function AttendanceGrid({
   initialRows,
   date,
@@ -105,7 +111,7 @@ export function AttendanceGrid({
                     control={form.control}
                     name={`rows.${i}.status`}
                     label={`${worker.name} status`}
-                    options={enumOptions(AttendanceStatus)}
+                    options={statusOptions}
                   />
                 </TableCell>
                 <TableCell>

@@ -1,8 +1,10 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
+import type { ReactNode } from "react";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 import { Decimal } from "@/core/decimal";
+import { formatMoney } from "@/core/format";
 export type InvoiceRow = {
   id: string;
   code: string;
@@ -48,21 +50,23 @@ const columns: ColumnDef<InvoiceRow>[] = [
         />
       ),
       sortingFn: (a, b) => new Decimal(a.original[key]).cmp(b.original[key]),
-      cell: ({ row }) =>
-        `${row.original.currency} ${new Decimal(row.original[key]).toFixed(2)}`,
+      cell: ({ row }) => formatMoney(row.original[key], row.original.currency),
     }),
   ),
   { accessorKey: "status", header: "Status" },
 ];
 export function InvoicesTable({
+  toolbar,
   org,
   rows,
 }: {
+  toolbar?: ReactNode;
   org: string;
   rows: InvoiceRow[];
 }) {
   return (
     <DataTable
+      toolbar={toolbar}
       columns={columns}
       data={rows}
       searchPlaceholder="Search invoices..."

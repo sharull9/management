@@ -98,6 +98,7 @@ export function SiteForm({
           label="Country"
           options={toOptions(countries)}
           loadOptions={loadCountries}
+          queryKey={["countries", org, projectId]}
           clearable
         />
         <ComboboxField
@@ -107,6 +108,7 @@ export function SiteForm({
           label="State"
           options={toOptions(states.filter((s) => s.countryId === country))}
           loadOptions={loadStates}
+          queryKey={["states", org, projectId, country]}
           clearable
         />
         <ComboboxField
@@ -116,6 +118,7 @@ export function SiteForm({
           label="City"
           options={toOptions(cities.filter((c) => c.stateId === state))}
           loadOptions={loadCities}
+          queryKey={["cities", org, projectId, state]}
           clearable
         />
         <TextField control={form.control} name="pincode" label="Pincode" />

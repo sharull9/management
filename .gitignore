@@ -46,3 +46,6 @@ next-env.d.ts
 /storage
 /.workflow-data/
 /.swc
+
+creds.md
+scripts/demo-*

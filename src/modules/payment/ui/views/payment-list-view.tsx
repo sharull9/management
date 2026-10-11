@@ -1,11 +1,13 @@
+import { Plus, Scale } from "lucide-react";
 import Link from "next/link";
 import { PageHeading } from "@/components/shared/page-heading";
+import { Button } from "@/components/ui/button";
 import { db } from "@/core/db";
 import { moduleProjectWhere } from "@/modules/procurement/server/queries";
 import { financeData } from "../../server/queries";
+import { FinanceFilters } from "../components/finance-filters";
 import { FinanceTable } from "../components/finance-tables";
-import { ProjectFilter } from "../components/project-filter";
-import { linkClass, money } from "../util";
+import { money } from "../util";
 export async function FinanceList({
   org,
   kind,
@@ -49,28 +51,36 @@ export async function FinanceList({
               : "Payments"
         }
         description="Track approved requests, settlements and unallocated advances."
-      />
-      <div className="flex flex-wrap gap-4">
-        {canCreate && (
-          <Link
-            className={linkClass}
-            href={`/${org}/finance/${requests ? "payment-requests" : "payments"}/new`}
-          >
-            New {requests ? "payment request" : "payment"}
-          </Link>
-        )}
-        <Link className={linkClass} href={`/${org}/finance/balances`}>
-          Party balances
-        </Link>
-      </div>
-      <ProjectFilter
-        org={org}
-        permission={kind === "receipts" ? "sales.view" : "payment.view"}
-        projects={d.projects.map((p) => ({ id: p.id, name: p.name }))}
-        projectId={projectId}
+        actions={
+          <>
+            <Button variant="outline" asChild>
+              <Link href={`/${org}/finance/balances`}>
+                <Scale data-icon="inline-start" />
+                Party balances
+              </Link>
+            </Button>
+            {canCreate && (
+              <Button asChild>
+                <Link
+                  href={`/${org}/finance/${requests ? "payment-requests" : "payments"}/new`}
+                >
+                  <Plus data-icon="inline-start" />
+                  New {requests ? "payment request" : "payment"}
+                </Link>
+              </Button>
+            )}
+          </>
+        }
       />
       <FinanceTable
         org={org}
+        toolbar={
+          <FinanceFilters
+            org={org}
+            permission={kind === "receipts" ? "sales.view" : "payment.view"}
+            projects={d.projects.map((p) => ({ id: p.id, name: p.name }))}
+          />
+        }
         requests={requests}
         data={
           requests

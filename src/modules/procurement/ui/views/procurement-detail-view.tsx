@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { ActionForm } from "@/components/shared/action-form";
 import { ApprovalTimeline } from "@/components/shared/approval-timeline";
+import { DetailList } from "@/components/shared/detail-list";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
-import { Badge } from "@/components/ui/badge";
+import { SectionHeader } from "@/components/shared/section-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { UrlTabs } from "@/components/shared/url-tabs";
+import { Button } from "@/components/ui/button";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
@@ -13,8 +17,8 @@ import { Decimal } from "@/core/decimal";
 import { attachProformaAction } from "../../server/actions";
 import { type DocumentKind, documentKinds } from "../../server/approval";
 import { documentDetail, procurementData } from "../../server/queries";
-import type { DraftLine } from "../../type";
-import { formData, selectedLevels } from "../../util";
+import { formData } from "../../util";
+import { draftFormValues } from "../components/draft-form-data";
 import { ProcurementDetailLinesTable } from "../components/procurement-detail-lines-table";
 import { ProcurementForm } from "../components/procurement-form";
 import { SubmitProcurementForm } from "../components/submit-procurement-form";
@@ -25,6 +29,8 @@ const titles = {
   receipts: "Goods receipts",
   transfers: "Stock transfers",
 };
+const day = (value: Date | null) => value?.toISOString().slice(0, 10) ?? null;
+
 export async function ProcurementDetail({
   org,
   kind,
@@ -44,101 +50,16 @@ export async function ProcurementDetail({
     isReceipt = "poId" in row;
   const canEdit =
     ctx.isAdmin || ctx.permissions.has(documentKinds[kind].permission);
-  const d =
-    row.status === "DRAFT" && canEdit
-      ? await procurementData(org, undefined, kind === "transfers")
+  const draftEditable = row.status === "DRAFT" && canEdit;
+  // Stock transfers have no dedicated edit route yet, so they keep the inline form.
+  const inlineData =
+    draftEditable && kind === "transfers"
+      ? await procurementData(org, undefined, true)
       : null;
-  const initial: Record<string, string> = {};
-  let initialLines: DraftLine[] = [];
-  if (d) {
-    if (isRequest) {
-      initial.stageId = row.stageId ?? "";
-      initial.taskId = row.taskId ?? "";
-      initial.neededBy = row.neededBy?.toISOString().slice(0, 10) ?? "";
-      initialLines = row.lines.map((l) => ({
-        itemId: l.variant.itemId,
-        levels: selectedLevels(l.variant),
-        qty: l.qty.toString(),
-        uomId: l.uomId,
-        description: l.description,
-        estimatedRate: l.estimatedRate.toString(),
-      }));
-    } else if (isOrder) {
-      Object.assign(initial, {
-        vendorPartyId: row.vendorPartyId,
-        siteId: row.siteId ?? "",
-        date: row.date.toISOString().slice(0, 10),
-        paymentTerms: row.paymentTerms,
-        paymentDays: String(row.paymentDays),
-        currency: row.currency,
-        receiptTolerancePercent: row.receiptTolerancePercent.toString(),
-      });
-      initialLines = row.lines.map((l) => ({
-        itemId: l.variant.itemId,
-        levels: selectedLevels(l.variant),
-        qty: l.qty.toString(),
-        uomId: l.uomId,
-        description: l.description,
-        rate: l.rate.toString(),
-        discountPercent: l.discountPercent.toString(),
-        taxGroupId: l.taxGroupId,
-        prLineId: l.prLineId,
-      }));
-    } else if (isReceipt) {
-      Object.assign(initial, {
-        poId: row.poId,
-        siteId: row.siteId ?? "",
-        receivedDate: row.receivedDate.toISOString().slice(0, 10),
-        challanNumber: row.challanNumber ?? "",
-        vehicleNumber: row.vehicleNumber ?? "",
-      });
-      initialLines = row.lines.map((l) => ({
-        itemId: l.poLine.variant.itemId,
-        levels: selectedLevels(l.poLine.variant),
-        qty: "1",
-        uomId: l.uomId,
-        poLineId: l.poLineId,
-        receivedQty: l.receivedQty.toString(),
-        acceptedQty: l.acceptedQty.toString(),
-        rejectedQty: l.rejectedQty.toString(),
-        remarks: l.remarks ?? "",
-      }));
-    } else {
-      Object.assign(initial, {
-        toProjectId: row.toProjectId,
-        date: row.date.toISOString().slice(0, 10),
-      });
-      initialLines = row.lines.map((l) => ({
-        itemId: l.variant.itemId,
-        levels: selectedLevels(l.variant),
-        qty: l.qty.toString(),
-        uomId: l.uomId,
-      }));
-    }
-  }
-  const inputs = d ? formData(d) : null;
-  if (inputs && isReceipt && !inputs.orders.some((o) => o.id === row.poId)) {
-    inputs.orders.push({
-      id: row.poId,
-      name: row.order.code,
-      projectId: row.projectId,
-      lines: row.lines.map((l) => ({
-        id: l.poLineId,
-        name: l.poLine.variant.name,
-        itemId: l.poLine.variant.itemId,
-        item: {
-          itemId: l.poLine.variant.itemId,
-          level1: l.poLine.variant.level1Id,
-          level2: l.poLine.variant.level2Id,
-          level3: l.poLine.variant.level3Id,
-          level4: l.poLine.variant.level4Id,
-          level5: l.poLine.variant.level5Id,
-        },
-        uomId: l.uomId,
-        pending: "0",
-      })),
-    });
-  }
+  const inputs = inlineData ? formData(inlineData) : null;
+  const { initial, initialLines } = inputs
+    ? draftFormValues(row)
+    : { initial: {}, initialLines: [] };
   const lines = row.lines.map((l) => {
     const receipt = "poLine" in l;
     return {
@@ -180,170 +101,270 @@ export async function ProcurementDetail({
         orderBy: { createdAt: "asc" },
       })
     : [];
-  return (
-    <div className="space-y-6 procurement-document">
-      <PageHeading
-        title={`${row.code} · ${titles[kind]}`}
-        description={`${row.project.name} · ${row.status.replaceAll("_", " ")}`}
-      />
-      <Badge variant="secondary">{row.status.replaceAll("_", " ")}</Badge>
-      {isOrder &&
-        ["APPROVED", "PARTIALLY_RECEIVED", "RECEIVED", "CLOSED"].includes(
-          row.status,
-        ) &&
-        (ctx.isAdmin || ctx.permissions.has("bill.create")) && (
-          <Link
-            className="inline-flex rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground print:hidden"
-            href={`/${org}/procurement/bills/new?po=${row.id}`}
-          >
-            Create bill
-          </Link>
-        )}
-      <p className="text-sm">
+  const canBill =
+    isOrder &&
+    ["APPROVED", "PARTIALLY_RECEIVED", "RECEIVED", "CLOSED"].includes(
+      row.status,
+    ) &&
+    (ctx.isAdmin || ctx.permissions.has("bill.create"));
+  const overview = [
+    {
+      label: "Project",
+      value: (
         <Link
           className="underline"
           href={`/${org}/projects/${row.projectId}/materials`}
         >
-          Project materials
+          {row.project.name}
         </Link>
-        {isOrder &&
-          ` · Vendor: ${row.vendor.displayName} · Date: ${row.date.toISOString().slice(0, 10)} · ${row.paymentTerms} ${row.paymentDays} days · ${row.currency}${row.site ? ` · Site: ${row.site.name}` : ""}`}
-        {isRequest &&
-          ` · Requested by ${row.requestedBy.name} · Needed by ${row.neededBy?.toISOString().slice(0, 10) ?? "—"}`}
-        {isReceipt && (
-          <>
-            {" "}
-            · Against{" "}
-            <Link
-              className="underline"
-              href={`/${org}/procurement/orders/${row.poId}`}
-            >
-              {row.order.code}
-            </Link>{" "}
-            · Received {row.receivedDate.toISOString().slice(0, 10)} ·{" "}
-            {row.receivedBy.name} · Challan {row.challanNumber ?? "—"} · Vehicle{" "}
-            {row.vehicleNumber ?? "—"}
-          </>
-        )}
-        {!isOrder &&
-          !isRequest &&
-          !isReceipt &&
-          ` · To: ${row.toProject.name} · ${row.date.toISOString().slice(0, 10)}`}
-      </p>
-      <FormCard title="Lines">
-        <ProcurementDetailLinesTable lines={lines} />
-      </FormCard>
-      {isRequest && (
-        <p className="font-medium">
-          Estimated total: {row.estimatedTotal.toFixed(2)}
-        </p>
-      )}
-      {isOrder && (
-        <FormCard title="Tax snapshot and totals">
-          <ItemGroup>
-            {row.lines.flatMap((l) =>
-              l.taxes.map((t) => (
-                <Item key={t.id} variant="outline">
-                  <ItemContent>
-                    <ItemTitle>
-                      {l.variant.name} · {t.name} {t.rate.toString()}%
-                      {t.isWithholding ? " (withholding)" : ""}:{" "}
-                      {t.amount.toFixed(2)}
-                    </ItemTitle>
-                  </ItemContent>
-                </Item>
-              )),
-            )}
-          </ItemGroup>
-          <dl className="mt-4 grid grid-cols-2 gap-2 text-sm">
-            <dt>Taxable subtotal</dt>
-            <dd>{row.subtotal.toFixed(2)}</dd>
-            <dt>Tax</dt>
-            <dd>{row.taxTotal.toFixed(2)}</dd>
-            <dt>Withholding</dt>
-            <dd>{row.withholdingTotal.toFixed(2)}</dd>
-            <dt className="font-semibold">Grand total</dt>
-            <dd className="font-semibold">
-              {row.grandTotal.toFixed(2)} {row.currency}
-            </dd>
-          </dl>
-          <ItemGroup className="mt-4">
-            {relatedReceipts.map((r) => (
-              <Item key={r.id} variant="outline">
-                <ItemContent>
-                  <ItemTitle>
-                    <Link
-                      className="underline"
-                      href={`/${org}/procurement/receipts/${r.id}`}
-                    >
-                      {r.code}
-                    </Link>{" "}
-                    · {r.status}
-                  </ItemTitle>
-                </ItemContent>
-              </Item>
-            ))}
-            {attachments.map((a) => (
-              <Item key={a.id} variant="outline">
-                <ItemContent>
-                  <ItemTitle>
-                    <a
-                      className="underline"
-                      href={`/api/attachments/${a.id}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {a.filename}
-                    </a>
-                  </ItemTitle>
-                </ItemContent>
-              </Item>
-            ))}
-          </ItemGroup>
-          {!relatedReceipts.length && !attachments.length && (
-            <EmptyState title="No receipts or attachments yet." />
-          )}
-          {canEdit && (
-            <div className="mt-4 print:hidden">
-              <ActionForm
-                action={attachProformaAction.bind(null, org)}
-                submit="Attach proforma"
+      ),
+    },
+    { label: "Status", value: row.status.replaceAll("_", " ") },
+    ...(isOrder
+      ? [
+          { label: "Vendor", value: row.vendor.displayName },
+          { label: "Order date", value: day(row.date) },
+          {
+            label: "Payment terms",
+            value: `${row.paymentTerms} ${row.paymentDays} days`,
+          },
+          { label: "Currency", value: row.currency },
+          { label: "Site", value: row.site?.name ?? null },
+          {
+            label: "Grand total",
+            value: `${row.grandTotal.toFixed(2)} ${row.currency}`,
+          },
+        ]
+      : []),
+    ...(isRequest
+      ? [
+          { label: "Requested by", value: row.requestedBy.name },
+          { label: "Needed by", value: day(row.neededBy) },
+          { label: "Estimated total", value: row.estimatedTotal.toFixed(2) },
+        ]
+      : []),
+    ...(isReceipt
+      ? [
+          {
+            label: "Purchase order",
+            value: (
+              <Link
+                className="underline"
+                href={`/${org}/procurement/orders/${row.poId}`}
               >
-                <input type="hidden" name="id" value={row.id} />
-                <Field>
-                  <FieldLabel htmlFor="proforma-file">
-                    Proforma (PDF / image, max 900 KB)
-                  </FieldLabel>
-                  <Input
-                    id="proforma-file"
-                    name="file"
-                    type="file"
-                    accept="application/pdf,image/png,image/jpeg"
-                    required
-                  />
-                </Field>
-              </ActionForm>
+                {row.order.code}
+              </Link>
+            ),
+          },
+          { label: "Received on", value: day(row.receivedDate) },
+          { label: "Received by", value: row.receivedBy.name },
+          { label: "Challan", value: row.challanNumber },
+          { label: "Vehicle", value: row.vehicleNumber },
+        ]
+      : []),
+    ...(!isOrder && !isRequest && !isReceipt
+      ? [
+          { label: "Destination", value: row.toProject.name },
+          { label: "Date", value: day(row.date) },
+        ]
+      : []),
+  ];
+  const listHref = `/${org}/${kind === "transfers" ? "inventory" : "procurement"}/${kind}`;
+  return (
+    <>
+      <Button asChild variant="link" size="sm" className="w-fit px-0">
+        <Link href={listHref}>{titles[kind]}</Link>
+      </Button>
+      <PageHeading
+        eyebrow={titles[kind]}
+        title={row.code}
+        description={row.project.name}
+        actions={
+          <>
+            <StatusBadge status={row.status} />
+            <div className="flex flex-wrap items-center gap-2 print:hidden">
+              {draftEditable && kind !== "transfers" && (
+                <Button asChild variant="outline">
+                  <Link href={`${listHref}/${row.id}/edit`}>Edit draft</Link>
+                </Button>
+              )}
+              {canBill && (
+                <Button asChild variant="outline">
+                  <Link href={`/${org}/procurement/bills/new?po=${row.id}`}>
+                    Create bill
+                  </Link>
+                </Button>
+              )}
+              {draftEditable && (
+                <SubmitProcurementForm org={org} kind={kind} id={row.id} />
+              )}
             </div>
-          )}
+          </>
+        }
+      />
+      <section className="space-y-3">
+        <SectionHeader title="Overview" />
+        <DetailList className="max-w-2xl" items={overview} />
+      </section>
+      <UrlTabs
+        tabs={[
+          {
+            value: "lines",
+            label: "Lines",
+            count: lines.length,
+            content: <ProcurementDetailLinesTable lines={lines} />,
+          },
+          ...(isOrder
+            ? [
+                {
+                  value: "totals",
+                  label: "Taxes and totals",
+                  content: (
+                    <>
+                      <ItemGroup>
+                        {row.lines.flatMap((l) =>
+                          l.taxes.map((t) => (
+                            <Item key={t.id} variant="outline">
+                              <ItemContent>
+                                <ItemTitle>
+                                  {l.variant.name} · {t.name}{" "}
+                                  {t.rate.toString()}%
+                                  {t.isWithholding ? " (withholding)" : ""}:{" "}
+                                  {t.amount.toFixed(2)}
+                                </ItemTitle>
+                              </ItemContent>
+                            </Item>
+                          )),
+                        )}
+                      </ItemGroup>
+                      <DetailList
+                        className="max-w-sm"
+                        items={[
+                          {
+                            label: "Taxable subtotal",
+                            value: row.subtotal.toFixed(2),
+                          },
+                          { label: "Tax", value: row.taxTotal.toFixed(2) },
+                          {
+                            label: "Withholding",
+                            value: row.withholdingTotal.toFixed(2),
+                          },
+                          {
+                            label: "Grand total",
+                            value: `${row.grandTotal.toFixed(2)} ${row.currency}`,
+                          },
+                        ]}
+                      />
+                    </>
+                  ),
+                },
+                {
+                  value: "receipts",
+                  label: "Receipts",
+                  count: relatedReceipts.length,
+                  content: relatedReceipts.length ? (
+                    <ItemGroup>
+                      {relatedReceipts.map((r) => (
+                        <Item key={r.id} variant="outline">
+                          <ItemContent>
+                            <ItemTitle>
+                              <Link
+                                className="underline"
+                                href={`/${org}/procurement/receipts/${r.id}`}
+                              >
+                                {r.code}
+                              </Link>{" "}
+                              · {r.status}
+                            </ItemTitle>
+                          </ItemContent>
+                        </Item>
+                      ))}
+                    </ItemGroup>
+                  ) : (
+                    <EmptyState title="No receipts yet." />
+                  ),
+                },
+                {
+                  value: "attachments",
+                  label: "Attachments",
+                  count: attachments.length,
+                  content: (
+                    <>
+                      {attachments.length ? (
+                        <ItemGroup>
+                          {attachments.map((a) => (
+                            <Item key={a.id} variant="outline">
+                              <ItemContent>
+                                <ItemTitle>
+                                  <a
+                                    className="underline"
+                                    href={`/api/attachments/${a.id}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    {a.filename}
+                                  </a>
+                                </ItemTitle>
+                              </ItemContent>
+                            </Item>
+                          ))}
+                        </ItemGroup>
+                      ) : (
+                        <EmptyState title="No attachments yet." />
+                      )}
+                      {canEdit && (
+                        <div className="print:hidden">
+                          <ActionForm
+                            action={attachProformaAction.bind(null, org)}
+                            submit="Attach proforma"
+                          >
+                            <input type="hidden" name="id" value={row.id} />
+                            <Field>
+                              <FieldLabel htmlFor="proforma-file">
+                                Proforma (PDF / image, max 900 KB)
+                              </FieldLabel>
+                              <Input
+                                id="proforma-file"
+                                name="file"
+                                type="file"
+                                accept="application/pdf,image/png,image/jpeg"
+                                required
+                              />
+                            </Field>
+                          </ActionForm>
+                        </div>
+                      )}
+                    </>
+                  ),
+                },
+              ]
+            : []),
+          {
+            value: "approvals",
+            label: "Approvals",
+            content: (
+              <ApprovalTimeline
+                org={org}
+                approvals={approvals}
+                variant="procurement"
+              />
+            ),
+          },
+        ]}
+      />
+      {inputs && (
+        <FormCard title="Edit draft">
+          <ProcurementForm
+            org={org}
+            kind={kind}
+            data={inputs}
+            id={row.id}
+            projectId={row.projectId}
+            initial={initial}
+            initialLines={initialLines}
+          />
         </FormCard>
       )}
-      {inputs && (
-        <div className="space-y-6 print:hidden">
-          <FormCard title="Edit draft">
-            <ProcurementForm
-              org={org}
-              kind={kind}
-              data={inputs}
-              id={row.id}
-              projectId={row.projectId}
-              initial={initial}
-              initialLines={initialLines}
-            />
-          </FormCard>
-          <SubmitProcurementForm org={org} kind={kind} id={row.id} />
-        </div>
-      )}
-      <ApprovalTimeline org={org} approvals={approvals} variant="procurement" />
-    </div>
+    </>
   );
 }

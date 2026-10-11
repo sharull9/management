@@ -1,6 +1,17 @@
+import { MapPin } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
-import { FormCard } from "@/components/shared/form-card";
-import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { CreateSheet, SideSheet } from "@/components/shared/overlay/side-sheet";
+import { SectionHeader } from "@/components/shared/section-header";
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item";
+import { Separator } from "@/components/ui/separator";
 import { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 
@@ -78,20 +89,52 @@ export async function ProjectSitesView({
   ];
   return (
     <>
-      <h2 className="text-lg font-medium">Sites</h2>
-      <ItemGroup>
+      <SectionHeader
+        title="Sites"
+        description="Physical locations where work on this project happens."
+        actions={
+          manage && (
+            <CreateSheet label="New site">
+              <SiteForm
+                org={org}
+                projectId={projectId}
+                countries={countriesOptions}
+                states={statesOptions}
+                cities={citiesOptions}
+              />
+            </CreateSheet>
+          )
+        }
+      />
+      <ItemGroup className="gap-2">
         {sites.map((s) => (
-          <Item key={s.id} variant="outline">
+          <Item key={s.id} variant="outline" className="bg-card">
+            <ItemMedia className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+              <MapPin className="size-4" />
+            </ItemMedia>
             <ItemContent>
               <ItemTitle>{s.name}</ItemTitle>
-              <p className="mb-4 text-sm">
-                {s.address} · {s.city?.name} · {s.state?.name} ·{" "}
-                {s.country?.name} · {s.pincode}
-              </p>
-              {manage && (
-                <details>
-                  <summary className="cursor-pointer">Edit site</summary>
-                  <div className="space-y-4 pt-4">
+              <ItemDescription>
+                {[
+                  s.address,
+                  s.city?.name,
+                  s.state?.name,
+                  s.country?.name,
+                  s.pincode,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </ItemDescription>
+            </ItemContent>
+            {manage && (
+              <ItemActions>
+                <SideSheet
+                  title={`Edit ${s.name}`}
+                  trigger="Edit"
+                  triggerVariant="outline"
+                  triggerSize="sm"
+                >
+                  <div className="space-y-6">
                     <SiteForm
                       org={org}
                       projectId={projectId}
@@ -110,26 +153,16 @@ export async function ProjectSitesView({
                       states={statesOptions}
                       cities={citiesOptions}
                     />
+                    <Separator />
                     <DeleteSiteForm org={org} projectId={projectId} id={s.id} />
                   </div>
-                </details>
-              )}
-            </ItemContent>
+                </SideSheet>
+              </ItemActions>
+            )}
           </Item>
         ))}
       </ItemGroup>
       {!sites.length && <EmptyState title="No sites yet." />}
-      {manage && (
-        <FormCard title="Create site">
-          <SiteForm
-            org={org}
-            projectId={projectId}
-            countries={countriesOptions}
-            states={statesOptions}
-            cities={citiesOptions}
-          />
-        </FormCard>
-      )}
     </>
   );
 }

@@ -8,6 +8,7 @@ import {
 export function PaymentChoice<T extends FieldValues>({
   options,
   loadOptions,
+  queryKey,
   clearable,
   placeholder,
   onChange,
@@ -15,6 +16,7 @@ export function PaymentChoice<T extends FieldValues>({
 }: FormFieldProps<T> & {
   options: Option[];
   loadOptions?: (query: string) => Promise<Option[]>;
+  queryKey?: readonly unknown[];
   clearable?: boolean;
   placeholder?: string;
   onChange?: (value: string | null) => void;
@@ -28,6 +30,7 @@ export function PaymentChoice<T extends FieldValues>({
           onBlur={field.onBlur}
           options={options}
           loadOptions={loadOptions}
+          queryKey={queryKey}
           clearable={clearable}
           placeholder={placeholder}
           value={field.value || null}

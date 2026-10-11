@@ -1,17 +1,22 @@
+import { ArrowLeft, Banknote, Pencil } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ApprovalTimeline } from "@/components/shared/approval-timeline";
+import { DetailList } from "@/components/shared/detail-list";
 import { EmptyState } from "@/components/shared/empty-state";
-import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
+import { SectionHeader } from "@/components/shared/section-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { UrlTabs } from "@/components/shared/url-tabs";
+import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemGroup } from "@/components/ui/item";
 import { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
+import { formatMoney } from "@/core/format";
 import { financeData } from "../../server/queries";
-import { SubmitRequestForm } from "../components/payment-actions-form";
-import { RequestForm } from "../components/request-form";
+import { RequestSubmitButton } from "../components/request-submit-button";
+import { date, linkClass, money } from "../util";
 
-import { date, formData, linkClass, money } from "../util";
 export async function RequestDetail({ org, id }: { org: string; id: string }) {
   const d = await financeData(org),
     row = d.requests.find((r) => r.id === id);
@@ -35,92 +40,141 @@ export async function RequestDetail({ org, id }: { org: string; id: string }) {
       permissionCtx.permissions.has("payment.request.create"),
     canPay =
       permissionCtx.isAdmin || permissionCtx.permissions.has("payment.record");
+  const draft = row.status === "DRAFT" && canEdit;
+  const project =
+    d.projects.find((p) => p.id === row.projectId)?.name ?? "Organization";
+  const amount = formatMoney(money(row.amount), row.currency);
   return (
     <div className="space-y-6">
-      <PageHeading
-        title={row.code}
-        description={`${row.party.displayName} · ${row.status} · ${row.currency} ${money(row.amount)}`}
-      />
-      <FormCard title="Request">
-        <dl className="grid gap-3 text-sm md:grid-cols-2">
-          <div>Date: {date(row.date)}</div>
-          <div>Purpose: {row.purpose}</div>
-          <div>Mode: {row.mode}</div>
-          <div>
-            Project:{" "}
-            {d.projects.find((p) => p.id === row.projectId)?.name ??
-              "Organization"}
-          </div>
-        </dl>
-        <p className="mt-4 whitespace-pre-wrap text-sm">{row.reason}</p>
-        <ItemGroup className="mt-4">
-          {row.bills.map((b) => (
-            <Item key={b.id} variant="outline">
-              <ItemContent>
-                <Link href={`/${org}/procurement/bills/${b.billId}`}>
-                  {d.bills.find((r) => r.id === b.billId)?.code ?? b.billId}
-                </Link>{" "}
-                · {money(b.amount)}
-              </ItemContent>
-            </Item>
-          ))}
-        </ItemGroup>
-      </FormCard>
-      {row.status === "DRAFT" && canEdit && (
-        <>
-          <FormCard title="Edit draft">
-            <RequestForm
-              org={org}
-              data={formData(d)}
-              draft={{
-                id: row.id,
-                partyId: row.partyId,
-                projectId: row.projectId,
-                date: date(row.date),
-                amount: money(row.amount),
-                mode: row.mode,
-                purpose: row.purpose,
-                reason: row.reason,
-                allocations: row.bills.map((b) => ({
-                  documentId: b.billId,
-                  amount: money(b.amount),
-                  code:
-                    d.bills.find((bill) => bill.id === b.billId)?.code ??
-                    b.billId,
-                })),
-              }}
-            />
-          </FormCard>
-          <SubmitRequestForm org={org} id={id} />
-        </>
-      )}
-      {row.status === "APPROVED" && canPay && (
+      <div className="space-y-3">
         <Link
-          className={linkClass}
-          href={`/${org}/finance/payments/new?requestId=${id}`}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          href={`/${org}/finance/payment-requests`}
         >
-          Record payment against request
+          <ArrowLeft className="size-4" />
+          All payment requests
         </Link>
-      )}
-      <FormCard title="Payments">
-        <ItemGroup>
-          {row.payments.map((p) => (
-            <Item key={p.id} variant="outline">
-              <ItemContent>
-                <Link
-                  className={linkClass}
-                  href={`/${org}/finance/payments/${p.id}`}
-                >
-                  {p.code}
-                </Link>{" "}
-                · {money(p.amount)}
-              </ItemContent>
-            </Item>
-          ))}
-        </ItemGroup>
-        {!row.payments.length && <EmptyState title="No posted payments." />}
-      </FormCard>
-      <ApprovalTimeline org={org} approvals={approvals} variant="payment" />
+        <PageHeading
+          eyebrow="Payment request"
+          title={row.code}
+          description={`${row.party.displayName} · ${project} · ${amount}`}
+          actions={
+            <>
+              <StatusBadge status={row.status} />
+              {draft && (
+                <Button asChild variant="outline">
+                  <Link href={`/${org}/finance/payment-requests/${id}/edit`}>
+                    <Pencil data-icon="inline-start" />
+                    Edit
+                  </Link>
+                </Button>
+              )}
+              {draft && (
+                <RequestSubmitButton org={org} id={id} code={row.code} />
+              )}
+              {row.status === "APPROVED" && canPay && (
+                <Button asChild>
+                  <Link href={`/${org}/finance/payments/new?requestId=${id}`}>
+                    <Banknote data-icon="inline-start" />
+                    Record payment
+                  </Link>
+                </Button>
+              )}
+            </>
+          }
+        />
+      </div>
+      <section className="space-y-3">
+        <SectionHeader title="Overview" />
+        <DetailList
+          className="max-w-2xl"
+          items={[
+            { label: "Party", value: row.party.displayName },
+            { label: "Project", value: project },
+            { label: "Requested", value: date(row.date) },
+            { label: "Purpose", value: row.purpose.replaceAll("_", " ") },
+            { label: "Mode", value: row.mode },
+            { label: "Amount", value: amount },
+            {
+              label: "Reason",
+              value: row.reason ? (
+                <span className="whitespace-pre-wrap">{row.reason}</span>
+              ) : null,
+            },
+          ]}
+        />
+      </section>
+      <UrlTabs
+        tabs={[
+          {
+            value: "documents",
+            label: "Linked bills",
+            count: row.bills.length,
+            content: row.bills.length ? (
+              <ItemGroup>
+                {row.bills.map((b) => (
+                  <Item key={b.id} variant="outline">
+                    <ItemContent>
+                      <span>
+                        <Link
+                          className={linkClass}
+                          href={`/${org}/procurement/bills/${b.billId}`}
+                        >
+                          {d.bills.find((r) => r.id === b.billId)?.code ??
+                            b.billId}
+                        </Link>{" "}
+                        · {money(b.amount)}
+                      </span>
+                    </ItemContent>
+                  </Item>
+                ))}
+              </ItemGroup>
+            ) : (
+              <EmptyState title="No linked bills." />
+            ),
+          },
+          {
+            value: "payments",
+            label: "Payments",
+            count: row.payments.length,
+            content: row.payments.length ? (
+              <ItemGroup>
+                {row.payments.map((p) => (
+                  <Item key={p.id} variant="outline">
+                    <ItemContent>
+                      <span>
+                        <Link
+                          className={linkClass}
+                          href={`/${org}/finance/payments/${p.id}`}
+                        >
+                          {p.code}
+                        </Link>{" "}
+                        · {money(p.amount)}
+                      </span>
+                    </ItemContent>
+                  </Item>
+                ))}
+              </ItemGroup>
+            ) : (
+              <EmptyState title="No posted payments." />
+            ),
+          },
+          {
+            value: "approvals",
+            label: "Approvals",
+            count: approvals.length,
+            content: approvals.length ? (
+              <ApprovalTimeline
+                org={org}
+                approvals={approvals}
+                variant="payment"
+              />
+            ) : (
+              <EmptyState title="Not submitted for approval." />
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

@@ -76,6 +76,7 @@ export function ExpenseForm({
           label="Expense stage"
           options={stages}
           loadOptions={loadStages}
+          queryKey={["cost-stages", org, projectId]}
           clearable
         />
         <ComboboxField
@@ -84,6 +85,7 @@ export function ExpenseForm({
           label="Expense task"
           options={tasks}
           loadOptions={loadTasks}
+          queryKey={["expense-tasks", org, projectId]}
           clearable
         />
         <ComboboxField
@@ -92,6 +94,7 @@ export function ExpenseForm({
           label="Expense party"
           options={parties}
           loadOptions={loadParties}
+          queryKey={["expense-parties", org, projectId]}
           clearable
         />
       </div>

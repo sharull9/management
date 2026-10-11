@@ -78,6 +78,7 @@ export function TaskAssignmentForm({
         label="Project workers"
         options={workers}
         loadOptions={loadWorkers}
+        queryKey={["task-workers", org, projectId]}
       />
       <div className="grid gap-4 sm:grid-cols-2">
         <DateField

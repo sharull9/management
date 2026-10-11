@@ -1,51 +1,59 @@
 "use client";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Combobox, type Option } from "@/components/shared/combobox/combobox";
-import { Field, FieldLabel } from "@/components/ui/field";
+import { useMemo } from "react";
+import type { Option } from "@/components/shared/combobox/combobox";
+import {
+  FilterBar,
+  FilterMultiSelect,
+  FilterSelect,
+} from "@/components/shared/filter-bar/filter-bar";
+import { findProjects } from "../../server/picker-actions";
+
+type FinanceFilterField = {
+  name: string;
+  label: string;
+  options: Option[];
+  clearable?: boolean;
+  fallback?: string;
+  /** Allow picking several values (comma-separated URL param). */
+  multiple?: boolean;
+};
+
 export function FinanceFilters({
-  fields,
+  org,
+  permission = "payment.view",
+  projects,
+  fields = [],
 }: {
-  fields: {
-    name: string;
-    label: string;
-    value: string | null;
-    options: Option[];
-    placeholder?: string;
-    clearable?: boolean;
-    loadOptions?: (query: string) => Promise<Option[]>;
-  }[];
+  org: string;
+  permission?: string;
+  /** Initial project options; more load on search. */
+  projects: { id: string; name: string }[];
+  fields?: FinanceFilterField[];
 }) {
-  const router = useRouter(),
-    pathname = usePathname(),
-    params = useSearchParams();
+  const loadProjects = useMemo(
+    () => findProjects.bind(null, org, permission),
+    [org, permission],
+  );
   return (
-    <form
-      className="flex max-w-xl flex-wrap gap-3"
-      onSubmit={(e) => e.preventDefault()}
-    >
-      {fields.map((field) => (
-        <Field key={field.name} className="min-w-44 flex-1">
-          <FieldLabel htmlFor={`filter-${field.name}`}>
-            {field.label}
-          </FieldLabel>
-          <Combobox
-            id={`filter-${field.name}`}
-            options={field.options}
-            value={field.value}
-            clearable={field.clearable}
-            placeholder={field.placeholder}
-            loadOptions={field.loadOptions}
-            onChange={(value) => {
-              const next = new URLSearchParams(params.toString());
-              if (value) next.set(field.name, value);
-              else next.delete(field.name);
-              router.replace(`${pathname}${next.size ? `?${next}` : ""}`, {
-                scroll: false,
-              });
-            }}
+    <FilterBar>
+      {fields.map(({ multiple, clearable, fallback, ...field }) =>
+        multiple ? (
+          <FilterMultiSelect key={field.name} {...field} />
+        ) : (
+          <FilterSelect
+            key={field.name}
+            clearable={clearable}
+            fallback={fallback}
+            {...field}
           />
-        </Field>
-      ))}
-    </form>
+        ),
+      )}
+      <FilterSelect
+        name="projectId"
+        label="Project"
+        options={projects.map((p) => ({ value: p.id, label: p.name }))}
+        loadOptions={loadProjects}
+      />
+    </FilterBar>
   );
 }

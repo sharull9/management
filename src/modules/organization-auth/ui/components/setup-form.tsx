@@ -12,6 +12,7 @@ export function SetupForm() {
       form={form}
       action={setupAction}
       submit="Create administrator"
+      submitClassName="w-full self-stretch"
     >
       <TextField
         control={form.control}

@@ -19,6 +19,8 @@ export function DataTableColumnHeader<TData, TValue>({
       type="button"
       variant="ghost"
       size="sm"
+      className="-ml-2.5 h-7 text-xs font-medium text-muted-foreground data-[sorted=true]:text-foreground"
+      data-sorted={!!sorted}
       onClick={column.getToggleSortingHandler()}
       aria-label={`${title}: ${sorted === "asc" ? "ascending" : sorted === "desc" ? "descending" : "unsorted"}. Change sorting`}
     >
