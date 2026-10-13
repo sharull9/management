@@ -59,3 +59,35 @@ Rounding is half away from zero (`Decimal.ROUND_HALF_UP`), so negative amounts m
 - `vendorDefaultCurrency` (procurement) and `partyDefaultCurrency` (payment) are near-duplicates; left in their modules.
 - Realised FX is stored but not posted anywhere yet (Phase 5).
 - `docs/PHASE3B_COST_RECOGNITION.md` is CRLF and some older migration/doc files have mixed line endings; no `.gitattributes` was added because renormalising would rewrite an applied migration.
+
+## Runtime verification
+
+Browser (Playwright) plus DB checks against a local `prisma dev` database and the dev server, owner/PM/accountant demo logins. D1 = 2026-10-05, D2 = 2026-10-08, D3 = 2026-10-12, today 2026-10-13. Base INR, project P-USD in USD (ON_RECEIPT).
+
+| Step | Result | Numbers |
+| --- | --- | --- |
+| 1 Currencies and rates | Pass | USD and EUR enabled; adding KWD is rejected ("KWD uses 3 decimal places; amounts are stored to 2 decimals, so it is not supported yet."). Rates USD 83 (D1), USD 85 (D3), EUR 90 (D1); latest-rate summary shows `1 USD = 85.0000000000 INR, as of 2026-10-12`. Changing the base currency to EUR is blocked ("... 159 cost entries, 17 stock movements, 40 non-draft financial documents, 3 exchange rates ..."). |
+| 2 Parties and project | Pass | Vendor and customer default USD. P-USD currency USD; changing it to EUR is rejected once it has 3 cost entries. |
+| 3 PO | Pass | Defaults USD / 83 (editable). 10 x 100 USD = 1,000 USD, base 83,000. Submitted and approved. |
+| 4 GRN | Pass | Rate override 84 at D2. Stock movement 84,000 INR (unit cost 8,400). ON_RECEIPT cost: original USD 1,000, rate 84, base 84,000, project amount 1,000.00, project rate 84. Because the original currency is the project currency, `amount` equals `originalAmount` exactly; the "base / D2 USD rate" figure (84,000 / 83 = 1,012.05) applies only to non-USD originals. |
+| 5 Bill | Pass | D3, 10 x 100 USD at 85: base grand total and payable 85,000. Line variance +1,000 INR; BILL_VARIANCE cost original 1,000 INR, base 1,000, project amount 11.76 USD (1,000 / 85). Approved by PM then accounts. |
+| 6 Payments | Pass | USD 1,000 at 85 allocated to the bill: fxDifference 0.00 (base 85,000 vs 85,000). A second USD bill at 83 (base 83,000) paid at 85: base 85,000, documentBaseAmount 83,000, fxDifference +2,000 shown as "Loss INR 2000.00". Voiding the payment shows "FX reversed", Realised FX None and the bill balance returns to USD 1,000 (party net -1,000 USD, base -83,000). The allocation picker offers only same-currency documents; an INR/JPY payment lists no USD bill. The server-side same-currency check is unit tested (`assertSameCurrency`). |
+| 7 EUR expense | Pass | EUR 100 at 90 on the USD project: base 9,000, project amount 105.88 (9,000 / 85), project rate 85. Cost ledger shows original EUR 100.00 and project amount USD 105.88. Overview: Spent USD 1,117.64 and INR 94,000 in base (84,000 + 1,000 + 9,000). Budget page is in USD. The organization dashboard sums base INR and lists P-USD in USD. |
+| 8 Sales | Pass | USD invoice 4 x 150 + 5% tax = 630 USD, base 53,550 at 85. SALE_OUT is -4 at unit cost 8,400 = -33,600 INR (moving average, base). USD receipt 630 at 87: base 54,810, documentBaseAmount 53,550, fxDifference +1,260 shown as "Gain INR 1260.00"; invoice PAID. |
+| 9 Balances and statements | Pass | Balances show each party in its own currency with base columns (Dollar Supplies: payable USD 1,000, net base -83,000). Statements are per currency with a base running balance; the currency selector lists only currencies with activity (USD for both test parties, so switching currencies was not exercised). Aging shows base open amount with document-currency buckets. |
+| 10 Approval threshold | Pass | PO policy step "Owner approval above 2,00,000" (base). PO-0005 (USD 1,000 = 83,000 INR) has only the PM step. PO-0006 (30 x 100 USD = 3,000 USD = 249,000 INR) gets the owner step although 3,000 < 200,000 numerically. The request amount is 249,000.00. |
+| 11 Regression | Pass | 19 INR and USD pages (dashboard, projects, materials, attendance, stock, consumption, transfers, requests, POs, GRNs, bills, payments, payment requests, balances, invoices, receipts, parties, policies, approvals) return 200 without error pages. No dev log errors after the run apart from the database outage below. |
+
+### Bugs fixed
+
+- Nested `<a>` hydration error on the vendor bill, payment and payment request lists: `DataTable` already links the first cell, and the cell rendered its own `Link` (introduced in 82184fd). Fixed in 054caa8.
+- 0-decimal currencies: document-currency totals (PO, bill, invoice) and payment, request and allocation amounts now round to the currency's decimals server-side, and base totals convert from the rounded values (652ef63). Runtime: a JPY payment of 1000.50 at 0.55 stores 1,001 JPY, base 550.55 INR. Expenses already rejected excess precision.
+- README documents the optional `DATABASE_POOL_MAX` for local `prisma dev`.
+
+### Notes and not verified
+
+- During the run the `prisma dev` instance stopped accepting connections ("ConnectionClosed" in the app); it was stopped and started again with the same data directory and ports, nothing was lost.
+- Statement currency switching, a party with activity in more than one currency, and EUR/JPY documents beyond the JPY payment were not exercised in the browser. JPY rounding of PO, bill and invoice totals is covered by unit tests only.
+- Server-side rejection of an INR payment allocated to a USD bill was not triggered from the UI because the picker never offers it.
+- Aging buckets for foreign-currency documents are in the document currency while the "Open (base)" column is base; this is labelled but easy to misread.
+- Per-line amounts (line subtotal, tax, total) still use two decimals for 0-decimal currencies; only stored totals are rounded.

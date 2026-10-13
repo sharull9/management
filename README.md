@@ -26,6 +26,10 @@ pnpm db:seed
 pnpm dev
 ```
 
+`prisma dev` (PGlite) can drop connections when several queries run at once. Set the optional
+`DATABASE_POOL_MAX` (for example `2`) in the same shell to cap the app's connection pool;
+leave it unset for a real PostgreSQL server.
+
 Open `http://localhost:3000/setup` to create the first platform administrator.
 Setup closes once any user exists. Sign in, create a tenant and its owner, then sign in
 as that owner to create the first organization. Public sign-up is disabled.
