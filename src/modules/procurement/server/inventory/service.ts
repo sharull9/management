@@ -176,8 +176,6 @@ export async function saveStockTransfer(
     to = await projectScope(tx, ctx, input.toProjectId);
   if (from.id === to.id)
     throw new Error("Choose a different destination project.");
-  if (from.currency !== to.currency)
-    throw new Error("Transfers require projects with the same currency.");
   if (input.id) {
     await lockDocument(tx, "ST", input.id);
     const old = await tx.stockTransfer.findFirstOrThrow({

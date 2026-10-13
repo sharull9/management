@@ -8,6 +8,7 @@ import {
   requireProjectContext,
 } from "@/core/context";
 import { db } from "@/core/db";
+import { listEnabledCurrencies } from "@/modules/currency/server/queries";
 import { pickerItems } from "@/modules/masters/server/queries";
 import { suggestTaxScope } from "@/modules/tax/util";
 import type { DocumentKind } from "./approval";
@@ -90,6 +91,7 @@ export async function procurementData(
     receipts,
     consumptions,
     transfers,
+    currencies,
   ] = await Promise.all([
     pickerItems(tenantId, inventory),
     db.uom.findMany({
@@ -146,6 +148,7 @@ export async function procurementData(
       },
       orderBy: { createdAt: "desc" },
     }),
+    listEnabledCurrencies(tenantId, ctx.org.baseCurrency),
   ]);
   const stock = inventory ? await stockOnHand(ctx, ids) : [];
   return {
@@ -173,6 +176,8 @@ export async function procurementData(
     consumptions,
     transfers,
     stock,
+    baseCurrency: ctx.org.baseCurrency,
+    currencies,
     taxSuggestions: vendors.map((v) => ({
       vendorId: v.id,
       scope: suggestTaxScope(ctx.org.stateId, v.addresses[0]?.stateId ?? null),

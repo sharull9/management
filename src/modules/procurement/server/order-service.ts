@@ -4,9 +4,11 @@ import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
 import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
+import { resolveDocumentFx } from "@/modules/currency/server/rates";
 import { calculateTax, suggestTaxScope } from "@/modules/tax/util";
 import { convertUom } from "@/modules/uom/util";
 import type { orderInput } from "../schema";
+import { assertDocumentCurrency } from "./currency";
 
 import {
   domainAudit,
@@ -22,8 +24,7 @@ export async function savePurchaseOrder(
 ) {
   const project = await projectScope(tx, ctx, input.projectId);
   await siteInProject(tx, input.projectId, input.siteId);
-  if (input.currency !== project.currency)
-    throw new Error("PO currency must match the project currency.");
+  await assertDocumentCurrency(tx, ctx.tenant.id, ctx.org.id, input.currency);
   const vendor = await tx.party.findFirstOrThrow({
     where: { id: input.vendorPartyId, tenantId: ctx.tenant.id, isVendor: true },
     include: { addresses: { where: { isDefault: true }, take: 1 } },
@@ -148,6 +149,15 @@ export async function savePurchaseOrder(
     });
     await tx.purchaseOrderLine.deleteMany({ where: { orderId: input.id } });
   }
+  // Totals are computed in the document currency, then converted once each at
+  // the rate the user confirmed (never from client-supplied base numbers).
+  const fx = await resolveDocumentFx(tx, {
+    organizationId: ctx.org.id,
+    currency: input.currency,
+    date: input.date,
+    override: input.exchangeRate,
+  });
+  const grandTotal = subtotal.add(taxTotal).sub(withholdingTotal);
   const fields = {
     projectId: project.id,
     vendorPartyId: vendor.id,
@@ -156,11 +166,16 @@ export async function savePurchaseOrder(
     paymentTerms: input.paymentTerms,
     paymentDays: input.paymentDays,
     currency: input.currency,
+    exchangeRate: fx.exchangeRate,
     receiptTolerancePercent: input.receiptTolerancePercent,
     subtotal,
     taxTotal,
     withholdingTotal,
-    grandTotal: subtotal.add(taxTotal).sub(withholdingTotal),
+    grandTotal,
+    baseSubtotal: fx.toBase(subtotal),
+    baseTaxTotal: fx.toBase(taxTotal),
+    baseWithholdingTotal: fx.toBase(withholdingTotal),
+    baseGrandTotal: fx.toBase(grandTotal),
   };
   const row = input.id
     ? await tx.purchaseOrder.update({

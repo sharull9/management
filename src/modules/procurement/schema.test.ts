@@ -30,6 +30,7 @@ function fixture(
     paymentTerms: "CREDIT",
     paymentDays: 30,
     currency: "INR",
+    exchangeRate: null,
     receiptTolerancePercent: 2,
     poId: "po",
     receivedDate: "2026-10-11",
@@ -242,4 +243,28 @@ test("client resolver enforces required, linked, disabled variant levels and ite
     procurementFormSchema([]).safeParse(fixture("receipts")).success,
     true,
   );
+});
+
+test("exchange rates must be positive and are optional for dated resolution", () => {
+  const withRate = (exchangeRate: number | null) =>
+    procurementFormInput.safeParse({ ...fixture("orders"), exchangeRate });
+  assert.equal(withRate(null).success, true);
+  assert.equal(withRate(83.5).success, true);
+  assert.equal(withRate(0).success, false);
+  assert.equal(withRate(-1).success, false);
+  const order = orderInput.parse(
+    procurementServiceInput(
+      procurementFormInput.parse({ ...fixture("orders"), exchangeRate: 83.5 }),
+    ),
+  );
+  assert.equal(order.exchangeRate, "83.5");
+  const missing = orderInput.parse(
+    procurementServiceInput(procurementFormInput.parse(fixture("orders"))),
+  );
+  assert.equal(missing.exchangeRate, null);
+  const receipt = receiptInput.safeParse({
+    ...procurementServiceInput(procurementFormInput.parse(fixture("receipts"))),
+    exchangeRate: "0",
+  });
+  assert.equal(receipt.success, false);
 });

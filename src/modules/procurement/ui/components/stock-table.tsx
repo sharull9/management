@@ -14,7 +14,7 @@ export type StockRow = {
   avgCost: string;
   value: string;
 };
-const columns: ColumnDef<StockRow>[] = [
+const columnsFor = (baseCurrency: string): ColumnDef<StockRow>[] => [
   {
     accessorKey: "project",
     header: ({ column }) => (
@@ -40,7 +40,10 @@ const columns: ColumnDef<StockRow>[] = [
     sortingFn: (a, b) =>
       new Decimal(a.original.avgCost).cmp(b.original.avgCost),
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Average cost" />
+      <DataTableColumnHeader
+        column={column}
+        title={`Average cost (${baseCurrency})`}
+      />
     ),
     cell: ({ row }) => new Decimal(row.original.avgCost).toFixed(4),
   },
@@ -48,15 +51,25 @@ const columns: ColumnDef<StockRow>[] = [
     accessorKey: "value",
     sortingFn: (a, b) => new Decimal(a.original.value).cmp(b.original.value),
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Value" />
+      <DataTableColumnHeader
+        column={column}
+        title={`Value (${baseCurrency})`}
+      />
     ),
     cell: ({ row }) => new Decimal(row.original.value).toFixed(2),
   },
 ];
-export function StockTable({ data }: { data: StockRow[] }) {
+export function StockTable({
+  data,
+  baseCurrency,
+}: {
+  data: StockRow[];
+  /** Stock is valued in the organization base currency. */
+  baseCurrency: string;
+}) {
   return (
     <DataTable
-      columns={columns}
+      columns={columnsFor(baseCurrency)}
       data={data}
       getRowId={(r) => r.id}
       searchPlaceholder="Search stock..."

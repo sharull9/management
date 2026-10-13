@@ -13,6 +13,11 @@ export type DocumentRow = {
   status: string;
   date: string;
   total: string | null;
+  /** Document currency; empty for requests and transfers. */
+  currency: string;
+  /** Total in the organization base currency (orders only). */
+  baseTotal: string | null;
+  baseCurrency: string;
   destination: string;
   vendor: string;
   order: string;
@@ -55,6 +60,19 @@ const columns: ColumnDef<DocumentRow>[] = [
         ? ""
         : new Decimal(row.original.total).toFixed(2),
   },
+  { accessorKey: "currency", header: "Currency" },
+  {
+    accessorKey: "baseTotal",
+    sortingFn: (a, b) =>
+      new Decimal(a.original.baseTotal ?? 0).cmp(b.original.baseTotal ?? 0),
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Base total" />
+    ),
+    cell: ({ row }) =>
+      row.original.baseTotal === null
+        ? ""
+        : `${new Decimal(row.original.baseTotal).toFixed(2)} ${row.original.baseCurrency}`,
+  },
   { accessorKey: "destination", header: "Destination" },
 ];
 const vendorColumn: ColumnDef<DocumentRow> = {
@@ -73,6 +91,8 @@ function columnsFor(kind: string) {
       const key = "accessorKey" in column ? column.accessorKey : "";
       if (key === "destination") return kind === "transfers";
       if (key === "total") return kind !== "receipts" && kind !== "transfers";
+      if (key === "currency") return kind === "orders" || kind === "receipts";
+      if (key === "baseTotal") return kind === "orders";
       return true;
     })
     .flatMap((column) =>

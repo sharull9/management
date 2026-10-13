@@ -29,8 +29,9 @@ export async function submitDocument(
   const amount =
     "estimatedTotal" in row
       ? row.estimatedTotal.toString()
-      : "grandTotal" in row
-        ? row.grandTotal.toString()
+      : "baseGrandTotal" in row
+        ? // Approval thresholds are evaluated in the organization base currency.
+          row.baseGrandTotal.toString()
         : undefined;
   const { submitForApproval } = await import(
     "@/modules/approvals/server/service"

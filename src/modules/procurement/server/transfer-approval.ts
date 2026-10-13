@@ -22,12 +22,9 @@ export async function approveTransfer(
   });
   if (
     transfer.toProject.organizationId !== request.organizationId ||
-    transfer.project.organizationId !== request.organizationId ||
-    transfer.project.currency !== transfer.toProject.currency
+    transfer.project.organizationId !== request.organizationId
   )
-    throw new Error(
-      "Transfer projects must belong to the same organization and currency.",
-    );
+    throw new Error("Transfer projects must belong to the same organization.");
   await lockStockProjects(tx, request.organizationId, [
     transfer.projectId,
     transfer.toProjectId,

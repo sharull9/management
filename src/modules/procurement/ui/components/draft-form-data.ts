@@ -28,6 +28,7 @@ export function draftFormValues(row: Row) {
       paymentTerms: row.paymentTerms,
       paymentDays: String(row.paymentDays),
       currency: row.currency,
+      exchangeRate: row.exchangeRate.toString(),
       receiptTolerancePercent: row.receiptTolerancePercent.toString(),
     });
     initialLines = row.lines.map((l) => ({
@@ -44,6 +45,8 @@ export function draftFormValues(row: Row) {
   } else if ("poId" in row) {
     Object.assign(initial, {
       poId: row.poId,
+      currency: row.currency,
+      exchangeRate: row.exchangeRate.toString(),
       siteId: row.siteId ?? "",
       receivedDate: row.receivedDate.toISOString().slice(0, 10),
       challanNumber: row.challanNumber ?? "",
@@ -83,6 +86,7 @@ export function withReceiptOrder(inputs: ProcurementFormData, row: Row) {
     id: row.poId,
     name: row.order.code,
     projectId: row.projectId,
+    currency: row.currency,
     lines: row.lines.map((l) => ({
       id: l.poLineId,
       name: l.poLine.variant.name,

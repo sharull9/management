@@ -83,7 +83,7 @@ export async function InventoryView({
         title="Stock on site"
         description="Materials currently held on site: received and not yet used or transferred out, with their average cost and value."
       />
-      <StockTable data={stockData} />
+      <StockTable data={stockData} baseCurrency={d.baseCurrency} />
     </>
   );
   const usageSection = (
@@ -93,7 +93,7 @@ export async function InventoryView({
         description="Materials taken out of site stock and charged to a stage or task."
         actions={recordUsage}
       />
-      <ConsumptionTable data={usageData} />
+      <ConsumptionTable data={usageData} baseCurrency={d.baseCurrency} />
     </>
   );
 
@@ -106,9 +106,9 @@ export async function InventoryView({
         />
         <FormCard title={kind === "stock" ? "Stock on hand" : "Materials used"}>
           {kind === "stock" ? (
-            <StockTable data={stockData} />
+            <StockTable data={stockData} baseCurrency={d.baseCurrency} />
           ) : (
-            <ConsumptionTable data={usageData} />
+            <ConsumptionTable data={usageData} baseCurrency={d.baseCurrency} />
           )}
         </FormCard>
         {kind === "consumption" && !!writable.length && (

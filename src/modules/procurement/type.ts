@@ -22,10 +22,14 @@ export type DraftLine = {
 };
 export type Choice = { id: string; name: string; projectId?: string };
 export type ProcurementFormData = {
+  /** Organization base currency; stock and valuation are in it. */
+  baseCurrency: string;
+  /** Currencies enabled for documents (base first). */
+  currencies: { code: string; name: string }[];
   projects: { id: string; name: string; currency: string }[];
   items: ProcurementItem[];
   uoms: Choice[];
-  vendors: Choice[];
+  vendors: (Choice & { defaultCurrency: string | null })[];
   groups: { id: string; name: string; scope: string }[];
   sites: Choice[];
   stages: Choice[];
@@ -36,6 +40,7 @@ export type ProcurementFormData = {
     id: string;
     name: string;
     projectId: string;
+    currency: string;
     lines: {
       id: string;
       name: string;

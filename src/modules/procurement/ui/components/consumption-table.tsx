@@ -17,7 +17,7 @@ export type ConsumptionRow = {
   uom: string;
   value: string;
 };
-const columns: ColumnDef<ConsumptionRow>[] = [
+const columnsFor = (baseCurrency: string): ColumnDef<ConsumptionRow>[] => [
   {
     accessorKey: "code",
     header: ({ column }) => (
@@ -47,15 +47,24 @@ const columns: ColumnDef<ConsumptionRow>[] = [
     accessorKey: "value",
     sortingFn: (a, b) => new Decimal(a.original.value).cmp(b.original.value),
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Stock value" />
+      <DataTableColumnHeader
+        column={column}
+        title={`Stock value (${baseCurrency})`}
+      />
     ),
     cell: ({ row }) => new Decimal(row.original.value).toFixed(2),
   },
 ];
-export function ConsumptionTable({ data }: { data: ConsumptionRow[] }) {
+export function ConsumptionTable({
+  data,
+  baseCurrency,
+}: {
+  data: ConsumptionRow[];
+  baseCurrency: string;
+}) {
   return (
     <DataTable
-      columns={columns}
+      columns={columnsFor(baseCurrency)}
       data={data}
       getRowId={(r) => r.id}
       searchPlaceholder="Search consumption..."

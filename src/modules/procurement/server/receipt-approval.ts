@@ -2,9 +2,13 @@ import { Decimal } from "@/core/decimal";
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
 import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
+import { organizationBaseCurrency } from "@/modules/currency/server/rates";
 import { getProjectCostRecognition } from "@/modules/project-cost/server/cost-recognition";
 import { materialCostEffects } from "@/modules/project-cost-policy/util";
-import { movingAverage } from "@/modules/stock-valuation/util";
+import {
+  movingAverage,
+  receiptValuation,
+} from "@/modules/stock-valuation/util";
 import { auditEffect } from "./approval-audit";
 import { assertReceiptQuantity } from "./calculations";
 import {
@@ -38,6 +42,7 @@ export async function approveReceipt(
     },
   });
   await lockStockProjects(tx, request.organizationId, [receipt.projectId]);
+  const base = await organizationBaseCurrency(tx, request.organizationId);
   const sourceMode = await getProjectCostRecognition(tx, receipt.projectId);
   for (const line of receipt.lines) {
     const poLine = await tx.purchaseOrderLine.findFirstOrThrow({
@@ -68,10 +73,17 @@ export async function approveReceipt(
         receipt.projectId,
         poLine.itemVariantId,
       );
-      const posting = movingAverage(balance, {
-        qty,
-        unitCost: new Decimal(poLine.netRate).div(poLine.stockFactor),
+      // Stock is valued in base currency: accepted qty x PO net price x the
+      // GRN's rate, converted once and rounded to base decimals.
+      const valuation = receiptValuation({
+        acceptedQty: line.acceptedQty,
+        netRate: poLine.netRate,
+        stockQty: qty,
+        exchangeRate: receipt.exchangeRate,
+        baseDecimals: base.decimals,
       });
+      // Validates the balance (no negative stock) before posting.
+      movingAverage(balance, { qty, unitCost: valuation.unitCost });
       const movement = await tx.stockMovement.create({
         data: {
           organizationId: request.organizationId,
@@ -80,8 +92,8 @@ export async function approveReceipt(
           date: receipt.receivedDate,
           type: "GRN_IN",
           qty,
-          unitCost: posting.unitCost,
-          totalCost: posting.totalCost,
+          unitCost: valuation.unitCost,
+          totalCost: valuation.baseValue,
           sourceType: "GRN",
           sourceId: line.id,
         },
@@ -94,11 +106,12 @@ export async function approveReceipt(
         movement.id,
         "CREATE",
       );
-      for (const effect of materialCostEffects({
+      const recognise = materialCostEffects({
         event: "GRN",
         sourceMode,
-        value: posting.totalCost,
-      })) {
+        value: valuation.documentValue,
+      }).length;
+      if (recognise) {
         const cost = await tx.costEntry.create({
           data: {
             organizationId: request.organizationId,
@@ -109,7 +122,11 @@ export async function approveReceipt(
               organizationId: request.organizationId,
               projectId: receipt.projectId,
               date: receipt.receivedDate,
-              amount: effect.amount,
+              // Original amount is in the GRN currency; its base amount equals
+              // the stock movement value above.
+              currency: receipt.currency,
+              exchangeRate: receipt.exchangeRate,
+              amount: valuation.documentValue.toString(),
             })),
             description: `${receipt.code}: accepted materials`,
             sourceType: "GRN",

@@ -79,6 +79,10 @@ export async function ProcurementList({
                 : "estimatedTotal" in r
                   ? r.estimatedTotal.toString()
                   : null,
+            currency: "currency" in r ? r.currency : "",
+            baseTotal:
+              "baseGrandTotal" in r ? r.baseGrandTotal.toString() : null,
+            baseCurrency: d.baseCurrency,
             destination: "toProject" in r ? r.toProject.name : "",
             vendor: "vendor" in r ? r.vendor.displayName : "",
             order: "order" in r ? r.order.code : "",

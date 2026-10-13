@@ -4,6 +4,14 @@ import { date, id, quantity, rate } from "@/core/schema";
 import { variantIdentity } from "@/modules/item-variant/util";
 import type { ProcurementItem } from "./type";
 
+/** User-confirmed base-per-document-unit rate; null resolves the dated rate. */
+export const exchangeRateInput = z
+  .string()
+  .trim()
+  .regex(/^\d{1,10}(?:\.\d{1,10})?$/, "Enter a valid exchange rate.")
+  .refine((v) => Number(v) > 0, "Exchange rate must be greater than zero.")
+  .nullable()
+  .default(null);
 export const variantSelection = z.object({
   itemId: id,
   levels: z.array(id.nullable()).max(5).default([]),
@@ -57,6 +65,7 @@ export const orderInput = z.object({
   paymentTerms: z.enum(["CREDIT", "CASH", "ADVANCE"]),
   paymentDays: z.coerce.number().int().min(0).max(3650),
   currency: z.string().regex(/^[A-Z]{3}$/),
+  exchangeRate: exchangeRateInput,
   receiptTolerancePercent: rate.refine((v) => new Decimal(v).lte(100)),
   lines: z.array(orderLine).min(1).max(100),
 });
@@ -66,6 +75,7 @@ export const receiptInput = z.object({
   poId: id,
   siteId: id.nullable(),
   receivedDate: date,
+  exchangeRate: exchangeRateInput,
   challanNumber: z.string().max(100).nullable(),
   vehicleNumber: z.string().max(100).nullable(),
   lines: z.array(receiptLine).min(1).max(100),
@@ -133,6 +143,7 @@ const formObject = z.object({
   paymentTerms: z.enum(["CREDIT", "CASH", "ADVANCE"]),
   paymentDays: z.number(),
   currency: z.string(),
+  exchangeRate: z.number().nullable(),
   receiptTolerancePercent: z.number(),
   poId: id.nullable(),
   receivedDate: z.string(),
@@ -155,6 +166,10 @@ export function procurementServiceInput(input: z.input<typeof formObject>) {
     challanNumber: input.challanNumber?.trim() || null,
     vehicleNumber: input.vehicleNumber?.trim() || null,
     receiptTolerancePercent: String(input.receiptTolerancePercent),
+    exchangeRate:
+      input.exchangeRate === null
+        ? null
+        : new Decimal(input.exchangeRate).toFixed(),
     lines: input.lines.map(({ item, ...line }) => ({
       ...line,
       itemId: item.itemId,

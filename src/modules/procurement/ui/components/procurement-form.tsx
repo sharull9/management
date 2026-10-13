@@ -9,6 +9,8 @@ import { toOptions } from "@/components/shared/form/enum-options";
 import { NumberField } from "@/components/shared/form/number-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
+import { Decimal } from "@/core/decimal";
+import { describeRate } from "@/modules/currency/rate-format";
 import { procurementFormSchema } from "../../schema";
 import { saveProcurementAction } from "../../server/actions";
 import {
@@ -16,6 +18,12 @@ import {
   findProcurementItems,
   findProcurementProjects,
 } from "../../server/picker-actions";
+import {
+  purchaseOrderCurrency,
+  type RateSuggestion,
+  suggestExchangeRate,
+  vendorDefaultCurrency,
+} from "../../server/rate-actions";
 import type { DraftLine, ProcurementFormData } from "../../type";
 import { lineDefaults } from "./form-defaults";
 import { ProcurementLines } from "./procurement-lines";
@@ -57,10 +65,9 @@ export function ProcurementForm({
     paymentDays: Number(initial.paymentDays ?? 0),
     currency:
       initial.currency ??
-      data.projects.find(
-        (p) => p.id === (initialProjectId ?? data.projects[0]?.id),
-      )?.currency ??
-      "INR",
+      data.orders.find((o) => o.id === initial.poId)?.currency ??
+      data.baseCurrency,
+    exchangeRate: initial.exchangeRate ? Number(initial.exchangeRate) : null,
     receiptTolerancePercent: Number(initial.receiptTolerancePercent ?? 0),
     poId: initial.poId || null,
     challanNumber: initial.challanNumber ?? "",
@@ -93,12 +100,7 @@ export function ProcurementForm({
     form.setValue("stageId", null);
     form.setValue("taskId", null);
     form.setValue("lines", [lineDefaults()]);
-    if (!id)
-      form.setValue(
-        "currency",
-        projects.find((p) => p.id === projectId)?.currency ?? "INR",
-      );
-  }, [projectId, form, projects, id]);
+  }, [projectId, form]);
   const loadProjects = useCallback(
     async (query: string) => {
       const loaded = await findProcurementProjects(org, kind, query);
@@ -143,6 +145,105 @@ export function ProcurementForm({
       ),
     [org, kind, projectId],
   );
+  const hasRate = kind === "orders" || kind === "receipts";
+  const currency = useWatch({ control: form.control, name: "currency" });
+  const exchangeRate = useWatch({
+    control: form.control,
+    name: "exchangeRate",
+  });
+  const documentDate = useWatch({
+    control: form.control,
+    name: kind === "receipts" ? "receivedDate" : "date",
+  });
+  const lineValues = useWatch({ control: form.control, name: "lines" });
+  const [rateInfo, setRateInfo] = useState<RateSuggestion | null>(null);
+  // A saved draft keeps its own rate until its currency or date is changed.
+  const keepSavedRate = useRef(!!initial.exchangeRate);
+  const previousVendor = useRef(vendorId);
+  const previousOrder = useRef(poId);
+  useEffect(() => {
+    if (kind !== "orders" || !vendorId || previousVendor.current === vendorId)
+      return;
+    previousVendor.current = vendorId;
+    let stale = false;
+    vendorDefaultCurrency(org, vendorId)
+      .then((code) => {
+        if (!stale && code && data.currencies.some((c) => c.code === code))
+          form.setValue("currency", code, { shouldDirty: true });
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [kind, org, vendorId, form, data.currencies]);
+  useEffect(() => {
+    if (kind !== "receipts" || !poId || previousOrder.current === poId) return;
+    previousOrder.current = poId;
+    let stale = false;
+    const known = data.orders.find((o) => o.id === poId)?.currency;
+    (known ? Promise.resolve(known) : purchaseOrderCurrency(org, poId))
+      .then((code) => {
+        if (!stale && code)
+          form.setValue("currency", code, { shouldDirty: true });
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [kind, org, poId, form, data.orders]);
+  useEffect(() => {
+    if (!hasRate || !currency || !/^\d{4}-\d{2}-\d{2}$/.test(documentDate))
+      return;
+    let stale = false;
+    suggestExchangeRate(org, { currency, date: documentDate })
+      .then((suggestion) => {
+        if (stale) return;
+        setRateInfo(suggestion);
+        if (keepSavedRate.current) {
+          keepSavedRate.current = false;
+          return;
+        }
+        form.setValue(
+          "exchangeRate",
+          suggestion.rate === null ? null : Number(suggestion.rate),
+          { shouldDirty: true },
+        );
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [hasRate, org, currency, documentDate, form]);
+  const isForeign = !!currency && currency !== data.baseCurrency;
+  let orderNet: InstanceType<typeof Decimal> | null = null;
+  if (kind === "orders") {
+    try {
+      orderNet = (lineValues ?? []).reduce(
+        (sum, l) =>
+          sum.add(
+            new Decimal(l.qty || 0)
+              .mul(l.rate || 0)
+              .mul(
+                new Decimal(1).sub(
+                  new Decimal(l.discountPercent || 0).div(100),
+                ),
+              ),
+          ),
+        new Decimal(0),
+      );
+    } catch {
+      orderNet = null;
+    }
+  }
+  const rateDescription = !hasRate
+    ? undefined
+    : !isForeign
+      ? `Base currency (${data.baseCurrency}); the rate is 1.`
+      : rateInfo?.error
+        ? rateInfo.error
+        : rateInfo?.rateDate && exchangeRate
+          ? `${describeRate(currency, data.baseCurrency, String(exchangeRate))}. Latest dated rate: ${rateInfo.rateDate}. Editing overrides it for this document only.`
+          : `Base units (${data.baseCurrency}) per 1 ${currency}.`;
   const scope =
     data.taxSuggestions.find((s) => s.vendorId === vendorId)?.scope ?? "ANY";
   return (
@@ -240,10 +341,23 @@ export function ProcurementForm({
               label="Payment days"
               min={0}
             />
-            <TextField
+            <ComboboxField
               control={form.control}
               name="currency"
               label="Currency"
+              options={data.currencies.map((c) => ({
+                value: c.code,
+                label: `${c.code} | ${c.name}`,
+              }))}
+            />
+            <NumberField
+              control={form.control}
+              name="exchangeRate"
+              label={`Exchange rate (${data.baseCurrency} per ${currency || "unit"})`}
+              description={rateDescription}
+              step="any"
+              min={0}
+              disabled={!isForeign}
             />
             <NumberField
               control={form.control}
@@ -266,6 +380,23 @@ export function ProcurementForm({
               )}
               loadOptions={projectId ? loaders.orders : undefined}
               queryKey={["procurement", "orders", org, kind, projectId]}
+            />
+            <TextField
+              control={form.control}
+              name="currency"
+              label="Currency"
+              description="Inherited from the purchase order."
+              disabled
+              readOnly
+            />
+            <NumberField
+              control={form.control}
+              name="exchangeRate"
+              label={`Exchange rate (${data.baseCurrency} per ${currency || "unit"})`}
+              description={rateDescription}
+              step="any"
+              min={0}
+              disabled={!isForeign}
             />
             <TextField
               control={form.control}
@@ -293,6 +424,22 @@ export function ProcurementForm({
         <p className="text-sm text-muted-foreground">
           Suggested tax scope: {scope}. Choose the applicable group on each
           line.
+          {orderNet && (
+            <>
+              {" "}
+              Net before tax: {orderNet.toFixed(2)} {currency}
+              {isForeign && exchangeRate
+                ? ` ≈ ${orderNet.mul(exchangeRate).toFixed(2)} ${data.baseCurrency}`
+                : ""}
+              .
+            </>
+          )}
+        </p>
+      )}
+      {kind === "receipts" && isForeign && (
+        <p className="text-sm text-muted-foreground">
+          Stock and material cost are valued in {data.baseCurrency} at this
+          receipt's rate.
         </p>
       )}
       <ProcurementLines

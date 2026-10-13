@@ -3,6 +3,7 @@ import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
 import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
+import { resolveDocumentFx } from "@/modules/currency/server/rates";
 import type { receiptInput } from "../schema";
 import { assertReceiptQuantity } from "./calculations";
 
@@ -59,12 +60,19 @@ export async function saveGoodsReceipt(
   }
   if (input.id)
     await tx.goodsReceiptLine.deleteMany({ where: { receiptId: input.id } });
+  // Receipts inherit the PO currency but carry their own rate for the receipt
+  // date, which values the stock movement in base currency.
+  const fx = await resolveDocumentFx(tx, {
+    organizationId: ctx.org.id,
+    currency: order.currency,
+    date: input.receivedDate,
+    override: input.exchangeRate,
+  });
   const fields = {
     projectId: input.projectId,
     poId: order.id,
-    // Receipts inherit the purchase order's currency and rate.
     currency: order.currency,
-    exchangeRate: order.exchangeRate,
+    exchangeRate: fx.exchangeRate,
     siteId: input.siteId,
     receivedDate: input.receivedDate,
     challanNumber: input.challanNumber,

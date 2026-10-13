@@ -11,6 +11,8 @@ export const selectedLevels = (v: {
 }) => [v.level1Id, v.level2Id, v.level3Id, v.level4Id, v.level5Id];
 export function formData(d: Data): ProcurementFormData {
   return {
+    baseCurrency: d.baseCurrency,
+    currencies: d.currencies.map((c) => ({ code: c.code, name: c.name })),
     projects: d.projects.map((p) => ({
       id: p.id,
       name: `${p.code} · ${p.name}`,
@@ -18,7 +20,11 @@ export function formData(d: Data): ProcurementFormData {
     })),
     items: d.items,
     uoms: d.uoms.map((u) => ({ id: u.id, name: `${u.code} · ${u.name}` })),
-    vendors: d.vendors.map((v) => ({ id: v.id, name: v.displayName })),
+    vendors: d.vendors.map((v) => ({
+      id: v.id,
+      name: v.displayName,
+      defaultCurrency: v.defaultCurrency,
+    })),
     groups: d.groups.map((g) => ({ id: g.id, name: g.name, scope: g.scope })),
     sites: d.sites.map((s) => ({
       id: s.id,
@@ -64,6 +70,7 @@ export function formData(d: Data): ProcurementFormData {
         id: o.id,
         name: `${o.code} · ${o.vendor.displayName}`,
         projectId: o.projectId,
+        currency: o.currency,
         lines: o.lines.map((l) => ({
           id: l.id,
           name: l.variant.name,

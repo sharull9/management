@@ -1,4 +1,5 @@
 import { Decimal, type Numeric } from "@/core/decimal";
+import { toBase } from "@/modules/currency/util";
 
 export function movingAverage(
   balance: { qty: Numeric; value: Numeric },
@@ -32,5 +33,35 @@ export function movingAverage(
     avgCost: nextQty.gt(0) ? nextValue.div(nextQty) : new Decimal(0),
     unitCost: unitCost.toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
     totalCost,
+  };
+}
+
+/**
+ * Base-currency value of an accepted goods receipt line.
+ * `netRate` is the PO net unit price in the document currency per PO unit and
+ * `exchangeRate` the GRN's base-per-document rate. The document value is
+ * converted once and rounded at the base currency's decimals, so the stock
+ * movement and the ON_RECEIPT cost entry carry the same base amount.
+ */
+export function receiptValuation(input: {
+  acceptedQty: Numeric;
+  netRate: Numeric;
+  stockQty: Numeric;
+  exchangeRate: Numeric;
+  baseDecimals: number;
+}) {
+  const stockQty = new Decimal(input.stockQty);
+  if (!stockQty.isFinite() || stockQty.lte(0))
+    throw new Error("Receipt stock quantity must be positive.");
+  const documentValue = new Decimal(input.acceptedQty).mul(input.netRate);
+  const baseValue = toBase(
+    documentValue,
+    input.exchangeRate,
+    input.baseDecimals,
+  );
+  return {
+    documentValue,
+    baseValue,
+    unitCost: baseValue.div(stockQty).toDecimalPlaces(8, Decimal.ROUND_HALF_UP),
   };
 }

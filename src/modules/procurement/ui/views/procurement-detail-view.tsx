@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { db } from "@/core/db";
 import { Decimal } from "@/core/decimal";
+import { describeRate } from "@/modules/currency/rate-format";
 import { attachProformaAction } from "../../server/actions";
 import { type DocumentKind, documentKinds } from "../../server/approval";
 import { documentDetail, procurementData } from "../../server/queries";
@@ -129,11 +130,31 @@ export async function ProcurementDetail({
             value: `${row.paymentTerms} ${row.paymentDays} days`,
           },
           { label: "Currency", value: row.currency },
+          ...(row.currency !== ctx.org.baseCurrency
+            ? [
+                {
+                  label: "Exchange rate",
+                  value: describeRate(
+                    row.currency,
+                    ctx.org.baseCurrency,
+                    row.exchangeRate.toString(),
+                  ),
+                },
+              ]
+            : []),
           { label: "Site", value: row.site?.name ?? null },
           {
             label: "Grand total",
             value: `${row.grandTotal.toFixed(2)} ${row.currency}`,
           },
+          ...(row.currency !== ctx.org.baseCurrency
+            ? [
+                {
+                  label: "Base grand total",
+                  value: `${row.baseGrandTotal.toFixed(2)} ${ctx.org.baseCurrency}`,
+                },
+              ]
+            : []),
         ]
       : []),
     ...(isRequest
@@ -157,6 +178,19 @@ export async function ProcurementDetail({
             ),
           },
           { label: "Received on", value: day(row.receivedDate) },
+          { label: "Currency", value: row.currency },
+          ...(row.currency !== ctx.org.baseCurrency
+            ? [
+                {
+                  label: "Exchange rate",
+                  value: describeRate(
+                    row.currency,
+                    ctx.org.baseCurrency,
+                    row.exchangeRate.toString(),
+                  ),
+                },
+              ]
+            : []),
           { label: "Received by", value: row.receivedBy.name },
           { label: "Challan", value: row.challanNumber },
           { label: "Vehicle", value: row.vehicleNumber },
@@ -253,6 +287,26 @@ export async function ProcurementDetail({
                             label: "Grand total",
                             value: `${row.grandTotal.toFixed(2)} ${row.currency}`,
                           },
+                          ...(row.currency !== ctx.org.baseCurrency
+                            ? [
+                                {
+                                  label: `Base subtotal (${ctx.org.baseCurrency})`,
+                                  value: row.baseSubtotal.toFixed(2),
+                                },
+                                {
+                                  label: `Base tax (${ctx.org.baseCurrency})`,
+                                  value: row.baseTaxTotal.toFixed(2),
+                                },
+                                {
+                                  label: `Base withholding (${ctx.org.baseCurrency})`,
+                                  value: row.baseWithholdingTotal.toFixed(2),
+                                },
+                                {
+                                  label: `Base grand total (${ctx.org.baseCurrency})`,
+                                  value: row.baseGrandTotal.toFixed(2),
+                                },
+                              ]
+                            : []),
                         ]}
                       />
                     </>
