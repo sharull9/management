@@ -10,6 +10,7 @@ import {
 import { db } from "@/core/db";
 import { typedAction } from "@/core/typed-action";
 import { assertBaseCurrencyChangeAllowed } from "@/modules/currency/server/base-currency";
+import { assertStorableCurrency } from "@/modules/currency/util";
 
 import { orgInput } from "../schema";
 export async function saveOrganizationAction(
@@ -72,6 +73,7 @@ export async function saveOrganizationAction(
         throw new Error(
           `Currency ${organizationData.baseCurrency} is not available.`,
         );
+      assertStorableCurrency(currency.code, currency.decimals);
       if (orgId) {
         const current = await tx.organization.findUniqueOrThrow({
           where: { id: orgId },

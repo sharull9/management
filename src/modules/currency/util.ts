@@ -3,6 +3,16 @@ import { Decimal, type Numeric } from "@/core/decimal";
 /** Fraction digits stored for exchange rates (Decimal(20,10)). */
 export const RATE_DECIMALS = 10;
 
+/** Money columns are Decimal(18,2); currencies with more minor-unit digits cannot be stored exactly. */
+export const MAX_STORED_DECIMALS = 2;
+
+export function assertStorableCurrency(code: string, decimals: number) {
+  if (decimals > MAX_STORED_DECIMALS)
+    throw new Error(
+      `${code} uses ${decimals} decimal places; amounts are stored to ${MAX_STORED_DECIMALS} decimals, so it is not supported yet.`,
+    );
+}
+
 /** Rounds half away from zero, so negative amounts mirror positive ones. */
 export function roundMoney(value: Numeric, decimals: number) {
   return new Decimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);

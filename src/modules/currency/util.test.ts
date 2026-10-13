@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   assertPositiveRate,
   assertSameCurrency,
+  assertStorableCurrency,
   type CostAmountsInput,
   costAmounts,
   fromBase,
@@ -237,4 +238,10 @@ test("allocation requires matching currencies", () => {
     () => assertSameCurrency("USD", "INR", "Payment PAY-1"),
     /Payment PAY-1 is in USD but the document is in INR/,
   );
+});
+
+test("currencies with more than two decimals are rejected until columns are widened", () => {
+  assert.doesNotThrow(() => assertStorableCurrency("JPY", 0));
+  assert.doesNotThrow(() => assertStorableCurrency("INR", 2));
+  assert.throws(() => assertStorableCurrency("KWD", 3), /KWD uses 3 decimal/);
 });

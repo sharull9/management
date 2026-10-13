@@ -162,3 +162,34 @@ test("resolveRateWithDate returns the source row date; the base has none", async
   assert.equal(base.rate.toString(), "1");
   assert.equal(base.rateDate, null);
 });
+
+test("a negative base-currency variance converts into a foreign project and keeps its sign", async () => {
+  const tx = fakeTx({ project: { code: "USD", decimals: 2 }, rates: usd });
+  const result = await costEntryAmounts(tx, {
+    organizationId: "org",
+    projectId: "p",
+    date: "2026-10-13",
+    amount: "-1000",
+  });
+  assert.equal(result.originalAmount.toString(), "-1000");
+  assert.equal(result.baseAmount.toString(), "-1000");
+  assert.equal(result.amount.toString(), "-11.87");
+  assert.equal(result.projectRate.toString(), "84.25");
+});
+
+test("rounding follows each currency's decimals (0-decimal base, 3-decimal project)", async () => {
+  const tx = fakeTx({
+    base: { code: "JPY", decimals: 0 },
+    project: { code: "KWD", decimals: 3 },
+    rates: [{ currencyCode: "KWD", rateDate: "2026-10-01", rate: "490.5" }],
+  });
+  const result = await costEntryAmounts(tx, {
+    organizationId: "org",
+    projectId: "p",
+    date: "2026-10-13",
+    amount: "-12345",
+  });
+  assert.equal(result.baseAmount.toString(), "-12345");
+  // 12345 / 490.5 = 25.168... KWD, three decimals, sign kept.
+  assert.equal(result.amount.toString(), "-25.168");
+});

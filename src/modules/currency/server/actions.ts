@@ -12,12 +12,14 @@ import {
   exchangeRateInput,
   tenantCurrencyInput,
 } from "../schema";
+import { assertStorableCurrency } from "../util";
 import { assertBaseCurrencyChangeAllowed } from "./base-currency";
 import { assertEnabledCurrency } from "./enabled";
 
 async function activeCurrency(tx: Prisma.TransactionClient, code: string) {
   const currency = await tx.currency.findUnique({ where: { code } });
   if (!currency?.active) throw new Error(`Currency ${code} is not available.`);
+  assertStorableCurrency(code, currency.decimals);
   return currency;
 }
 
