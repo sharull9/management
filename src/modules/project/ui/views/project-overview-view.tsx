@@ -18,7 +18,10 @@ import { db } from "@/core/db";
 import { formatMoney } from "@/core/format";
 import { cn } from "@/lib/utils";
 import { budgetUsage } from "@/modules/project-cost/server/budget-usage";
-import { projectSpent } from "@/modules/project-cost/server/queries";
+import {
+  projectSpent,
+  projectSpentBase,
+} from "@/modules/project-cost/server/queries";
 import { projectUserOptions } from "../../server/queries";
 import { OverviewList } from "../components/overview-list";
 import { ProjectForm } from "../components/project-form";
@@ -36,6 +39,7 @@ export async function ProjectOverviewView({
   const canCost = ctx.isAdmin || ctx.permissions.has("cost.view");
   const [
     spent,
+    spentBase,
     byType,
     byStage,
     stages,
@@ -46,6 +50,9 @@ export async function ProjectOverviewView({
     customers,
   ] = await Promise.all([
     canCost ? projectSpent(projectId) : Promise.resolve("0"),
+    canCost && ctx.project.currency !== ctx.org.baseCurrency
+      ? projectSpentBase(projectId)
+      : Promise.resolve(null),
     canCost
       ? db.costEntry.groupBy({
           by: ["costType"],
@@ -177,7 +184,9 @@ export async function ProjectOverviewView({
                 {
                   label: "Spent",
                   value: formatMoney(spent, currency),
-                  detail: `${usage.percent}% of budget`,
+                  detail: spentBase
+                    ? `${usage.percent}% of budget · ${formatMoney(spentBase, ctx.org.baseCurrency)} in base currency`
+                    : `${usage.percent}% of budget`,
                   href: `${base}/costs`,
                 },
                 {

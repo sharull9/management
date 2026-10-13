@@ -87,7 +87,7 @@ export async function WorkforceView({
     <>
       <PageHeading
         title="Workforce"
-        description="Workers do not log in. Managers record their attendance and work."
+        description="Workers do not log in. Managers record their attendance and work. Pay is costed in the currency of the project a worker is attending."
         actions={
           manage && (
             <CreateSheet label="New worker">

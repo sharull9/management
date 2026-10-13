@@ -83,7 +83,7 @@ export async function ProjectBudgetView({
     <>
       <SectionHeader
         title="Budget"
-        description="Plan spend by cost type and stage, and compare with actuals."
+        description={`Plan spend by cost type and stage, and compare with actuals. All amounts are in ${currency}.`}
         actions={
           manage && (
             <>
@@ -113,7 +113,7 @@ export async function ProjectBudgetView({
       <StatTiles
         stats={[
           {
-            label: "Total budget",
+            label: `Total budget (${currency})`,
             value: formatMoney(ctx.project.budgetAmount, currency),
           },
           {

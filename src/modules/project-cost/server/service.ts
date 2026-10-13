@@ -7,6 +7,7 @@ import { resolveDocumentFx } from "@/modules/currency/server/rates";
 import { lockStockProjects } from "@/modules/procurement/server/inventory/service";
 import { audit, stageInProject } from "@/modules/project/server/action-helpers";
 import type { costRecognitionInput, createExpenseInput } from "../schema";
+import { assertCurrencyPrecision, expenseBaseAmount } from "../util";
 import { validateProjectCostRecognitionChange } from "./cost-recognition";
 
 export async function saveProjectCostRecognition(
@@ -68,19 +69,41 @@ export async function expense(
       await tx.party.findFirstOrThrow({
         where: { id: input.partyId, tenantId: ctx.tenant.id },
       });
+    const { currency, exchangeRate: override, ...fields } = input;
     const fx = await resolveDocumentFx(tx, {
       organizationId: ctx.org.id,
-      currency: ctx.project.currency,
+      currency,
       date: input.date,
+      override,
     });
+    if (currency !== fx.baseCurrency) {
+      const enabled = await tx.tenantCurrency.findFirst({
+        where: {
+          tenantId: ctx.tenant.id,
+          currencyCode: currency,
+          enabled: true,
+        },
+      });
+      if (!enabled)
+        throw new Error(`${currency} is not enabled for this account.`);
+    }
+    const currencyRow = await tx.currency.findUniqueOrThrow({
+      where: { code: currency },
+      select: { decimals: true },
+    });
+    assertCurrencyPrecision(input.amount, currencyRow.decimals, currency);
+    const baseAmount = expenseBaseAmount(
+      input.amount,
+      fx.exchangeRate,
+      fx.baseDecimals,
+    );
     const row = await tx.expense.create({
       data: {
-        ...input,
+        ...fields,
         projectId,
-        date: input.date,
-        currency: ctx.project.currency,
+        currency,
         exchangeRate: fx.exchangeRate,
-        baseAmount: fx.toBase(input.amount),
+        baseAmount,
         createdById: ctx.user.id,
         code: await nextDocumentNumber(ctx.org.id, "EXP", tx),
       },
@@ -94,7 +117,8 @@ export async function expense(
         documentType: "EXPENSE",
         documentId: row.id,
         title: `${row.code}: ${row.description}`,
-        amount: row.amount.toString(),
+        // Approval policy thresholds are in the organization base currency.
+        amount: baseAmount.toString(),
         projectId,
         stageId: row.stageId,
       },

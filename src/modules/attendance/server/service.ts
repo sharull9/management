@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
+import { resolveProjectRate } from "@/modules/currency/server/rates";
 import { audit } from "@/modules/project/server/action-helpers";
 import type { attendanceInput } from "../schema";
 import { attendanceCost } from "./costing";
@@ -19,6 +20,17 @@ export async function attendance(
     throw new Error("Duplicate worker rows.");
   await db.$transaction(
     async (tx) => {
+      if (rows.some((r) => !r.remove)) {
+        // Labour is costed in the project currency; its base value needs that
+        // currency's rate on the attendance date. Fail once, before any write.
+        try {
+          await resolveProjectRate(tx, ctx.org.id, projectId, day);
+        } catch (error) {
+          throw new Error(
+            `Cannot record attendance costs for ${day.toISOString().slice(0, 10)}. ${error instanceof Error ? error.message : "Exchange rate unavailable."}`,
+          );
+        }
+      }
       for (const row of rows) {
         await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${projectId + row.workerId + day.toISOString()}))::text`;
         const key = { workerId: row.workerId, date: day, projectId };

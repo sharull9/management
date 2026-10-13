@@ -13,6 +13,7 @@ import { formatMoney } from "@/core/format";
 import { Prisma } from "@/generated/prisma/client";
 import { listPendingForUser } from "@/modules/approvals/server/service";
 import { budgetUsage } from "@/modules/project-cost/server/budget-usage";
+import { summariseSpend } from "../../util";
 import {
   DashboardProjectsTable,
   OverdueTasksTable,
@@ -44,7 +45,11 @@ export async function DashboardView({ org }: { org: string }) {
         project: costAccess,
         date: { gte: monthStart, lte: today },
       },
-      select: { amount: true, project: { select: { currency: true } } },
+      select: {
+        amount: true,
+        baseAmount: true,
+        project: { select: { currency: true } },
+      },
     }),
     listPendingForUser(org),
     db.task.findMany({
@@ -63,16 +68,21 @@ export async function DashboardView({ org }: { org: string }) {
     ctx.permissions.has("cost.view") ||
     projects.some((p) => canViewProjectCost(ctx, p)) ||
     month.length > 0;
-  const monthTotals = new Map<string, Prisma.Decimal>();
-  for (const entry of month)
-    monthTotals.set(
-      entry.project.currency,
-      (monthTotals.get(entry.project.currency) ?? new Prisma.Decimal(0)).add(
-        entry.amount,
-      ),
-    );
-  if (!monthTotals.size)
-    monthTotals.set(ctx.org.baseCurrency, new Prisma.Decimal(0));
+  const spend = summariseSpend(
+    month.map((e) => ({
+      amount: e.amount,
+      baseAmount: e.baseAmount,
+      projectCurrency: e.project.currency,
+    })),
+  );
+  const monthLabel = today.toLocaleString("en-IN", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const foreign = [...spend.byCurrency].filter(
+    ([currency]) => currency !== ctx.org.baseCurrency,
+  );
   const stats: StatTile[] = [
     {
       label: "Active projects",
@@ -97,14 +107,10 @@ export async function DashboardView({ org }: { org: string }) {
   if (showCost)
     stats.push({
       label: "Spent this month",
-      value: Array.from(monthTotals, ([currency, total]) =>
-        formatMoney(total, currency),
-      ).join(" · "),
-      detail: today.toLocaleString("en-IN", {
-        month: "long",
-        year: "numeric",
-        timeZone: "UTC",
-      }),
+      value: formatMoney(spend.base, ctx.org.baseCurrency),
+      detail: foreign.length
+        ? `${monthLabel} · ${foreign.map(([c, t]) => formatMoney(t, c)).join(" · ")} in project currency`
+        : `${monthLabel} · ${ctx.org.baseCurrency}`,
       icon: Wallet,
     });
   return (
@@ -126,7 +132,7 @@ export async function DashboardView({ org }: { org: string }) {
             const usage = budgetUsage(p.budgetAmount, spent);
             return {
               id: p.id,
-              project: `${p.code} · ${p.name}`,
+              project: `${p.code} Â· ${p.name}`,
               budget: projectCost
                 ? formatMoney(p.budgetAmount, p.currency)
                 : "—",
@@ -143,7 +149,7 @@ export async function DashboardView({ org }: { org: string }) {
             id: t.id,
             projectId: t.projectId,
             project: t.project.name,
-            task: `${t.code} · ${t.title}`,
+            task: `${t.code} Â· ${t.title}`,
             due: t.dueDate?.toISOString().slice(0, 10) ?? "",
           }))}
         />

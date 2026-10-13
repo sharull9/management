@@ -63,7 +63,7 @@ export function WorkerForm({
         <TextField
           control={form.control}
           name="salaryAmount"
-          label="Salary / daily / hourly pay"
+          label="Salary / daily / hourly pay (project currency)"
           inputMode="decimal"
         />
         <TextField

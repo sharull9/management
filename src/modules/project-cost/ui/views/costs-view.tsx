@@ -11,6 +11,7 @@ import { db } from "@/core/db";
 import { formatMoney } from "@/core/format";
 import { Prisma } from "@/generated/prisma/client";
 import { CostType } from "@/generated/prisma/enums";
+import { listEnabledCurrencies } from "@/modules/currency/server/queries";
 import { readDate } from "@/modules/project/server/queries";
 import { CostFilters } from "../components/cost-filters";
 import { CostLedgerTable, ExpensesTable } from "../components/cost-tables";
@@ -38,46 +39,71 @@ export async function CostsView({
       Object.values(CostType).includes(value as CostType),
   );
   const stageIds = parseMultiParam(filters.stageId);
-  const [ledger, stages, tasks, parties, expenses] = await Promise.all([
-    canCost
-      ? db.costEntry.findMany({
-          where: {
-            projectId,
-            ...(costTypes.length ? { costType: { in: costTypes } } : {}),
-            ...(stageIds.length ? { stageId: { in: stageIds } } : {}),
-            date: {
-              ...(filters.from
-                ? { gte: readDate(filters.from, new Date("1900-01-01")) }
-                : {}),
-              ...(filters.to
-                ? { lte: readDate(filters.to, new Date("2100-01-01")) }
-                : {}),
+  const [ledger, stages, tasks, parties, expenses, enabled] = await Promise.all(
+    [
+      canCost
+        ? db.costEntry.findMany({
+            where: {
+              projectId,
+              ...(costTypes.length ? { costType: { in: costTypes } } : {}),
+              ...(stageIds.length ? { stageId: { in: stageIds } } : {}),
+              date: {
+                ...(filters.from
+                  ? { gte: readDate(filters.from, new Date("1900-01-01")) }
+                  : {}),
+                ...(filters.to
+                  ? { lte: readDate(filters.to, new Date("2100-01-01")) }
+                  : {}),
+              },
             },
-          },
-          include: { stage: true, task: true },
-          orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-        })
-      : Promise.resolve([]),
-    db.stage.findMany({ where: { projectId } }),
-    db.task.findMany({
-      where: { projectId },
-      take: 50,
-      orderBy: { title: "asc" },
-    }),
-    db.party.findMany({
-      where: { tenantId: ctx.tenant.id },
-      take: 50,
-      orderBy: { displayName: "asc" },
-    }),
-    db.expense.findMany({
-      where: { projectId, ...(canCost ? {} : { createdById: ctx.user.id }) },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
+            include: { stage: true, task: true },
+            orderBy: [{ date: "desc" }, { createdAt: "desc" }],
+          })
+        : Promise.resolve([]),
+      db.stage.findMany({ where: { projectId } }),
+      db.task.findMany({
+        where: { projectId },
+        take: 50,
+        orderBy: { title: "asc" },
+      }),
+      db.party.findMany({
+        where: { tenantId: ctx.tenant.id },
+        take: 50,
+        orderBy: { displayName: "asc" },
+      }),
+      db.expense.findMany({
+        where: { projectId, ...(canCost ? {} : { createdById: ctx.user.id }) },
+        orderBy: { createdAt: "desc" },
+      }),
+      listEnabledCurrencies(ctx.tenant.id, ctx.org.baseCurrency),
+    ],
+  );
+  const projectCurrency = ctx.project.currency;
+  const baseCurrency = ctx.org.baseCurrency;
+  const currencyOptions = [
+    ...new Map(
+      [
+        ...enabled.map((c) => [c.code, `${c.code} | ${c.name}`] as const),
+        [projectCurrency, projectCurrency] as const,
+        [baseCurrency, baseCurrency] as const,
+      ].map(([value, label]) => [value, { value, label }]),
+    ).values(),
+  ];
   const total = ledger.reduce(
     (sum, c) => sum.add(c.amount),
     new Prisma.Decimal(0),
   );
+  const posted = expenses.length
+    ? await db.costEntry.findMany({
+        where: {
+          organizationId: ctx.org.id,
+          sourceType: "EXPENSE",
+          sourceId: { in: expenses.map((e) => e.id) },
+        },
+        select: { sourceId: true, amount: true },
+      })
+    : [];
+  const postedAmount = new Map(posted.map((p) => [p.sourceId, p.amount]));
   const expensesTable = (
     <Card>
       <CardContent>
@@ -87,7 +113,14 @@ export async function CostsView({
             code: e.code,
             date: dateValue(e.date),
             description: e.description,
-            amount: e.amount.toFixed(2),
+            original: formatMoney(e.amount, e.currency),
+            project: (() => {
+              const value =
+                postedAmount.get(e.id) ??
+                (e.currency === projectCurrency ? e.amount : null);
+              return value ? formatMoney(value, projectCurrency) : "—";
+            })(),
+            base: formatMoney(e.baseAmount, baseCurrency),
             status: e.status,
           }))}
         />
@@ -98,7 +131,7 @@ export async function CostsView({
     <>
       <SectionHeader
         title="Costs"
-        description="Recognised project costs and expense claims."
+        description={`Recognised project costs and expense claims. Costs are shown in ${projectCurrency}.`}
         actions={
           (ctx.isAdmin || ctx.permissions.has("expense.create")) && (
             <CreateSheet
@@ -118,6 +151,9 @@ export async function CostsView({
                   value: p.id,
                   label: p.displayName,
                 }))}
+                projectCurrency={projectCurrency}
+                baseCurrency={baseCurrency}
+                currencies={currencyOptions}
               />
             </CreateSheet>
           )
@@ -136,7 +172,7 @@ export async function CostsView({
                     stats={[
                       {
                         label: "Total in view",
-                        value: formatMoney(total, ctx.project.currency),
+                        value: formatMoney(total, projectCurrency),
                         detail: `${ledger.length} entries`,
                       },
                     ]}
@@ -145,6 +181,7 @@ export async function CostsView({
                   <Card>
                     <CardContent>
                       <CostLedgerTable
+                        currency={projectCurrency}
                         toolbar={
                           <CostFilters
                             org={org}
@@ -160,7 +197,11 @@ export async function CostsView({
                           task: c.task?.code ?? "—",
                           description: c.description,
                           source: c.sourceType,
-                          amount: c.amount.toFixed(2),
+                          original: formatMoney(
+                            c.originalAmount,
+                            c.originalCurrency,
+                          ),
+                          amount: formatMoney(c.amount, projectCurrency),
                         }))}
                       />
                     </CardContent>

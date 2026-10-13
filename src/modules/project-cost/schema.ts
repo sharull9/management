@@ -23,7 +23,20 @@ export const materialCostRecognitionInput = z.enum([
   "ON_RECEIPT",
   "ON_CONSUMPTION",
 ]);
+export const currencyCode = z
+  .string()
+  .regex(/^[A-Z]{3}$/, "Choose a currency.");
+/** Base units per 1 unit of the expense currency; null resolves the dated rate. */
+export const exchangeRateInput = z
+  .string()
+  .trim()
+  .regex(/^\d{1,10}(?:\.\d{1,10})?$/, "Enter a rate with up to 10 decimals.")
+  .refine((v) => Number(v) > 0, "Exchange rate must be greater than zero.");
 export const expenseInput = z.object({
+  currency: currencyCode,
+  exchangeRate: exchangeRateInput
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? null : v)),
   stageId: id.nullable(),
   taskId: id.nullable(),
   partyId: id.nullable(),

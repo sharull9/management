@@ -74,7 +74,7 @@ export async function AttendanceView({
     <>
       <SectionHeader
         title="Attendance"
-        description={`${initialRows.length} assigned workers on ${day.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}`}
+        description={`${initialRows.length} assigned workers on ${day.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}. Labour is costed in ${ctx.project.currency}.`}
         actions={<AttendanceDayPicker day={dateValue(day)} />}
       />
       <Card>

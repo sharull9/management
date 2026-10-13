@@ -32,6 +32,8 @@ test("expense preserves approval amount, nullable references and UTC date, rejec
   const input = {
     date: "2026-10-11",
     costType: "OTHER",
+    currency: "EUR",
+    exchangeRate: "90.5",
     amount: "123.45",
     description: " Expense ",
     stageId: null,
@@ -43,12 +45,21 @@ test("expense preserves approval amount, nullable references and UTC date, rejec
   assert.equal(parsed.description, "Expense");
   assert.equal(parsed.date.toISOString(), "2026-10-11T00:00:00.000Z");
   assert.equal(parsed.stageId, null);
+  assert.equal(parsed.currency, "EUR");
+  assert.equal(parsed.exchangeRate, "90.5");
+  assert.equal(
+    createExpenseInput.parse({ ...input, exchangeRate: "" }).exchangeRate,
+    null,
+  );
   for (const change of [
     { amount: "bad" },
     { amount: "0.00" },
     { amount: "-1" },
     { date: "2026-02-30" },
     { costType: "INVALID" },
+    { currency: "eur" },
+    { exchangeRate: "0" },
+    { exchangeRate: "-2" },
   ])
     assert.equal(
       createExpenseInput.safeParse({ ...input, ...change }).success,

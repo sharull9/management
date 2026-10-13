@@ -15,10 +15,12 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { formatMoney } from "@/core/format";
 import { AttendanceStatus } from "@/generated/prisma/enums";
 import { attendanceInput } from "../../schema";
 import { attendanceCost } from "../../server/costing";
@@ -142,6 +144,20 @@ export function AttendanceGrid({
             );
           })}
         </TableBody>
+        <TableFooter>
+          <TableRow>
+            <TableCell colSpan={4}>Total</TableCell>
+            <TableCell colSpan={2}>
+              {formatMoney(
+                totals.reduce(
+                  (sum, t) => (t === "Invalid" ? sum : sum + Number(t)),
+                  0,
+                ),
+                currency,
+              )}
+            </TableCell>
+          </TableRow>
+        </TableFooter>
       </Table>
       {!fields.length && (
         <EmptyState title="No workers assigned for this date." />
