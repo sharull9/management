@@ -35,6 +35,8 @@ The four refactor ownership groups are retained as the module maintenance map:
 - G3 owns `procurement`, `vendor-bill`, `stock-valuation`.
 - G4 owns `payment`, `sales-invoice`.
 
+Phase 3c adds `currency`, owned by the integration owner in wave 1; wave 2 ownership is in [PHASE3C_SHARED.md](PHASE3C_SHARED.md).
+
 The integration owner maintains `approvals`, `notifications`, `src/core`, shared components, navigation, package scripts and docs. Route adapters follow their feature's ownership; the project Materials adapter belongs to G2 and renders G3's inventory view. During parallel work, each group edits its modules and route adapters. Coordinate shared edits and consumer import changes with their owner. Completed R2 moves and temporary shim handoffs no longer apply.
 
 One responsibility per file. Split files over approximately 400 lines. Put schemas in schema.ts, types in type.ts, queries in server/queries.ts, mutations in service files, and exported actions in files headed by `"use server"`. Split large views into components or named views. Tests live beside their code as `*.test.ts`.
@@ -50,6 +52,7 @@ Cross-module consumers use the concrete entry files below. Paths omit only the `
 | `admin` | Tenant administration and suspension | `server/actions`, `schema` |
 | `approvals` | Policies, engine, inbox, links, manager authorization and timelines | `schema`, `server/actions`, `server/picker-actions`, `workflows/approval-reminder`, `server/start-reminder`, `server/authorization`, `server/document-link`, `server/handlers`, `server/policy`, `server/project-effects`, `server/register`, `server/service`, `ui/components/approval-timeline` |
 | `attendance` | Attendance and labour costing | `server/actions`, `server/costing`, `schema` |
+| `currency` | Currency master, tenant currencies, base currency, exchange rates, rate resolution and cost-entry amounts | `util`, `schema`, `server/rates`, `server/cost-entry`, `server/base-currency`, `server/queries`, `server/actions`, `server/picker-actions` |
 | `dashboard` | Organization dashboard | None |
 | `item-variant` | Pure variant identity and level configuration | `util` |
 | `masters` | Tenant locations, items, UOMs, parties and taxes | `server/location-actions`, `server/queries`, `server/service`, `schema`, `server/actions`, `server/picker-actions` |
@@ -127,12 +130,14 @@ back behind the session proxy. See the installed world's README and
 
 ## Shared infrastructure and integration checks
 
+All money writes follow the [Phase 3c currency contract](PHASE3C_SHARED.md): every CostEntry write goes through `currency/server/cost-entry`.
+
 `src/core` owns the Prisma client, tenancy and permissions, auth, storage, numbering, audit, decimal arithmetic, form-data and common schema helpers. The pure `item-variant`, `uom`, `tax`, `stock-valuation` and `project-cost-policy` util.ts files contain no database imports or server registrations. Browser code uses these pure files for cross-module calculations.
 
 `pnpm check:boundaries` scans imports, re-exports, dynamic imports, import types and require calls in `src` and `scripts`, excluding generated code. It resolves both aliases and relative paths. A module may import its own internals. Only `src/app` may import another module's `ui/views/*` or `ui/layouts/*`; HTTP handlers use concrete module server files. Module root imports, cross-module test imports, and any `index.ts`/`index.tsx` file under `src/modules/**` or `src/components/shared/**` are errors. The script includes assertions for permitted and forbidden paths.
 
 Approval path constants retain existing URLs. Task links resolve submission/delay IDs within the request organization and project. Missing task lookups retain the costs fallback; requests without a project retain the approvals fallback. The project `server/approval-audit.ts` file defines the shared approval audit helper, used by task and expense handlers. Their pure effect tests remain adjacent to the approvals helpers.
 
-Migration `20261010203000_signed_material_cost` permits negative amounts only for MATERIAL costs whose source is TRANSFER or BILL_VARIANCE. All other amounts remain nonnegative. Old migrations are unchanged. Local migration and settlement/workflow verification are recorded in [PHASE3B_REPORT.md](PHASE3B_REPORT.md).
+Migration `20261010203000_signed_material_cost` permits negative amounts only for MATERIAL costs whose source is TRANSFER or BILL_VARIANCE. All other amounts remain nonnegative. Migration `20261013100000_phase3c_currency` extends that check to `originalAmount` and `baseAmount`, so all three amounts share a sign. Old migrations are unchanged. Local migration and settlement/workflow verification are recorded in [PHASE3B_REPORT.md](PHASE3B_REPORT.md).
 
 `pnpm smoke:phase3b` runs real module services and authenticated HTTP rendering checks against an explicitly confirmed local database and running dev server. See the report and README for required environment variables. Run the full gates after integration. Use a placeholder DATABASE_URL for production builds. The Postgres settlement test is opt-in with `PAYMENTS_DB_TEST=local-only`; run it against an isolated local DB. Do not push or commit `.env`, `src/generated`, or `storage/`.

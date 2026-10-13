@@ -186,17 +186,26 @@ The module refactor is done. Routes are thin, shared infrastructure is in `src/c
 feature code is in `src/modules`, and cross-module imports use public indexes.
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the final module map and rules.
 
-### Phase 3c — Multi-currency (next)
-- Currency master with code, symbol and decimals, enabled per tenant. Organization base
-  currency, party default currency and project currency.
-- Per-organization dated manual exchange rates. A document defaults to the latest rate
-  on or before its document date; users may edit that rate per document.
-- Documents store currency, exchangeRate and base-currency totals. Backfill existing rows
-  with rate 1.
-- CostEntry stores original currency/amount, base amount and project-currency amount.
-  Value stock in base currency.
-- Allocate only within the same currency. Store realised FX differences for phase 5.
-  Show balances per currency plus a base-currency total.
+### Phase 3c — Multi-currency (in progress)
+Wave 1 (foundation) is done; the exact contract is [PHASE3C_SHARED.md](PHASE3C_SHARED.md).
+- Global `Currency` master (ISO 4217: code, name, symbol, decimals 0–4, active), enabled per
+  tenant through `TenantCurrency`. `Organization.baseCurrency`, `Project.currency` and
+  `Party.defaultCurrency` are FKs; the base currency is always enabled and cannot change once
+  the organization has cost entries, stock movements, non-draft financial documents or rates.
+- Per-organization dated manual `ExchangeRate` (base units per 1 foreign unit). A document
+  defaults to the latest rate on or before its date; users may override it per document. A
+  missing rate is a validation error pointing to Settings → Exchange rates.
+- PO, GRN, vendor bill, payment request, payment, sales invoice and expense store `currency`,
+  `exchangeRate` and base-currency totals (`base<Field>`). Existing rows are backfilled with
+  rate 1 (migration `20261013100000_phase3c_currency`).
+- `CostEntry.amount` stays in the project currency; it also stores original currency/amount,
+  `exchangeRate`, `baseAmount` and `projectRate`. Stock is valued in base currency.
+- Allocate only within the same currency. `PaymentAllocation` stores `baseAmount`,
+  `documentBaseAmount` and `fxDifference` (realised FX for phase 5).
+  Balances are shown per currency plus a base-currency total.
+- Wave 2 (parallel): A currency/settings UI + party default currency + project currency field;
+  B procurement PO/GRN + vendor bills; C payments + sales invoices; D attendance,
+  expenses/project-cost views, budget and dashboard.
 
 ### Phase 4 — Vehicles & machinery
 - `Asset` (type VEHICLE/MACHINE, meter KM/HOURS, power DIESEL/PETROL/ELECTRIC/OTHER, kW rating,
