@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { currencies } from "./currencies";
 
 const db = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -141,7 +142,13 @@ async function main() {
       });
     }
   }
-  console.log("Seeded countries, states and system units.");
+  for (const [code, name, symbol, decimals] of currencies)
+    await db.currency.upsert({
+      where: { code },
+      create: { code, name, symbol, decimals },
+      update: { name, symbol, decimals },
+    });
+  console.log("Seeded countries, states, system units and currencies.");
 }
 main()
   .catch((error) => {

@@ -102,28 +102,29 @@ model User {
   expenses        Expense[]
   costEntries     CostEntry[]
 
-  id            String                @id @default(cuid())
-  name          String
-  email         String                @unique
-  emailVerified Boolean               @default(false)
-  image         String?
-  role          String?               @default("user")
-  banned        Boolean?              @default(false)
-  banReason     String?
-  banExpires    DateTime?
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  members       Member[]
-  invitations   Invitation[]
-  tenantMembers TenantMember[]
-  requests      ApprovalRequest[]
-  policySteps   ApprovalPolicyStep[]
-  assignedSteps ApprovalRequestStep[] @relation("AssignedApprover")
-  actedSteps    ApprovalRequestStep[] @relation("ApprovalActor")
-  auditLogs     AuditLog[]
-  attachments   Attachment[]
+  id                   String                @id @default(cuid())
+  name                 String
+  email                String                @unique
+  emailVerified        Boolean               @default(false)
+  image                String?
+  role                 String?               @default("user")
+  banned               Boolean?              @default(false)
+  banReason            String?
+  banExpires           DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  sessions             Session[]
+  accounts             Account[]
+  members              Member[]
+  invitations          Invitation[]
+  tenantMembers        TenantMember[]
+  requests             ApprovalRequest[]
+  policySteps          ApprovalPolicyStep[]
+  assignedSteps        ApprovalRequestStep[] @relation("AssignedApprover")
+  actedSteps           ApprovalRequestStep[] @relation("ApprovalActor")
+  auditLogs            AuditLog[]
+  attachments          Attachment[]
+  exchangeRatesCreated ExchangeRate[]
 
   @@map("users")
 }
@@ -201,6 +202,7 @@ model Tenant {
   taxGroups        TaxGroup[]
   designations     Designation[]
   auditLogs        AuditLog[]
+  currencies       TenantCurrency[]
 
   @@map("tenants")
 }
@@ -221,7 +223,7 @@ model TenantMember {
 }
 
 model Organization {
-  notifications     Notification[]
+  notifications      Notification[]
   vendorBillRows     VendorBill[]
   paymentRequestRows PaymentRequest[]
   paymentRows        Payment[]
@@ -239,34 +241,36 @@ model Organization {
   attendance  Attendance[]
   costEntries CostEntry[]
 
-  id             String            @id @default(cuid())
-  name           String
-  slug           String            @unique
-  logo           String?
-  metadata       String?
-  tenantId       String
-  legalName      String?
-  baseCurrency   String            @default("INR")
-  countryId      String?
-  stateId        String?
-  cityId         String?
-  addressLine1   String?
-  addressLine2   String?
-  postalCode     String?
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  country        Country?          @relation(fields: [countryId], references: [id])
-  state          State?            @relation(fields: [stateId], references: [id])
-  city           City?             @relation(fields: [cityId], references: [id])
-  members        Member[]
-  invitations    Invitation[]
-  taxIdentifiers TaxIdentifier[]
-  policies       ApprovalPolicy[]
-  requests       ApprovalRequest[]
-  series         DocumentSeries[]
-  auditLogs      AuditLog[]
-  attachments    Attachment[]
+  id              String            @id @default(cuid())
+  name            String
+  slug            String            @unique
+  logo            String?
+  metadata        String?
+  tenantId        String
+  legalName       String?
+  baseCurrency    String            @default("INR")
+  baseCurrencyRef Currency          @relation(fields: [baseCurrency], references: [code])
+  exchangeRates   ExchangeRate[]
+  countryId       String?
+  stateId         String?
+  cityId          String?
+  addressLine1    String?
+  addressLine2    String?
+  postalCode      String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  country         Country?          @relation(fields: [countryId], references: [id])
+  state           State?            @relation(fields: [stateId], references: [id])
+  city            City?             @relation(fields: [cityId], references: [id])
+  members         Member[]
+  invitations     Invitation[]
+  taxIdentifiers  TaxIdentifier[]
+  policies        ApprovalPolicy[]
+  requests        ApprovalRequest[]
+  series          DocumentSeries[]
+  auditLogs       AuditLog[]
+  attachments     Attachment[]
 
   @@index([tenantId])
   @@map("organizations")
@@ -583,22 +587,24 @@ model Party {
   projects Project[]
   expenses Expense[]
 
-  id             String          @id @default(cuid())
-  tenantId       String
-  code           String
-  legalName      String
-  displayName    String
-  type           PartyType       @default(BUSINESS)
-  isVendor       Boolean         @default(false)
-  isCustomer     Boolean         @default(false)
-  paymentTerms   Int             @default(0)
-  creditLimit    Decimal         @default(0) @db.Decimal(18, 2)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  tenant         Tenant          @relation(fields: [tenantId], references: [id])
-  addresses      PartyAddress[]
-  contacts       PartyContact[]
-  taxIdentifiers TaxIdentifier[]
+  id                 String          @id @default(cuid())
+  tenantId           String
+  code               String
+  legalName          String
+  displayName        String
+  type               PartyType       @default(BUSINESS)
+  isVendor           Boolean         @default(false)
+  isCustomer         Boolean         @default(false)
+  paymentTerms       Int             @default(0)
+  creditLimit        Decimal         @default(0) @db.Decimal(18, 2)
+  defaultCurrency    String?
+  defaultCurrencyRef Currency?       @relation(fields: [defaultCurrency], references: [code])
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  tenant             Tenant          @relation(fields: [tenantId], references: [id])
+  addresses          PartyAddress[]
+  contacts           PartyContact[]
+  taxIdentifiers     TaxIdentifier[]
 
   @@unique([tenantId, code])
   @@map("parties")
@@ -999,6 +1005,7 @@ model Project {
   managerUserId  String?
   budgetAmount   Decimal             @default(0) @db.Decimal(18, 2)
   currency       String
+  currencyRef    Currency            @relation(fields: [currency], references: [code])
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
   organization   Organization        @relation(fields: [organizationId], references: [id])
@@ -1275,7 +1282,11 @@ model Expense {
   code              String
   date              DateTime         @db.Date
   costType          CostType
+  currency          String
+  currencyRef       Currency         @relation(fields: [currency], references: [code])
+  exchangeRate      Decimal          @default(1) @db.Decimal(20, 10)
   amount            Decimal          @db.Decimal(18, 2)
+  baseAmount        Decimal          @default(0) @db.Decimal(18, 2)
   description       String
   partyId           String?
   createdById       String
@@ -1295,25 +1306,34 @@ model Expense {
 }
 
 model CostEntry {
-  id             String         @id @default(cuid())
-  organizationId String
-  projectId      String
-  stageId        String?
-  taskId         String?
-  date           DateTime       @db.Date
-  costType       CostType
-  amount         Decimal        @db.Decimal(18, 2)
-  description    String
-  sourceType     CostSourceType
-  sourceId       String
-  createdById    String
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  organization   Organization   @relation(fields: [organizationId], references: [id])
-  project        Project        @relation(fields: [projectId], references: [id])
-  stage          Stage?         @relation(fields: [stageId], references: [id])
-  task           Task?          @relation(fields: [taskId], references: [id])
-  createdBy      User           @relation(fields: [createdById], references: [id])
+  id                  String         @id @default(cuid())
+  organizationId      String
+  projectId           String
+  stageId             String?
+  taskId              String?
+  date                DateTime       @db.Date
+  costType            CostType
+  /// Project-currency amount; budgets, dashboards and ledgers sum this field.
+  amount              Decimal        @db.Decimal(18, 2)
+  originalCurrency    String
+  originalAmount      Decimal        @db.Decimal(18, 2)
+  /// Base units per 1 unit of originalCurrency.
+  exchangeRate        Decimal        @default(1) @db.Decimal(20, 10)
+  baseAmount          Decimal        @db.Decimal(18, 2)
+  /// Base units per 1 unit of the project currency.
+  projectRate         Decimal        @default(1) @db.Decimal(20, 10)
+  description         String
+  sourceType          CostSourceType
+  sourceId            String
+  createdById         String
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  organization        Organization   @relation(fields: [organizationId], references: [id])
+  originalCurrencyRef Currency       @relation(fields: [originalCurrency], references: [code])
+  project             Project        @relation(fields: [projectId], references: [id])
+  stage               Stage?         @relation(fields: [stageId], references: [id])
+  task                Task?          @relation(fields: [taskId], references: [id])
+  createdBy           User           @relation(fields: [createdById], references: [id])
 
   @@unique([organizationId, sourceType, sourceId])
   @@index([projectId, date, costType])
@@ -1416,10 +1436,16 @@ model PurchaseOrder {
   paymentTerms            PurchasePaymentTerms @default(CREDIT)
   paymentDays             Int                  @default(0)
   currency                String
+  currencyRef             Currency             @relation(fields: [currency], references: [code])
+  exchangeRate            Decimal              @default(1) @db.Decimal(20, 10)
   subtotal                Decimal              @db.Decimal(18, 2)
   taxTotal                Decimal              @db.Decimal(18, 2)
   withholdingTotal        Decimal              @db.Decimal(18, 2)
   grandTotal              Decimal              @db.Decimal(18, 2)
+  baseSubtotal            Decimal              @default(0) @db.Decimal(18, 2)
+  baseTaxTotal            Decimal              @default(0) @db.Decimal(18, 2)
+  baseWithholdingTotal    Decimal              @default(0) @db.Decimal(18, 2)
+  baseGrandTotal          Decimal              @default(0) @db.Decimal(18, 2)
   receiptTolerancePercent Decimal              @default(0) @db.Decimal(7, 4)
   createdById             String
   lines                   PurchaseOrderLine[]
@@ -1495,6 +1521,9 @@ model GoodsReceipt {
   status            ProcurementStatus  @default(DRAFT)
   approvalRequestId String?            @unique
   poId              String
+  currency          String
+  currencyRef       Currency           @relation(fields: [currency], references: [code])
+  exchangeRate      Decimal            @default(1) @db.Decimal(20, 10)
   siteId            String?
   receivedDate      DateTime           @db.Date
   challanNumber     String?
@@ -1625,6 +1654,7 @@ model StockMovement {
   date           DateTime          @db.Date
   type           StockMovementType
   qty            Decimal           @db.Decimal(18, 4)
+  /// Stock is valued in the organization's BASE currency (unitCost and totalCost).
   unitCost       Decimal           @db.Decimal(24, 8)
   totalCost      Decimal           @db.Decimal(24, 8)
   sourceType     String
@@ -1692,39 +1722,47 @@ enum PaymentStatus {
 
 /// Attachments use Attachment.entityType = "VendorBill" and entityId = id.
 model VendorBill {
-  id                String                @id @default(cuid())
-  organizationId    String
-  projectId         String
-  partyId           String
-  code              String
-  date              DateTime              @default(now()) @db.Date
-  vendorInvoiceNo   String
-  vendorInvoiceDate DateTime              @db.Date
-  dueDate           DateTime?             @db.Date
-  purchaseOrderId   String?
-  currency          String
-  subtotal          Decimal               @db.Decimal(18, 2)
-  discountTotal     Decimal               @default(0) @db.Decimal(18, 2)
-  taxTotal          Decimal               @db.Decimal(18, 2)
-  withholdingTotal  Decimal               @default(0) @db.Decimal(18, 2)
-  grandTotal        Decimal               @db.Decimal(18, 2)
-  payableTotal      Decimal               @db.Decimal(18, 2)
-  paidTotal         Decimal               @default(0) @db.Decimal(18, 2)
-  status            FinanceDocumentStatus @default(DRAFT)
-  approvalRequestId String?               @unique
-  notes             String?
-  createdById       String
-  organization      Organization          @relation(fields: [organizationId], references: [id])
-  project           Project               @relation(fields: [projectId], references: [id])
-  party             Party                 @relation(fields: [partyId], references: [id])
-  purchaseOrder     PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id])
-  approvalRequest   ApprovalRequest?      @relation(fields: [approvalRequestId], references: [id])
-  createdBy         User                  @relation(fields: [createdById], references: [id])
-  lines             VendorBillLine[]
-  paymentRequests   PaymentRequestBill[]
-  allocations       PaymentAllocation[]
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  id                   String                @id @default(cuid())
+  organizationId       String
+  projectId            String
+  partyId              String
+  code                 String
+  date                 DateTime              @default(now()) @db.Date
+  vendorInvoiceNo      String
+  vendorInvoiceDate    DateTime              @db.Date
+  dueDate              DateTime?             @db.Date
+  purchaseOrderId      String?
+  currency             String
+  currencyRef          Currency              @relation(fields: [currency], references: [code])
+  exchangeRate         Decimal               @default(1) @db.Decimal(20, 10)
+  subtotal             Decimal               @db.Decimal(18, 2)
+  discountTotal        Decimal               @default(0) @db.Decimal(18, 2)
+  taxTotal             Decimal               @db.Decimal(18, 2)
+  withholdingTotal     Decimal               @default(0) @db.Decimal(18, 2)
+  grandTotal           Decimal               @db.Decimal(18, 2)
+  payableTotal         Decimal               @db.Decimal(18, 2)
+  baseSubtotal         Decimal               @default(0) @db.Decimal(18, 2)
+  baseDiscountTotal    Decimal               @default(0) @db.Decimal(18, 2)
+  baseTaxTotal         Decimal               @default(0) @db.Decimal(18, 2)
+  baseWithholdingTotal Decimal               @default(0) @db.Decimal(18, 2)
+  baseGrandTotal       Decimal               @default(0) @db.Decimal(18, 2)
+  basePayableTotal     Decimal               @default(0) @db.Decimal(18, 2)
+  paidTotal            Decimal               @default(0) @db.Decimal(18, 2)
+  status               FinanceDocumentStatus @default(DRAFT)
+  approvalRequestId    String?               @unique
+  notes                String?
+  createdById          String
+  organization         Organization          @relation(fields: [organizationId], references: [id])
+  project              Project               @relation(fields: [projectId], references: [id])
+  party                Party                 @relation(fields: [partyId], references: [id])
+  purchaseOrder        PurchaseOrder?        @relation(fields: [purchaseOrderId], references: [id])
+  approvalRequest      ApprovalRequest?      @relation(fields: [approvalRequestId], references: [id])
+  createdBy            User                  @relation(fields: [createdById], references: [id])
+  lines                VendorBillLine[]
+  paymentRequests      PaymentRequestBill[]
+  allocations          PaymentAllocation[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
   @@unique([organizationId, code])
   @@index([organizationId, partyId, status, date])
@@ -1792,7 +1830,10 @@ model PaymentRequest {
   code              String
   date              DateTime             @default(now()) @db.Date
   currency          String
+  currencyRef       Currency             @relation(fields: [currency], references: [code])
+  exchangeRate      Decimal              @default(1) @db.Decimal(20, 10)
   amount            Decimal              @db.Decimal(18, 2)
+  baseAmount        Decimal              @default(0) @db.Decimal(18, 2)
   mode              PaymentMode
   purpose           PaymentPurpose
   requestedById     String
@@ -1841,7 +1882,10 @@ model Payment {
   mode              PaymentMode
   reference         String?
   currency          String
+  currencyRef       Currency            @relation(fields: [currency], references: [code])
+  exchangeRate      Decimal             @default(1) @db.Decimal(20, 10)
   amount            Decimal             @db.Decimal(18, 2)
+  baseAmount        Decimal             @default(0) @db.Decimal(18, 2)
   allocatedAmount   Decimal             @default(0) @db.Decimal(18, 2)
   unallocatedAmount Decimal             @db.Decimal(18, 2)
   paymentRequestId  String?
@@ -1868,17 +1912,23 @@ model Payment {
 }
 
 model PaymentAllocation {
-  id             String        @id @default(cuid())
-  paymentId      String
-  vendorBillId   String?
-  salesInvoiceId String?
-  amount         Decimal       @db.Decimal(18, 2)
-  allocatedAt    DateTime      @default(now())
-  allocatedById  String
-  payment        Payment       @relation(fields: [paymentId], references: [id])
-  vendorBill     VendorBill?   @relation(fields: [vendorBillId], references: [id])
-  salesInvoice   SalesInvoice? @relation(fields: [salesInvoiceId], references: [id])
-  allocatedBy    User          @relation(fields: [allocatedById], references: [id])
+  id                 String        @id @default(cuid())
+  paymentId          String
+  vendorBillId       String?
+  salesInvoiceId     String?
+  amount             Decimal       @db.Decimal(18, 2)
+  /// Allocated amount in base currency at the payment's rate.
+  baseAmount         Decimal       @default(0) @db.Decimal(18, 2)
+  /// Same amount in base currency at the allocated document's rate.
+  documentBaseAmount Decimal       @default(0) @db.Decimal(18, 2)
+  /// Realised FX = baseAmount - documentBaseAmount (sign convention: docs/PHASE3C_SHARED.md).
+  fxDifference       Decimal       @default(0) @db.Decimal(18, 2)
+  allocatedAt        DateTime      @default(now())
+  allocatedById      String
+  payment            Payment       @relation(fields: [paymentId], references: [id])
+  vendorBill         VendorBill?   @relation(fields: [vendorBillId], references: [id])
+  salesInvoice       SalesInvoice? @relation(fields: [salesInvoiceId], references: [id])
+  allocatedBy        User          @relation(fields: [allocatedById], references: [id])
 
   @@index([paymentId])
   @@index([vendorBillId])
@@ -1887,36 +1937,44 @@ model PaymentAllocation {
 }
 
 model SalesInvoice {
-  id                String                @id @default(cuid())
-  organizationId    String
-  projectId         String?
-  partyId           String
-  code              String
-  date              DateTime              @db.Date
-  dueDate           DateTime?             @db.Date
-  stateId           String?
-  currency          String
-  subtotal          Decimal               @db.Decimal(18, 2)
-  discountTotal     Decimal               @default(0) @db.Decimal(18, 2)
-  taxTotal          Decimal               @db.Decimal(18, 2)
-  withholdingTotal  Decimal               @default(0) @db.Decimal(18, 2)
-  grandTotal        Decimal               @db.Decimal(18, 2)
-  payableTotal      Decimal               @db.Decimal(18, 2)
-  receivedTotal     Decimal               @default(0) @db.Decimal(18, 2)
-  status            FinanceDocumentStatus @default(DRAFT)
-  approvalRequestId String?               @unique
-  notes             String?
-  createdById       String
-  organization      Organization          @relation(fields: [organizationId], references: [id])
-  project           Project?              @relation(fields: [projectId], references: [id])
-  party             Party                 @relation(fields: [partyId], references: [id])
-  placeOfSupply     State?                @relation(fields: [stateId], references: [id])
-  approvalRequest   ApprovalRequest?      @relation(fields: [approvalRequestId], references: [id])
-  createdBy         User                  @relation(fields: [createdById], references: [id])
-  lines             SalesInvoiceLine[]
-  allocations       PaymentAllocation[]
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
+  id                   String                @id @default(cuid())
+  organizationId       String
+  projectId            String?
+  partyId              String
+  code                 String
+  date                 DateTime              @db.Date
+  dueDate              DateTime?             @db.Date
+  stateId              String?
+  currency             String
+  currencyRef          Currency              @relation(fields: [currency], references: [code])
+  exchangeRate         Decimal               @default(1) @db.Decimal(20, 10)
+  subtotal             Decimal               @db.Decimal(18, 2)
+  discountTotal        Decimal               @default(0) @db.Decimal(18, 2)
+  taxTotal             Decimal               @db.Decimal(18, 2)
+  withholdingTotal     Decimal               @default(0) @db.Decimal(18, 2)
+  grandTotal           Decimal               @db.Decimal(18, 2)
+  payableTotal         Decimal               @db.Decimal(18, 2)
+  baseSubtotal         Decimal               @default(0) @db.Decimal(18, 2)
+  baseDiscountTotal    Decimal               @default(0) @db.Decimal(18, 2)
+  baseTaxTotal         Decimal               @default(0) @db.Decimal(18, 2)
+  baseWithholdingTotal Decimal               @default(0) @db.Decimal(18, 2)
+  baseGrandTotal       Decimal               @default(0) @db.Decimal(18, 2)
+  basePayableTotal     Decimal               @default(0) @db.Decimal(18, 2)
+  receivedTotal        Decimal               @default(0) @db.Decimal(18, 2)
+  status               FinanceDocumentStatus @default(DRAFT)
+  approvalRequestId    String?               @unique
+  notes                String?
+  createdById          String
+  organization         Organization          @relation(fields: [organizationId], references: [id])
+  project              Project?              @relation(fields: [projectId], references: [id])
+  party                Party                 @relation(fields: [partyId], references: [id])
+  placeOfSupply        State?                @relation(fields: [stateId], references: [id])
+  approvalRequest      ApprovalRequest?      @relation(fields: [approvalRequestId], references: [id])
+  createdBy            User                  @relation(fields: [createdById], references: [id])
+  lines                SalesInvoiceLine[]
+  allocations          PaymentAllocation[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 
   @@unique([organizationId, code])
   @@index([organizationId, partyId, status, date])
@@ -1968,4 +2026,65 @@ model SalesInvoiceLineTax {
 
   @@index([lineId])
   @@map("sales_invoice_line_taxes")
+}
+
+/// Global ISO 4217 currency master. Tenants opt in through TenantCurrency.
+model Currency {
+  code      String   @id
+  name      String
+  symbol    String
+  decimals  Int      @default(2)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenantCurrencies TenantCurrency[]
+  exchangeRates    ExchangeRate[]
+  organizations    Organization[]
+  parties          Party[]
+  projects         Project[]
+  purchaseOrders   PurchaseOrder[]
+  goodsReceipts    GoodsReceipt[]
+  vendorBills      VendorBill[]
+  paymentRequests  PaymentRequest[]
+  payments         Payment[]
+  salesInvoices    SalesInvoice[]
+  expenses         Expense[]
+  costEntries      CostEntry[]
+
+  @@map("currencies")
+}
+
+/// Currencies a tenant may use. The base currency of each organization is always enabled.
+model TenantCurrency {
+  id           String   @id @default(cuid())
+  tenantId     String
+  currencyCode String
+  enabled      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  currency     Currency @relation(fields: [currencyCode], references: [code])
+
+  @@unique([tenantId, currencyCode])
+  @@map("tenant_currencies")
+}
+
+/// Manual dated rate: base-currency units per 1 unit of currencyCode.
+model ExchangeRate {
+  id             String       @id @default(cuid())
+  organizationId String
+  currencyCode   String
+  rateDate       DateTime     @db.Date
+  rate           Decimal      @db.Decimal(20, 10)
+  createdById    String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  currency       Currency     @relation(fields: [currencyCode], references: [code])
+  createdBy      User         @relation(fields: [createdById], references: [id])
+
+  @@unique([organizationId, currencyCode, rateDate])
+  @@index([organizationId, rateDate])
+  @@map("exchange_rates")
 }
