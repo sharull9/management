@@ -1,6 +1,7 @@
 import { Decimal } from "@/core/decimal";
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
+import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
 import { getProjectCostRecognition } from "@/modules/project-cost/server/cost-recognition";
 import { materialCostEffects } from "@/modules/project-cost-policy/util";
 import { movingAverage } from "@/modules/stock-valuation/util";
@@ -88,7 +89,12 @@ export async function approveTransfer(
             projectId: movement.projectId,
             date: transfer.date,
             costType: "MATERIAL",
-            amount: effect.amount,
+            ...(await costEntryAmounts(tx, {
+              organizationId: request.organizationId,
+              projectId: movement.projectId,
+              date: transfer.date,
+              amount: effect.amount,
+            })),
             description: `${transfer.code}: ${incoming ? "received" : "transferred"} materials`,
             sourceType: "TRANSFER",
             sourceId: movement.id,

@@ -2,6 +2,7 @@ import "server-only";
 import type { z } from "zod";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
+import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
 import { audit } from "@/modules/project/server/action-helpers";
 import type { attendanceInput } from "../schema";
 import { attendanceCost } from "./costing";
@@ -84,7 +85,14 @@ export async function attendance(
           projectId,
           date: day,
           costType: "LABOUR" as const,
-          amount: totalCost,
+          // Labour rates are expressed in the project currency.
+          ...(await costEntryAmounts(tx, {
+            organizationId: ctx.org.id,
+            projectId,
+            date: day,
+            currency: ctx.project.currency,
+            amount: totalCost,
+          })),
           description: `${assignment.worker.name}: ${row.status}`,
           createdById: ctx.user.id,
         };

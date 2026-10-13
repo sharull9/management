@@ -62,6 +62,9 @@ export async function saveGoodsReceipt(
   const fields = {
     projectId: input.projectId,
     poId: order.id,
+    // Receipts inherit the purchase order's currency and rate.
+    currency: order.currency,
+    exchangeRate: order.exchangeRate,
     siteId: input.siteId,
     receivedDate: input.receivedDate,
     challanNumber: input.challanNumber,

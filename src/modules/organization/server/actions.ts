@@ -9,6 +9,7 @@ import {
 } from "@/core/context";
 import { db } from "@/core/db";
 import { typedAction } from "@/core/typed-action";
+import { assertBaseCurrencyChangeAllowed } from "@/modules/currency/server/base-currency";
 
 import { orgInput } from "../schema";
 export async function saveOrganizationAction(
@@ -64,6 +65,36 @@ export async function saveOrganizationAction(
         }))
       )
         throw new Error("Organization not found.");
+      const currency = await tx.currency.findUnique({
+        where: { code: organizationData.baseCurrency },
+      });
+      if (!currency?.active)
+        throw new Error(
+          `Currency ${organizationData.baseCurrency} is not available.`,
+        );
+      if (orgId) {
+        const current = await tx.organization.findUniqueOrThrow({
+          where: { id: orgId },
+          select: { baseCurrency: true },
+        });
+        if (current.baseCurrency !== organizationData.baseCurrency)
+          await assertBaseCurrencyChangeAllowed(tx, orgId);
+      }
+      // The base currency is always enabled for its tenant.
+      await tx.tenantCurrency.upsert({
+        where: {
+          tenantId_currencyCode: {
+            tenantId: input.tenantId,
+            currencyCode: organizationData.baseCurrency,
+          },
+        },
+        create: {
+          tenantId: input.tenantId,
+          currencyCode: organizationData.baseCurrency,
+          enabled: true,
+        },
+        update: { enabled: true },
+      });
       const saved = orgId
         ? await tx.organization.update({
             where: { id: orgId },

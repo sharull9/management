@@ -1,6 +1,7 @@
 import { Decimal } from "@/core/decimal";
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
+import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
 import { getProjectCostRecognition } from "@/modules/project-cost/server/cost-recognition";
 import { materialCostEffects } from "@/modules/project-cost-policy/util";
 import { movingAverage } from "@/modules/stock-valuation/util";
@@ -104,7 +105,12 @@ export async function approveReceipt(
             projectId: receipt.projectId,
             date: receipt.receivedDate,
             costType: "MATERIAL",
-            amount: effect.amount,
+            ...(await costEntryAmounts(tx, {
+              organizationId: request.organizationId,
+              projectId: receipt.projectId,
+              date: receipt.receivedDate,
+              amount: effect.amount,
+            })),
             description: `${receipt.code}: accepted materials`,
             sourceType: "GRN",
             sourceId: line.id,

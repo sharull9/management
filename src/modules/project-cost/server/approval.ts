@@ -1,6 +1,7 @@
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
 import type { ApprovalHandler } from "@/modules/approvals/server/handlers";
+import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
 import { auditApprovalEffect } from "@/modules/project/server/approval-audit";
 
 async function expense(
@@ -33,7 +34,14 @@ async function expense(
         taskId: row.taskId,
         date: row.date,
         costType: row.costType,
-        amount: row.amount,
+        ...(await costEntryAmounts(tx, {
+          organizationId: request.organizationId,
+          projectId: row.projectId,
+          date: row.date,
+          currency: row.currency,
+          amount: row.amount,
+          exchangeRate: row.exchangeRate,
+        })),
         description: row.description,
         sourceType: "EXPENSE",
         sourceId: row.id,

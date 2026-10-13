@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { nextDocumentNumber } from "@/core/numbering";
+import { resolveDocumentFx } from "@/modules/currency/server/rates";
 import { lockStockProjects } from "@/modules/procurement/server/inventory/service";
 import { audit, stageInProject } from "@/modules/project/server/action-helpers";
 import type { costRecognitionInput, createExpenseInput } from "../schema";
@@ -67,11 +68,19 @@ export async function expense(
       await tx.party.findFirstOrThrow({
         where: { id: input.partyId, tenantId: ctx.tenant.id },
       });
+    const fx = await resolveDocumentFx(tx, {
+      organizationId: ctx.org.id,
+      currency: ctx.project.currency,
+      date: input.date,
+    });
     const row = await tx.expense.create({
       data: {
         ...input,
         projectId,
         date: input.date,
+        currency: ctx.project.currency,
+        exchangeRate: fx.exchangeRate,
+        baseAmount: fx.toBase(input.amount),
         createdById: ctx.user.id,
         code: await nextDocumentNumber(ctx.org.id, "EXP", tx),
       },

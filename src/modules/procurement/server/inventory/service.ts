@@ -5,6 +5,7 @@ import { writeAudit } from "@/core/audit";
 import type { OrgContext } from "@/core/context";
 import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
+import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
 import { getProjectCostRecognition } from "@/modules/project-cost/server/cost-recognition";
 import { materialCostEffects } from "@/modules/project-cost-policy/util";
 import { movingAverage } from "@/modules/stock-valuation/util";
@@ -136,7 +137,12 @@ export async function recordConsumption(
           taskId: input.taskId,
           date: input.date,
           costType: "MATERIAL",
-          amount: effect.amount,
+          ...(await costEntryAmounts(tx, {
+            organizationId: ctx.org.id,
+            projectId: input.projectId,
+            date: input.date,
+            amount: effect.amount,
+          })),
           description: `${row.code} · ${variant.name}`,
           sourceType: "CONSUMPTION",
           sourceId: saved.id,

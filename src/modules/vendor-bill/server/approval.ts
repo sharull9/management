@@ -3,6 +3,7 @@ import "server-only";
 import { writeAudit } from "@/core/audit";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
 import type { ApprovalHandler } from "@/modules/approvals/server/handlers";
+import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
 
 import { lockDocument } from "@/modules/procurement/server/service";
 import { assertBillReceipts } from "./service";
@@ -42,7 +43,14 @@ async function decide(
           projectId: bill.projectId,
           date: bill.date,
           costType: "MATERIAL",
-          amount,
+          ...(await costEntryAmounts(tx, {
+            organizationId: bill.organizationId,
+            projectId: bill.projectId,
+            date: bill.date,
+            currency: bill.currency,
+            amount,
+            exchangeRate: bill.exchangeRate,
+          })),
           description: `${bill.code} bill price variance`,
           sourceType: "BILL_VARIANCE",
           sourceId: bill.id,
