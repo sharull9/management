@@ -2,7 +2,9 @@ import {
   ArrowLeftRight,
   Banknote,
   Boxes,
+  CircleDollarSign,
   ClipboardList,
+  Coins,
   Contact,
   FileText,
   FolderKanban,
@@ -33,6 +35,8 @@ export type AppNavLink = {
   icon: LucideIcon;
   /** RuneIcons glass glyph shown in the sidebar. */
   glyph: RuneGlyphName;
+  /** Permission required to see the link; admins always see it. */
+  permission?: string;
 };
 export type AppNavGroup = { title: string; links: AppNavLink[] };
 
@@ -204,6 +208,20 @@ export const appNav: AppNavGroup[] = [
     title: "Organization",
     links: [
       {
+        title: "Currencies",
+        path: "/settings/currencies",
+        icon: Coins,
+        glyph: "glass-coin-rupees-2",
+        permission: "currency.manage",
+      },
+      {
+        title: "Exchange rates",
+        path: "/settings/exchange-rates",
+        icon: CircleDollarSign,
+        glyph: "glass-chart-4-2",
+        permission: "exchangeRate.manage",
+      },
+      {
         title: "Settings",
         path: "/settings",
         icon: Settings,
@@ -219,10 +237,28 @@ export function isNavActive(pathname: string, base: string, path: string) {
   return pathname === href || (!!path && pathname.startsWith(`${href}/`));
 }
 
-/** Finds the group and link that own `pathname`, for breadcrumbs. */
+/** Finds the group and most specific link that own `pathname`, for breadcrumbs. */
 export function findNavLocation(pathname: string, base: string) {
+  let best: { group: AppNavGroup; link: AppNavLink } | undefined;
   for (const group of appNav)
     for (const link of group.links)
-      if (isNavActive(pathname, base, link.path)) return { group, link };
-  return undefined;
+      if (
+        isNavActive(pathname, base, link.path) &&
+        (!best || link.path.length > best.link.path.length)
+      )
+        best = { group, link };
+  return best;
+}
+
+/** Drops links whose permission the user lacks; empty groups disappear. */
+export function visibleNav(permissions: readonly string[]): AppNavGroup[] {
+  const allowed = new Set(permissions);
+  return appNav
+    .map((group) => ({
+      ...group,
+      links: group.links.filter(
+        (link) => !link.permission || allowed.has(link.permission),
+      ),
+    }))
+    .filter((group) => group.links.length > 0);
 }

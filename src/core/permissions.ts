@@ -67,6 +67,8 @@ export const permissionGroups = {
     "settings.manage": "Manage organization settings",
     "members.manage": "Manage members",
     "roles.manage": "Manage custom roles",
+    "currency.manage": "Manage currencies and base currency",
+    "exchangeRate.manage": "Manage exchange rates",
   },
 } as const;
 export const permissionKeys = Object.values(permissionGroups).flatMap((group) =>

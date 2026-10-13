@@ -25,7 +25,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { appNav, findNavLocation, isNavActive } from "./app-nav";
+import { findNavLocation, visibleNav } from "./app-nav";
 import { CommandMenu } from "./command-menu";
 import { NotificationBell } from "./notification-bell";
 import { RuneGlyph } from "./rune-glyph";
@@ -40,16 +40,20 @@ export function AppShell({
   org,
   organizations,
   user,
+  permissions,
   children,
 }: {
   org: { name: string; slug: string; tenantName: string };
   organizations: { name: string; slug: string }[];
   user: { name: string; email: string };
+  /** Permission keys the user holds (all keys for administrators). */
+  permissions: string[];
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const base = `/${org.slug}`;
   const location = findNavLocation(pathname, base);
+  const nav = visibleNav(permissions);
   return (
     <SidebarProvider>
       <Sidebar>
@@ -104,7 +108,7 @@ export function AppShell({
           </DropdownMenu>
         </SidebarHeader>
         <SidebarContent className="gap-0 py-1">
-          {appNav.map((group) => (
+          {nav.map((group) => (
             <SidebarGroup key={group.title} className="py-1.5">
               <SidebarGroupLabel className={navLabelClass}>
                 {group.title}
@@ -114,7 +118,7 @@ export function AppShell({
                   <SidebarMenuItem key={link.path}>
                     <SidebarMenuButton
                       asChild
-                      isActive={isNavActive(pathname, base, link.path)}
+                      isActive={location?.link.path === link.path}
                       className={navButtonClass}
                     >
                       <Link href={`${base}${link.path}`}>
@@ -174,7 +178,11 @@ export function AppShell({
             </ol>
           </nav>
           <div className="ml-auto flex flex-1 items-center justify-end gap-2">
-            <CommandMenu orgSlug={org.slug} organizations={organizations} />
+            <CommandMenu
+              orgSlug={org.slug}
+              organizations={organizations}
+              nav={nav}
+            />
             <NotificationBell key={org.slug} orgSlug={org.slug} />
           </div>
         </header>

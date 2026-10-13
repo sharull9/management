@@ -15,16 +15,18 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
-import { appNav } from "./app-nav";
+import type { AppNavGroup } from "./app-nav";
 
 const OPEN_SHORTCUT = "Mod+K";
 
 export function CommandMenu({
   orgSlug,
   organizations,
+  nav,
 }: {
   orgSlug: string;
   organizations: { name: string; slug: string }[];
+  nav: AppNavGroup[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -67,7 +69,7 @@ export function CommandMenu({
           <CommandInput placeholder="Search pages and organizations…" />
           <CommandList>
             <CommandEmpty>No matching pages.</CommandEmpty>
-            {appNav.map((group) => (
+            {nav.map((group) => (
               <CommandGroup key={group.title} heading={group.title}>
                 {group.links.map((link) => (
                   <CommandItem

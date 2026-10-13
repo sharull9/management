@@ -1,5 +1,6 @@
 import { AppShell } from "@/components/shared/app-shell";
 import { listAccessibleOrgs, requireOrgContext } from "@/core/context";
+import { permissionKeys } from "@/core/permissions";
 export async function OrganizationLayout({
   children,
   org: slug,
@@ -14,6 +15,7 @@ export async function OrganizationLayout({
       org={{ name: ctx.org.name, slug, tenantName: ctx.tenant.name }}
       organizations={organizations.map(({ name, slug }) => ({ name, slug }))}
       user={{ name: ctx.user.name, email: ctx.user.email }}
+      permissions={ctx.isAdmin ? permissionKeys : [...ctx.permissions]}
     >
       {children}
     </AppShell>

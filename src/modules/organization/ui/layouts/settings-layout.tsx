@@ -15,6 +15,8 @@ export function SettingsLayout({
           "roles",
           "approval-policies",
           "numbering",
+          "currencies",
+          "exchange-rates",
         ].map((section) => (
           <Link
             key={section}
