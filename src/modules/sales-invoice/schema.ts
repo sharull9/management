@@ -3,6 +3,7 @@ import type { PickerItem } from "@/components/shared/form/item-variant-value";
 import { Decimal } from "@/core/decimal";
 import { date, id, quantity, rate } from "@/core/schema";
 import { variantIdentity } from "@/modules/item-variant/util";
+import { currencyFields } from "@/modules/payment/schema";
 
 export const invoiceInput = z.object({
   id: id.nullable(),
@@ -11,6 +12,7 @@ export const invoiceInput = z.object({
   date,
   dueDate: date.nullable(),
   stateId: id.nullable(),
+  ...currencyFields,
   notes: z.string().trim().max(4000),
   lines: z
     .array(

@@ -11,6 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Decimal } from "@/core/decimal";
 import { invoiceDetail } from "../../server/queries";
 import { InvoiceEdit } from "../components/invoice-edit";
 import { InvoiceSubmit } from "../components/invoice-submit";
@@ -27,6 +28,13 @@ export async function InvoiceDetail({
   const writable =
     d.ctx.isAdmin || d.ctx.permissions.has("sales.invoice.create");
   const address = r.party.addresses[0];
+  const base = d.ctx.org.baseCurrency;
+  const foreign = r.currency !== base;
+  // Receipts gain when more base currency arrived than the invoice carried.
+  const fx = r.allocations.reduce(
+    (v, a) => v.add(a.fxDifference),
+    new Decimal(0),
+  );
   return (
     <>
       <div className="sales-no-print">
@@ -67,6 +75,11 @@ export async function InvoiceDetail({
               .join(" · ")}
           </p>
         </div>
+        {foreign && (
+          <p>
+            Exchange rate: 1 {r.currency} = {r.exchangeRate.toString()} {base}
+          </p>
+        )}
         <p>Place of supply: {r.placeOfSupply?.name ?? "Unspecified"}</p>
         <Table className="text-left">
           <TableHeader>
@@ -143,6 +156,27 @@ export async function InvoiceDetail({
             </div>
           ))}
         </dl>
+        {foreign && (
+          <dl className="grid grid-cols-2 gap-2">
+            {(
+              [
+                ["Subtotal", r.baseSubtotal],
+                ["Tax", r.baseTaxTotal],
+                ["Grand total", r.baseGrandTotal],
+                ["Payable", r.basePayableTotal],
+              ] as const
+            ).map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-sm text-muted-foreground">
+                  {label} ({base})
+                </dt>
+                <dd>
+                  {base} {value.toFixed(2)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
         <p>{r.notes}</p>
       </article>
       <p className="sales-no-print text-sm">
@@ -167,7 +201,11 @@ export async function InvoiceDetail({
                     {a.payment.code} ·{" "}
                     {a.payment.date.toISOString().slice(0, 10)} ·{" "}
                     {a.payment.mode} · {a.payment.reference} · {r.currency}{" "}
-                    {a.amount.toFixed(2)}
+                    {a.amount.toFixed(2)} · {base} {a.baseAmount.toFixed(2)}{" "}
+                    received vs {a.documentBaseAmount.toFixed(2)} invoiced ·{" "}
+                    {a.fxDifference.isZero()
+                      ? "no FX"
+                      : `${a.fxDifference.gt(0) ? "gain" : "loss"} ${base} ${a.fxDifference.abs().toFixed(2)}`}
                   </ItemTitle>
                 </ItemContent>
               </Item>
@@ -175,6 +213,12 @@ export async function InvoiceDetail({
           </ItemGroup>
           {!r.allocations.length && (
             <EmptyState title="No receipts allocated." />
+          )}
+          {r.allocations.length > 0 && !fx.isZero() && (
+            <p className="text-sm text-muted-foreground">
+              Realised FX {fx.gt(0) ? "gain" : "loss"}: {base}{" "}
+              {fx.abs().toFixed(2)}
+            </p>
           )}
         </FormCard>
       </div>

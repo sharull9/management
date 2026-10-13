@@ -42,7 +42,12 @@ export async function findInvoiceCustomers(
         label: row.displayName,
         stateId: row.addresses[0]?.stateId ?? null,
         paymentTerms: row.paymentTerms,
-      }) satisfies Option & { stateId: string | null; paymentTerms: number },
+        defaultCurrency: row.defaultCurrency,
+      }) satisfies Option & {
+        stateId: string | null;
+        paymentTerms: number;
+        defaultCurrency: string | null;
+      },
   );
 }
 export async function findInvoiceProjects(
@@ -129,6 +134,7 @@ export async function invoiceCustomerDefaults(org: string, id: string) {
     name: row.displayName,
     stateId: row.addresses[0]?.stateId ?? null,
     paymentTerms: row.paymentTerms,
+    defaultCurrency: row.defaultCurrency,
   };
 }
 

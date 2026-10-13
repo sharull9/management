@@ -5,6 +5,7 @@ type Data = Awaited<ReturnType<typeof salesData>>;
 export function formData(d: Data, projectId?: string | null): InvoiceFormData {
   return {
     items: d.items,
+    baseCurrency: d.ctx.org.baseCurrency,
     orgStateId: d.ctx.org.stateId,
     allowOrgInvoices:
       d.ctx.isAdmin || d.ctx.permissions.has("sales.invoice.create"),
@@ -25,6 +26,7 @@ export function formData(d: Data, projectId?: string | null): InvoiceFormData {
       name: p.displayName,
       stateId: p.addresses[0]?.stateId ?? null,
       paymentTerms: p.paymentTerms,
+      defaultCurrency: p.defaultCurrency,
     })),
     uoms: d.uoms.map((u) => ({ id: u.id, name: `${u.code} · ${u.name}` })),
     states: d.states.map((s) => ({ id: s.id, name: s.name })),

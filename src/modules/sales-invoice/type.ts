@@ -20,6 +20,11 @@ export type InvoiceFormData = {
   orgStateId: string | null;
   allowOrgInvoices: boolean;
   projects: (Choice & { clientPartyId: string | null })[];
-  customers: (Choice & { stateId: string | null; paymentTerms: number })[];
+  customers: (Choice & {
+    stateId: string | null;
+    paymentTerms: number;
+    defaultCurrency: string | null;
+  })[];
+  baseCurrency: string;
   groups: (Choice & { scope: string; components: TaxInput[] })[];
 };

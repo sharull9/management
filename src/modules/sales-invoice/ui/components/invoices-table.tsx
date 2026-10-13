@@ -13,6 +13,7 @@ export type InvoiceRow = {
   date: string;
   dueDate: string | null;
   currency: string;
+  baseGrandTotal: string;
   grandTotal: string;
   receivedTotal: string;
   balance: string;
@@ -53,6 +54,15 @@ const columns: ColumnDef<InvoiceRow>[] = [
       cell: ({ row }) => formatMoney(row.original[key], row.original.currency),
     }),
   ),
+  { accessorKey: "currency", header: "Currency" },
+  {
+    accessorKey: "baseGrandTotal",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Grand total (base)" />
+    ),
+    sortingFn: (a, b) =>
+      new Decimal(a.original.baseGrandTotal).cmp(b.original.baseGrandTotal),
+  },
   { accessorKey: "status", header: "Status" },
 ];
 export function InvoicesTable({

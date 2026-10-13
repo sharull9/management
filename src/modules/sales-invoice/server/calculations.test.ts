@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { toBase } from "@/modules/currency/util";
 import { movingAverage } from "@/modules/stock-valuation/util";
 import type { TaxInput } from "@/modules/tax/util";
 import { convertUom } from "@/modules/uom/util";
 import {
   calculateInvoiceLine,
+  invoiceBaseTotals,
   invoiceTotals,
   isInvoiceOverdue,
   suggestSalesTaxScope,
@@ -235,4 +237,22 @@ test("invoice input rejects invalid dates, empty lines and quantity precision", 
     }).success,
     false,
   );
+});
+
+test("base totals convert each document total once at the invoice rate", () => {
+  const totals = {
+    subtotal: "100.00",
+    discountTotal: "10.00",
+    taxTotal: "16.20",
+    withholdingTotal: "1.00",
+    grandTotal: "106.20",
+    payableTotal: "105.20",
+  };
+  const base = invoiceBaseTotals(totals, (v) => toBase(v, "83.333", 2));
+  assert.equal(base.baseSubtotal, "8333.30");
+  assert.equal(base.baseTaxTotal, "1349.99");
+  assert.equal(base.baseGrandTotal, "8849.96");
+  assert.equal(base.basePayableTotal, "8766.63");
+  const same = invoiceBaseTotals(totals, (v) => toBase(v, "1", 2));
+  assert.equal(same.baseGrandTotal, "106.20");
 });

@@ -85,6 +85,23 @@ export function invoiceTotals(
     payableTotal: string;
   };
 }
+/**
+ * Base-currency totals, each converted once from its document-currency total
+ * (never summed from rounded line conversions).
+ */
+export function invoiceBaseTotals(
+  totals: ReturnType<typeof invoiceTotals>,
+  toBase: (amount: string) => { toFixed: (places: number) => string },
+) {
+  return {
+    baseSubtotal: toBase(totals.subtotal).toFixed(2),
+    baseDiscountTotal: toBase(totals.discountTotal).toFixed(2),
+    baseTaxTotal: toBase(totals.taxTotal).toFixed(2),
+    baseWithholdingTotal: toBase(totals.withholdingTotal).toFixed(2),
+    baseGrandTotal: toBase(totals.grandTotal).toFixed(2),
+    basePayableTotal: toBase(totals.payableTotal).toFixed(2),
+  };
+}
 export function validateStockLine(input: {
   fromProjectStock: boolean;
   projectId: string | null;

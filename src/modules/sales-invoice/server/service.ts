@@ -3,6 +3,7 @@ import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
 import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
+import { documentFx } from "@/modules/payment/server/fx";
 import {
   domainAudit,
   lockDocument,
@@ -11,6 +12,7 @@ import {
 import type { invoiceInput } from "../schema";
 import {
   calculateInvoiceLine,
+  invoiceBaseTotals,
   invoiceTotals,
   suggestSalesTaxScope,
   validateStockLine,
@@ -125,15 +127,26 @@ export async function saveInvoice(
     new Date(input.date.getTime() + party.paymentTerms * 86400000);
   if (dueDate < input.date)
     throw new Error("Due date cannot precede invoice date.");
+  // Tax and totals are computed in the document currency; base totals are
+  // converted once per total at the document's rate.
+  const currency = input.currency ?? ctx.org.baseCurrency;
+  const fx = await documentFx(tx, ctx, {
+    currency,
+    date: input.date,
+    override: input.exchangeRate,
+  });
+  const totals = invoiceTotals(calculations);
   const fields = {
     projectId: project?.id ?? null,
     partyId: party.id,
     date: input.date,
     dueDate,
     stateId,
-    currency: project?.currency ?? ctx.org.baseCurrency,
+    currency,
+    exchangeRate: fx.exchangeRate,
     notes: input.notes,
-    ...invoiceTotals(calculations),
+    ...totals,
+    ...invoiceBaseTotals(totals, fx.toBase),
   };
   if (input.id)
     await tx.salesInvoiceLine.deleteMany({ where: { invoiceId: input.id } });

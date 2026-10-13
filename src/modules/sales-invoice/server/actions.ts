@@ -77,7 +77,8 @@ export async function submitInvoiceAction(
             documentId: invoice.id,
             title: `${invoice.code} · Sales invoice`,
             projectId: invoice.projectId,
-            amount: invoice.grandTotal.toString(),
+            // Approval thresholds are organization-wide: compare in base currency.
+            amount: invoice.baseGrandTotal.toString(),
           },
           tx,
           ctx,

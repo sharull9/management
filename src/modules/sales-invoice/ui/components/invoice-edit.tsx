@@ -38,6 +38,8 @@ export async function InvoiceEdit({
           date: r.date.toISOString().slice(0, 10),
           dueDate: r.dueDate?.toISOString().slice(0, 10),
           stateId: r.stateId,
+          currency: r.currency,
+          exchangeRate: r.exchangeRate.toString(),
           notes: r.notes ?? "",
           lines: r.lines.map((l) => ({
             itemId: l.variant?.itemId ?? null,

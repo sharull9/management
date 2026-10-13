@@ -34,6 +34,8 @@ const input: z.input<typeof invoiceFormInput> = {
   date: "2026-10-11",
   dueDate: "",
   stateId: null,
+  currency: "INR",
+  exchangeRate: "",
   notes: "",
   lines: [service],
 };

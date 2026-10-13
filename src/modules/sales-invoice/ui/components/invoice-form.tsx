@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { useFieldArray, useWatch } from "react-hook-form";
+import { FormProvider, useFieldArray, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { ActionFormShell } from "@/components/shared/form/action-form-shell";
@@ -9,6 +9,7 @@ import { toOptions } from "@/components/shared/form/enum-options";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Button } from "@/components/ui/button";
+import { CurrencyFxFields } from "@/modules/payment/ui/components/currency-fx-fields";
 import { type invoiceFormInput, invoiceFormSchema } from "../../schema";
 import { saveInvoiceAction } from "../../server/actions";
 import {
@@ -25,7 +26,6 @@ import {
   invoiceTaxGroupDefaults,
 } from "../../server/picker-actions";
 import type { InvoiceDraftLine, InvoiceFormData } from "../../type";
-
 import { InvoiceLine } from "./invoice-line";
 
 type Input = z.input<typeof invoiceFormInput>;
@@ -73,6 +73,8 @@ export function InvoiceForm({
     date?: string;
     dueDate?: string;
     stateId?: string | null;
+    currency?: string;
+    exchangeRate?: string;
     notes?: string;
     lines?: InvoiceDraftLine[];
   };
@@ -97,6 +99,9 @@ export function InvoiceForm({
     date,
     dueDate: initial?.dueDate ?? termsDate(customer?.paymentTerms ?? 0, date),
     stateId: initial?.stateId ?? customer?.stateId ?? null,
+    currency:
+      initial?.currency ?? customer?.defaultCurrency ?? data.baseCurrency,
+    exchangeRate: initial?.exchangeRate ?? "1",
     notes: initial?.notes ?? "",
     lines: initial?.lines?.map(({ itemId, levels, ...line }) => ({
       ...line,
@@ -134,6 +139,7 @@ export function InvoiceForm({
             name: row.label,
             stateId: row.stateId,
             paymentTerms: row.paymentTerms,
+            defaultCurrency: row.defaultCurrency,
           })),
         ),
       );
@@ -236,6 +242,11 @@ export function InvoiceForm({
           }
         }
         form.setValue("stateId", selected?.stateId ?? null);
+        if (!form.getValues("id"))
+          form.setValue(
+            "currency",
+            selected?.defaultCurrency ?? data.baseCurrency,
+          );
         form.setValue(
           "dueDate",
           termsDate(selected?.paymentTerms ?? 0, form.getValues("date")),
@@ -253,7 +264,7 @@ export function InvoiceForm({
         );
     });
     return () => subscription.unsubscribe();
-  }, [form, projects, customers, org]);
+  }, [form, projects, customers, org, data.baseCurrency]);
   let preview = "Enter quantities and rates to calculate totals.";
   try {
     const totals = invoiceTotals(
@@ -266,69 +277,77 @@ export function InvoiceForm({
         }),
       ),
     );
-    preview = `Subtotal ${totals.subtotal} / Discount ${totals.discountTotal} / Tax ${totals.taxTotal} / Withholding ${totals.withholdingTotal} / Grand ${totals.grandTotal} / Payable ${totals.payableTotal}`;
+    preview = `${values.currency}: Subtotal ${totals.subtotal} / Discount ${totals.discountTotal} / Tax ${totals.taxTotal} / Withholding ${totals.withholdingTotal} / Grand ${totals.grandTotal} / Payable ${totals.payableTotal}`;
   } catch {}
   return (
-    <ActionFormShell
-      form={form}
-      action={saveInvoiceAction.bind(null, org)}
-      submit="Save draft"
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <ComboboxField
-          control={form.control}
-          name="projectId"
-          label="Project (optional)"
-          options={toOptions(projects)}
-          loadOptions={loadProjects}
-          clearable={data.allowOrgInvoices}
-        />
-        <ComboboxField
-          control={form.control}
-          name="partyId"
-          label="Customer"
-          options={toOptions(customers)}
-          loadOptions={loadCustomers}
-        />
-        <DateField control={form.control} name="date" label="Invoice date" />
-        <DateField control={form.control} name="dueDate" label="Due date" />
-        <ComboboxField
-          control={form.control}
-          name="stateId"
-          label="Place of supply"
-          options={toOptions(data.states)}
-          clearable
-        />
-        <TextField control={form.control} name="notes" label="Notes" />
-      </div>
-      <p className="text-sm">
-        Suggested tax scope: {scope}. Invoice currency follows the project or
-        organization.
-      </p>
-      {fields.map((field, index) => (
-        <InvoiceLine
-          key={field.id}
-          form={form}
-          index={index}
-          data={{ ...data, items, groups }}
-          scope={scope}
-          loadItems={loadItems}
-          loadGroups={loadGroups}
-          remove={() => remove(index)}
-          removable={fields.length > 1}
-        />
-      ))}
-      <Button
-        type="button"
-        variant="outline"
-        disabled={fields.length >= 100}
-        onClick={() => append(blank)}
+    <FormProvider {...form}>
+      <ActionFormShell
+        form={form}
+        action={saveInvoiceAction.bind(null, org)}
+        submit="Save draft"
       >
-        Add line
-      </Button>
-      <p className="text-sm" aria-live="polite">
-        {preview}
-      </p>
-    </ActionFormShell>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <ComboboxField
+            control={form.control}
+            name="projectId"
+            label="Project (optional)"
+            options={toOptions(projects)}
+            loadOptions={loadProjects}
+            clearable={data.allowOrgInvoices}
+          />
+          <ComboboxField
+            control={form.control}
+            name="partyId"
+            label="Customer"
+            options={toOptions(customers)}
+            loadOptions={loadCustomers}
+          />
+          <DateField control={form.control} name="date" label="Invoice date" />
+          <DateField control={form.control} name="dueDate" label="Due date" />
+          <CurrencyFxFields
+            org={org}
+            baseCurrency={data.baseCurrency}
+            initialCurrencies={values.currency ? [values.currency] : []}
+            keepInitialRate={!!initial?.id}
+          />
+          <ComboboxField
+            control={form.control}
+            name="stateId"
+            label="Place of supply"
+            options={toOptions(data.states)}
+            clearable
+          />
+          <TextField control={form.control} name="notes" label="Notes" />
+        </div>
+        <p className="text-sm">
+          Suggested tax scope: {scope}. Tax and totals are computed in the
+          invoice currency; base totals are converted at the exchange rate.
+        </p>
+        {fields.map((field, index) => (
+          <InvoiceLine
+            key={field.id}
+            form={form}
+            index={index}
+            data={{ ...data, items, groups }}
+            scope={scope}
+            loadItems={loadItems}
+            loadGroups={loadGroups}
+            remove={() => remove(index)}
+            removable={fields.length > 1}
+          />
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          disabled={fields.length >= 100}
+          onClick={() => append(blank)}
+        >
+          Add line
+        </Button>
+        <p className="text-sm" aria-live="polite">
+          {preview}
+        </p>
+      </ActionFormShell>
+    </FormProvider>
   );
 }

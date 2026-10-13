@@ -60,6 +60,23 @@ export async function InvoiceList({
           </Button>
         }
       />
+      {currencies.length > 1 && (
+        <StatTiles
+          stats={[
+            {
+              label: `Billed (${d.ctx.org.baseCurrency})`,
+              value: formatMoney(
+                billing.reduce(
+                  (a, r) => a.add(r.basePayableTotal),
+                  new Decimal(0),
+                ),
+                d.ctx.org.baseCurrency,
+              ),
+              detail: "All currencies, at invoice rates",
+            },
+          ]}
+        />
+      )}
       {filters.projectId &&
         (currencies.length ? (
           currencies.map((currency) => {
@@ -119,6 +136,7 @@ export async function InvoiceList({
             date: row.date.toISOString().slice(0, 10),
             dueDate: row.dueDate?.toISOString().slice(0, 10) ?? null,
             currency: row.currency,
+            baseGrandTotal: row.baseGrandTotal.toString(),
             grandTotal: row.grandTotal.toString(),
             receivedTotal: row.receivedTotal.toString(),
             balance: row.payableTotal.sub(row.receivedTotal).toString(),

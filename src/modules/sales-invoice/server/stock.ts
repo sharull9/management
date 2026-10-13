@@ -19,14 +19,14 @@ export async function postInvoiceStock(
       throw new Error("Project required for stock sales.");
     return;
   }
-  const project = await tx.project.findFirstOrThrow({
+  await tx.project.findFirstOrThrow({
     where: { id: invoice.projectId, organizationId: invoice.organizationId },
   });
   const organization = await tx.organization.findUniqueOrThrow({
     where: { id: invoice.organizationId },
   });
-  if (project.currency !== invoice.currency)
-    throw new Error("Stock project currency differs from invoice.");
+  // Stock is valued in the base currency (moving average), whatever the
+  // invoice currency is; the SALE_OUT movement is unaffected by the sale price.
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`stock:${invoice.organizationId}:${invoice.projectId}`}))::text`;
   const lines = await tx.salesInvoiceLine.findMany({
     where: { invoiceId: invoice.id, fromProjectStock: true },
