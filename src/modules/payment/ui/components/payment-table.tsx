@@ -1,6 +1,5 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
-import Link from "next/link";
 import { type ReactNode, useMemo } from "react";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
@@ -52,14 +51,6 @@ export function PaymentTable({
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title="Payment no." />
         ),
-        cell: ({ row }) => (
-          <Link
-            className="font-medium underline-offset-4 hover:underline"
-            href={`/${org}/finance/payments/${row.original.id}`}
-          >
-            {row.original.code}
-          </Link>
-        ),
       },
       {
         accessorKey: "party",
@@ -100,7 +91,7 @@ export function PaymentTable({
         cell: ({ row }) => <StatusBadge status={row.original.status} />,
       },
     ],
-    [org],
+    [],
   );
   return (
     <DataTable

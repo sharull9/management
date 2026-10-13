@@ -1,6 +1,5 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
@@ -30,14 +29,6 @@ const columns: ColumnDef<BillRow>[] = [
   {
     accessorKey: "code",
     header: "Bill no.",
-    cell: ({ row }) => (
-      <Link
-        className="font-medium underline-offset-4 hover:underline"
-        href={`/${row.original.org}/procurement/bills/${row.original.id}`}
-      >
-        {row.original.code}
-      </Link>
-    ),
   },
   { accessorKey: "vendorInvoiceNo", header: "Vendor invoice" },
   { accessorKey: "vendor", header: "Vendor" },

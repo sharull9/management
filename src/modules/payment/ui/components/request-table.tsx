@@ -1,6 +1,5 @@
 "use client";
 import type { ColumnDef } from "@tanstack/react-table";
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
@@ -34,14 +33,6 @@ export function RequestTable({
     {
       accessorKey: "code",
       header: "Request no.",
-      cell: ({ row }) => (
-        <Link
-          className="font-medium underline-offset-4 hover:underline"
-          href={`/${org}/finance/payment-requests/${row.original.id}`}
-        >
-          {row.original.code}
-        </Link>
-      ),
     },
     { accessorKey: "party", header: "Party" },
     { accessorKey: "project", header: "Project" },
