@@ -33,6 +33,8 @@ export type RequestDraft = {
   partyId: string;
   projectId: string | null;
   date: string;
+  currency: string;
+  exchangeRate: string;
   amount: string;
   mode: string;
   purpose: string;

@@ -1,5 +1,5 @@
 "use client";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { FormProvider, useWatch } from "react-hook-form";
 import type { z } from "zod";
 import { ComboboxField } from "@/components/shared/combobox/combobox-field";
@@ -11,6 +11,7 @@ import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { modes } from "../../constants";
 import { requestInput } from "../../schema";
 import { saveRequestAction } from "../../server/actions";
+import { partyDefaultCurrency } from "../../server/fx-actions";
 import {
   findOpenDocuments,
   findParties,
@@ -18,6 +19,7 @@ import {
 } from "../../server/picker-actions";
 import type { FormData, RequestDraft } from "../../type";
 import { AllocationFields } from "./allocation-form";
+import { CurrencyFxFields } from "./currency-fx-fields";
 import { PaymentChoice } from "./payment-choice";
 export function RequestForm({
   org,
@@ -39,18 +41,18 @@ export function RequestForm({
       (data.allowOrganization ? null : (data.projects[0]?.id ?? null)),
     date: draft?.date ?? new Date().toISOString().slice(0, 10),
     amount: draft?.amount ?? "",
+    currency: draft?.currency ?? data.baseCurrency,
+    exchangeRate: draft?.exchangeRate ?? "1",
     mode: requestInput.shape.mode.parse(draft?.mode ?? "CASH"),
     purpose: requestInput.shape.purpose.parse(draft?.purpose ?? "ADVANCE"),
     reason: draft?.reason ?? "",
     allocations: draft?.allocations ?? [],
   });
-  const [partyId, projectId, purpose] = useWatch({
+  const [partyId, projectId, purpose, watchedCurrency] = useWatch({
     control: form.control,
-    name: ["partyId", "projectId", "purpose"],
+    name: ["partyId", "projectId", "purpose", "currency"],
   });
-  const currency =
-    data.projects.find((p) => p.id === projectId)?.currency ??
-    data.baseCurrency;
+  const currency = watchedCurrency ?? data.baseCurrency;
   const parties = useMemo(
     () => findParties.bind(null, org, "payment.request.create", "OUTGOING"),
     [org],
@@ -73,6 +75,23 @@ export function RequestForm({
     [org, partyId, projectId, currency],
   );
   const clear = () => form.setValue("allocations", []);
+  useEffect(() => {
+    const subscription = form.watch((_values, { name }) => {
+      if (name === "currency") form.setValue("allocations", []);
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+  const chooseParty = async (id: string | null) => {
+    clear();
+    if (!id || draft) return;
+    try {
+      const code = await partyDefaultCurrency(org, id);
+      if (form.getValues("partyId") === id)
+        form.setValue("currency", code ?? data.baseCurrency);
+    } catch {
+      // Keep the current currency; the user can still pick one.
+    }
+  };
   return (
     <FormProvider {...form}>
       <ActionFormShell
@@ -90,7 +109,7 @@ export function RequestForm({
               .map((p) => ({ value: p.id, label: p.name }))}
             loadOptions={parties}
             queryKey={["payment-parties", org, "request"]}
-            onChange={clear}
+            onChange={chooseParty}
           />
           <PaymentChoice
             control={form.control}
@@ -123,6 +142,12 @@ export function RequestForm({
             name="mode"
             label="Mode"
             options={modes.map((value) => ({ value, label: value }))}
+          />
+          <CurrencyFxFields
+            org={org}
+            baseCurrency={data.baseCurrency}
+            initialCurrencies={[currency]}
+            keepInitialRate={!!draft}
           />
           <TextField
             control={form.control}

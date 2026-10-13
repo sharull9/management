@@ -40,6 +40,7 @@ test(
     const { submitRequest } = await import("./submission");
     const { partyBalances } = await import("./balances");
     const { partyStatement } = await import("./statement");
+    const { activeFxTotal } = await import("./allocation");
     const rollback = new Error("ROLLBACK_SETTLEMENT_TEST");
     try {
       await db.$transaction(
@@ -131,6 +132,8 @@ test(
               mode: "BANK",
               direction: "OUTGOING",
               amount: "40",
+              currency: "INR",
+              exchangeRate: "",
               reference: "",
               notes: "",
               paymentRequestId: null,
@@ -173,6 +176,8 @@ test(
               mode: "CASH",
               purpose: "BILL_SETTLEMENT",
               amount: "60",
+              currency: "INR",
+              exchangeRate: "",
               reason: "Settle bill",
               allocations: [{ documentId: bill.id, amount: "60" }],
             }),
@@ -427,6 +432,7 @@ test(
           );
           const data = {
             ctx,
+            baseCurrency: { code: "INR", decimals: 2 },
             allowOrganization: true,
             canViewOrg: true,
             projectId: undefined,
@@ -459,6 +465,106 @@ test(
             projectBalance.net.toFixed(2),
           );
           assert.equal(projectBalance.outgoingAdvance.toFixed(2), "0.00");
+          // Multi-currency: a USD bill at 83 paid at 85 is a 200 INR loss; a USD
+          // invoice at 83 received at 85 is a 200 INR gain; voiding reverses it.
+          await tx.tenantCurrency.create({
+            data: { tenantId: tenant.id, currencyCode: "USD" },
+          });
+          const usdBill = await tx.vendorBill.create({
+            data: {
+              ...bill,
+              id: undefined,
+              code: "USD-B",
+              vendorInvoiceNo: "VUSD",
+              currency: "USD",
+              exchangeRate: "83",
+              payableTotal: "100",
+              grandTotal: "100",
+              subtotal: "100",
+              paidTotal: "0",
+              basePayableTotal: "8300",
+            },
+          });
+          const usdInvoice = await tx.salesInvoice.create({
+            data: {
+              ...invoice,
+              id: undefined,
+              code: "USD-I",
+              currency: "USD",
+              exchangeRate: "83",
+              payableTotal: "100",
+              grandTotal: "100",
+              subtotal: "100",
+              basePayableTotal: "8300",
+              receivedTotal: "0",
+            },
+          });
+          const usd = (extra: Record<string, unknown>) =>
+            payment({ currency: "USD", exchangeRate: "85", ...extra });
+          assert.throws(() => payment({ currency: "USD", exchangeRate: "0" }));
+          const usdOut = await recordPayment(tx, ctx, usd({ amount: "100" }));
+          assert.equal(usdOut.baseAmount.toFixed(2), "8500.00");
+          assert.equal(usdOut.exchangeRate.toFixed(0), "85");
+          await assert.rejects(
+            allocatePayment(tx, ctx, extra.id, [
+              { documentId: usdBill.id, amount: "1" },
+            ]),
+            /same currency/,
+          );
+          await allocatePayment(tx, ctx, usdOut.id, [
+            { documentId: usdBill.id, amount: "100" },
+          ]);
+          const billAllocation = await tx.paymentAllocation.findFirstOrThrow({
+            where: { paymentId: usdOut.id },
+          });
+          assert.equal(billAllocation.baseAmount.toFixed(2), "8500.00");
+          assert.equal(billAllocation.documentBaseAmount.toFixed(2), "8300.00");
+          assert.equal(billAllocation.fxDifference.toFixed(2), "200.00");
+          const usdIn = await recordPayment(
+            tx,
+            ctx,
+            usd({ direction: "INCOMING", amount: "100" }),
+          );
+          await allocatePayment(tx, ctx, usdIn.id, [
+            { documentId: usdInvoice.id, amount: "100" },
+          ]);
+          const invoiceAllocation = await tx.paymentAllocation.findFirstOrThrow(
+            { where: { paymentId: usdIn.id } },
+          );
+          assert.equal(invoiceAllocation.fxDifference.toFixed(2), "200.00");
+          const usdBalance = partyBalances({
+            ...data,
+            payments: await tx.payment.findMany({
+              where: { organizationId: org.id },
+              include: {
+                party: true,
+                allocations: {
+                  include: { vendorBill: true, salesInvoice: true },
+                },
+              },
+            }),
+            bills: await tx.vendorBill.findMany({
+              where: { organizationId: org.id },
+            }),
+            invoices: await tx.salesInvoice.findMany({
+              where: { organizationId: org.id },
+            }),
+          }).find((row) => row.currency === "USD");
+          assert.equal(usdBalance?.payable.toFixed(2), "0.00");
+          await voidPayment(tx, ctx, usdOut.id, "FX correction");
+          const reversed = await tx.paymentAllocation.findMany({
+            where: { paymentId: usdOut.id },
+            include: { payment: true },
+          });
+          assert.equal(activeFxTotal(reversed).toFixed(2), "0.00");
+          assert.equal(
+            (
+              await tx.vendorBill.findUniqueOrThrow({
+                where: { id: usdBill.id },
+              })
+            ).paidTotal.toFixed(2),
+            "0.00",
+          );
           assert.ok(
             await tx.auditLog.count({
               where: { organizationId: org.id, action: "VOID" },

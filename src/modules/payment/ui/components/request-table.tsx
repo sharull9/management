@@ -18,6 +18,7 @@ export type RequestRow = {
   status: string;
   currency: string;
   amount: string;
+  baseAmount: string;
 };
 
 export function RequestTable({
@@ -58,6 +59,15 @@ export function RequestTable({
         new Decimal(a.original.amount).cmp(b.original.amount),
       cell: ({ row }) =>
         formatMoney(row.original.amount, row.original.currency),
+    },
+    { accessorKey: "currency", header: "Currency" },
+    {
+      accessorKey: "baseAmount",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Base amount" />
+      ),
+      sortingFn: (a, b) =>
+        new Decimal(a.original.baseAmount).cmp(b.original.baseAmount),
     },
     {
       accessorKey: "date",

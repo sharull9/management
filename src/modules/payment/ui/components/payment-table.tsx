@@ -18,6 +18,7 @@ export type PaymentRow = {
   mode: string;
   currency: string;
   amount: string;
+  baseAmount: string;
   allocated: string;
   unallocated: string;
   status: string;
@@ -81,7 +82,16 @@ export function PaymentTable({
         cell: ({ row }) => row.original.date.slice(0, 10),
       },
       { accessorKey: "mode", header: "Method" },
+      { accessorKey: "currency", header: "Currency" },
       amountColumn("amount", "Amount"),
+      {
+        accessorKey: "baseAmount",
+        header: ({ column }) => (
+          <DataTableColumnHeader column={column} title="Base amount" />
+        ),
+        sortingFn: (a, b) =>
+          new Decimal(a.original.baseAmount).cmp(b.original.baseAmount),
+      },
       amountColumn("allocated", "Allocated"),
       amountColumn("unallocated", "Unallocated"),
       {

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  activeFxTotal,
   agingBucket,
+  allocationFx,
   amount,
   runningBalance,
   settlementStatus,
@@ -77,4 +79,69 @@ test("statement orders events and allocations do not double count cash", () => {
     entries.map((e) => e.balance),
     ["100.00", "70.00", "70.00"],
   );
+});
+
+const fx = (direction: "OUTGOING" | "INCOMING") =>
+  allocationFx({
+    amount: "100",
+    paymentCurrency: "USD",
+    documentCurrency: "USD",
+    paymentRate: "85",
+    documentRate: "83",
+    baseDecimals: 2,
+    direction,
+  });
+test("a USD bill at 83 paid at 85 is a 2 per unit payable loss", () => {
+  const r = fx("OUTGOING");
+  assert.equal(r.baseAmount.toFixed(2), "8500.00");
+  assert.equal(r.documentBaseAmount.toFixed(2), "8300.00");
+  assert.equal(r.fxDifference.toFixed(2), "200.00");
+  assert.equal(r.outcome, "LOSS");
+});
+test("a USD invoice at 83 received at 85 is a receivable gain", () => {
+  const r = fx("INCOMING");
+  assert.equal(r.fxDifference.toFixed(2), "200.00");
+  assert.equal(r.outcome, "GAIN");
+  const lower = allocationFx({
+    amount: "100",
+    paymentCurrency: "USD",
+    documentCurrency: "USD",
+    paymentRate: "81",
+    documentRate: "83",
+    baseDecimals: 2,
+    direction: "INCOMING",
+  });
+  assert.equal(lower.fxDifference.toFixed(2), "-200.00");
+  assert.equal(lower.outcome, "LOSS");
+});
+test("allocation rejects a different currency and same rates give no FX", () => {
+  assert.throws(
+    () =>
+      allocationFx({
+        amount: "1",
+        paymentCurrency: "INR",
+        documentCurrency: "USD",
+        paymentRate: "1",
+        documentRate: "83",
+        baseDecimals: 2,
+        direction: "OUTGOING",
+      }),
+    /same currency/,
+  );
+  const none = allocationFx({
+    amount: "10",
+    paymentCurrency: "INR",
+    documentCurrency: "INR",
+    paymentRate: "1",
+    documentRate: "1",
+    baseDecimals: 2,
+    direction: "OUTGOING",
+  });
+  assert.equal(none.outcome, "NONE");
+});
+test("voided payments reverse their allocations' realised FX", () => {
+  const posted = { fxDifference: "200.00", payment: { status: "POSTED" } };
+  const voided = { fxDifference: "50.00", payment: { status: "VOID" } };
+  assert.equal(activeFxTotal([posted, voided]).toFixed(2), "200.00");
+  assert.equal(activeFxTotal([voided]).toFixed(2), "0.00");
 });

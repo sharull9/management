@@ -14,6 +14,8 @@ const common = {
   date: "2026-10-11",
   mode: "BANK" as const,
   amount: "9999999999999999.99",
+  currency: "INR",
+  exchangeRate: "",
 };
 test("typed payment and request inputs preserve decimal strings and transform dates once", () => {
   const payment = paymentInput.parse({
@@ -116,4 +118,25 @@ test("submit and void schemas validate identifiers and trimmed void reasons", ()
     voidPaymentInput.parse({ id: "payment", reason: " mistake " }),
     { id: "payment", reason: "mistake" },
   );
+});
+
+test("currency and exchange rate inputs", () => {
+  const parse = (extra: object) =>
+    paymentInput.safeParse({
+      ...common,
+      direction: "OUTGOING",
+      paymentRequestId: null,
+      reference: "",
+      notes: "",
+      ...extra,
+    });
+  const blank = parse({});
+  assert.ok(blank.success);
+  assert.equal(blank.data.exchangeRate, null);
+  const override = parse({ currency: "USD", exchangeRate: "83.5" });
+  assert.ok(override.success);
+  assert.equal(override.data.exchangeRate, "83.5");
+  for (const bad of ["0", "-1", "abc", "1.12345678901"])
+    assert.equal(parse({ exchangeRate: bad }).success, false, bad);
+  assert.equal(parse({ currency: "usd" }).success, false);
 });

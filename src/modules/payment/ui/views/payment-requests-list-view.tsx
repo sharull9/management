@@ -64,6 +64,7 @@ export async function FinanceList({
           status: r.status,
           currency: r.currency,
           amount: money(r.amount),
+          baseAmount: money(r.baseAmount),
         }))}
       />
     </div>

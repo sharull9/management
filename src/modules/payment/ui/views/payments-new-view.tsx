@@ -16,7 +16,7 @@ export async function PaymentsNew({
       backHref={`/${org}/finance/payments`}
       backLabel="All payments"
       title="Record payment"
-      description="Amounts use the project currency or organization currency when no project is selected."
+      description="Choose the document currency; the exchange rate is prefilled for the date and can be overridden."
       cardTitle="Details"
     >
       <PaymentForm org={org} data={formData(d)} initialRequestId={requestId} />

@@ -26,16 +26,22 @@ export async function StatementPage({
         .map((r) => r.currency),
     ),
   ];
+  // Requested currency, else the party's default when it has activity, else the
+  // only (or first) currency present.
+  const preferred =
+    party.defaultCurrency && currencies.includes(party.defaultCurrency)
+      ? party.defaultCurrency
+      : currencies[0];
   const selected =
     currency && currencies.includes(currency)
       ? currency
-      : (currencies[0] ?? d.ctx.org.baseCurrency);
+      : (preferred ?? party.defaultCurrency ?? d.ctx.org.baseCurrency);
   const entries = partyStatement(d, partyId, selected);
   return (
     <div className="space-y-6">
       <PageHeading
         title={`${party.displayName} statement`}
-        description={`Chronological activity in ${selected}. Positive balance is due from the party; negative balance is due to the party. Allocations do not change the net position. Running balances include all activity, even when searching.`}
+        description={`Chronological activity in ${selected}. Positive balance is due from the party; negative balance is due to the party. Allocations do not change the net position. Running balances include all activity, even when searching. The base balance values each entry at its own document rate in ${d.baseCurrency.code}.`}
       />
       <StatementTable
         toolbar={
@@ -62,6 +68,7 @@ export async function StatementPage({
           debit: new Decimal(e.debit).toFixed(2),
           credit: new Decimal(e.credit).toFixed(2),
           balance: e.balance,
+          baseBalance: e.baseBalance,
         }))}
       />
     </div>

@@ -38,6 +38,8 @@ export async function RequestEditView({
           projectId: row.projectId,
           date: date(row.date),
           amount: money(row.amount),
+          currency: row.currency,
+          exchangeRate: row.exchangeRate.toString(),
           mode: row.mode,
           purpose: row.purpose,
           reason: row.reason,

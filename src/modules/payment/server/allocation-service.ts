@@ -2,8 +2,14 @@ import "server-only";
 import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
 import type { Prisma } from "@/generated/prisma/client";
+import { organizationBaseCurrency } from "@/modules/currency/server/rates";
 import type { allocationsInput } from "../schema";
-import { Decimal, settlementStatus, validateAllocation } from "./allocation";
+import {
+  allocationFx,
+  Decimal,
+  settlementStatus,
+  validateAllocation,
+} from "./allocation";
 
 type Tx = Prisma.TransactionClient;
 
@@ -60,10 +66,11 @@ export async function allocatePayment(
     where: { id: paymentId, organizationId: ctx.org.id, status: "POSTED" },
   });
   await scope(tx, ctx, payment.projectId, "payment.record");
+  const base = await organizationBaseCurrency(tx, ctx.org.id);
   let available = new Decimal(payment.unallocatedAmount);
   const checked = [];
   for (const a of allocations) {
-    const { outstanding } = await target(
+    const { row, outstanding } = await target(
       tx,
       ctx,
       payment,
@@ -72,13 +79,27 @@ export async function allocatePayment(
     );
     const value = validateAllocation(available, outstanding, a.amount);
     available = available.sub(value);
-    checked.push({ ...a, value });
+    // The payment's own rate prices the cash side (advances keep the advance's
+    // rate); the document's stored rate prices what it carried.
+    const fx = allocationFx({
+      amount: value,
+      paymentCurrency: payment.currency,
+      documentCurrency: row.currency,
+      paymentRate: payment.exchangeRate,
+      documentRate: row.exchangeRate,
+      baseDecimals: base.decimals,
+      direction: payment.direction,
+    });
+    checked.push({ ...a, value, fx });
   }
   for (const a of checked) {
     const allocation = await tx.paymentAllocation.create({
       data: {
         paymentId,
         amount: a.value,
+        baseAmount: a.fx.baseAmount,
+        documentBaseAmount: a.fx.documentBaseAmount,
+        fxDifference: a.fx.fxDifference,
         allocatedById: ctx.user.id,
         ...(payment.direction === "OUTGOING"
           ? { vendorBillId: a.documentId }

@@ -13,6 +13,7 @@ import {
 
 type Tx = Prisma.TransactionClient;
 
+import { documentFx } from "./fx";
 import { audit, lockSettlement, scope, target } from "./service";
 export async function validateRequestBills(
   tx: Tx,
@@ -61,12 +62,13 @@ export async function saveRequest(
   input: z.infer<typeof requestInput>,
 ) {
   await lockSettlement(tx, ctx.org.id);
-  const currency = await scope(
-    tx,
-    ctx,
-    input.projectId,
-    "payment.request.create",
-  );
+  await scope(tx, ctx, input.projectId, "payment.request.create");
+  const currency = input.currency ?? ctx.org.baseCurrency;
+  const fx = await documentFx(tx, ctx, {
+    currency,
+    date: input.date,
+    override: input.exchangeRate,
+  });
   await tx.party.findFirstOrThrow({
     where: { id: input.partyId, tenantId: ctx.tenant.id, isVendor: true },
   });
@@ -87,7 +89,9 @@ export async function saveRequest(
     partyId: input.partyId,
     projectId: input.projectId,
     currency,
+    exchangeRate: fx.exchangeRate,
     amount: amount(input.amount),
+    baseAmount: fx.toBase(amount(input.amount)),
     date: input.date,
     purpose: input.purpose,
     mode: input.mode,

@@ -95,6 +95,7 @@ export async function FinanceList({
                 status: r.status,
                 currency: r.currency,
                 amount: money(r.amount),
+                baseAmount: money(r.baseAmount),
                 allocation: r.purpose,
                 direction: "",
               }))
@@ -109,6 +110,7 @@ export async function FinanceList({
                 status: p.status,
                 currency: p.currency,
                 amount: money(p.amount),
+                baseAmount: money(p.baseAmount),
                 direction: p.direction,
                 allocation:
                   p.status === "VOID"

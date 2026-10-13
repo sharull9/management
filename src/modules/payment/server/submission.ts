@@ -26,7 +26,8 @@ export async function submitRequest(
       documentId: id,
       title: `${row.code} · Payment request`,
       projectId: row.projectId,
-      amount: row.amount.toString(),
+      // Approval thresholds are organization-wide, so compare in base currency.
+      amount: row.baseAmount.toString(),
     },
     tx,
     ctx,

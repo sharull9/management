@@ -1,5 +1,8 @@
 import { PageHeading } from "@/components/shared/page-heading";
+import { StatTiles } from "@/components/shared/stat-tiles";
 import { UrlTabs } from "@/components/shared/url-tabs";
+import { formatMoney } from "@/core/format";
+import { Decimal } from "../../server/allocation";
 import { partyBalances } from "../../server/balances";
 import { financeData } from "../../server/queries";
 import { FinanceFilters } from "../components/finance-filters";
@@ -16,11 +19,30 @@ export async function BalancesPage({
 }) {
   const d = await financeData(org, "payment.view", projectId),
     balances = partyBalances(d, undefined, type);
+  const sum = (key: "basePayable" | "baseReceivable" | "baseNet") =>
+    balances.reduce((v, b) => v.add(b[key]), new Decimal(0));
   return (
     <div className="space-y-6">
       <PageHeading
         title="Party balances"
-        description="Net position is receivables minus payables, plus vendor advances minus customer advances. Currencies remain separate."
+        description="Net position is receivables minus payables, plus vendor advances minus customer advances. Each row stays in its document currency; base columns convert at each document's own rate."
+      />
+      <StatTiles
+        stats={[
+          {
+            label: `Payable (${d.baseCurrency.code})`,
+            value: formatMoney(sum("basePayable"), d.baseCurrency.code),
+          },
+          {
+            label: `Receivable (${d.baseCurrency.code})`,
+            value: formatMoney(sum("baseReceivable"), d.baseCurrency.code),
+          },
+          {
+            label: `Net (${d.baseCurrency.code})`,
+            value: formatMoney(sum("baseNet"), d.baseCurrency.code),
+            detail: "All currencies, at document rates",
+          },
+        ]}
       />
       <UrlTabs
         tabs={[
@@ -67,6 +89,7 @@ export async function BalancesPage({
                   outgoingAdvance: money(b.outgoingAdvance),
                   incomingAdvance: money(b.incomingAdvance),
                   net: money(b.net),
+                  baseNet: money(b.baseNet),
                 }))}
               />
             ),
@@ -89,6 +112,9 @@ export async function BalancesPage({
                       id: `${b.party.id}:${b.currency}:${a.side}`,
                       party: `${b.party.displayName} | ${b.currency}`,
                       side: a.side,
+                      total: money(
+                        a.side === "Payable" ? b.basePayable : b.baseReceivable,
+                      ),
                       current: money(a.values.current),
                       "0\u201330": money(a.values["0\u201330"]),
                       "31\u201360": money(a.values["31\u201360"]),

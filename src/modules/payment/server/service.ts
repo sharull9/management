@@ -2,6 +2,7 @@ import "server-only";
 import { writeAudit } from "@/core/audit";
 import { assertPermission, type OrgContext } from "@/core/context";
 import type { Prisma } from "@/generated/prisma/client";
+import { assertSameCurrency } from "@/modules/currency/util";
 import { moduleProjectWhere } from "@/modules/procurement/server/queries";
 import { settledStatuses } from "./allocation";
 
@@ -63,7 +64,6 @@ export async function target(
     id: documentId,
     organizationId: ctx.org.id,
     partyId: payment.partyId,
-    currency: payment.currency,
     status: { in: [...settledStatuses] },
     ...(payment.projectId ? { projectId: payment.projectId } : {}),
   };
@@ -71,6 +71,7 @@ export async function target(
     payment.direction === "OUTGOING"
       ? await tx.vendorBill.findFirstOrThrow({ where })
       : await tx.salesInvoice.findFirstOrThrow({ where });
+  assertSameCurrency(payment.currency, row.currency, "Payment");
   await scope(tx, ctx, row.projectId, permission);
   return {
     row,

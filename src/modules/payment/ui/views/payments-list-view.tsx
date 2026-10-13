@@ -73,6 +73,7 @@ export async function PaymentsList({
           mode: p.mode,
           currency: p.currency,
           amount: money(p.amount),
+          baseAmount: money(p.baseAmount),
           allocated: money(p.allocatedAmount),
           unallocated: money(p.unallocatedAmount),
           status: p.status,

@@ -10,10 +10,26 @@ import { UrlTabs } from "@/components/shared/url-tabs";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemGroup } from "@/components/ui/item";
 import { requireOrgContext, requireProjectContext } from "@/core/context";
+import { activeFxTotal } from "../../server/allocation";
 import { financeData } from "../../server/queries";
 import { AllocationForm } from "../components/allocation-form";
 import { PaymentVoidDialog } from "../components/payment-void-dialog";
 import { date, formData, linkClass, money } from "../util";
+
+/** Positive difference: payables lose, receivables gain (PHASE3C_SHARED.md). */
+function fxLabel(
+  value: {
+    toFixed: (places: number) => string;
+    isZero: () => boolean;
+    gt: (n: number) => boolean;
+  },
+  direction: string,
+  baseCurrency: string,
+) {
+  if (value.isZero()) return "None";
+  const loss = (direction === "OUTGOING") === value.gt(0);
+  return `${loss ? "Loss" : "Gain"} ${baseCurrency} ${value.toFixed(2).replace("-", "")}`;
+}
 
 export async function PaymentDetail({ org, id }: { org: string; id: string }) {
   const ctx = await requireOrgContext(org);
@@ -98,6 +114,31 @@ export async function PaymentDetail({ org, id }: { org: string; id: string }) {
           items={[
             { label: "Date", value: date(row.date) },
             { label: "Mode", value: row.mode },
+            { label: "Currency", value: row.currency },
+            {
+              label: "Exchange rate",
+              value:
+                row.currency === d.baseCurrency.code
+                  ? "1 (base currency)"
+                  : `1 ${row.currency} = ${row.exchangeRate.toString()} ${d.baseCurrency.code}`,
+            },
+            {
+              label: `Amount (${d.baseCurrency.code})`,
+              value: money(row.baseAmount),
+            },
+            {
+              label: `Realised FX (${d.baseCurrency.code})`,
+              value: fxLabel(
+                activeFxTotal(
+                  row.allocations.map((a) => ({
+                    fxDifference: a.fxDifference,
+                    payment: { status: row.status },
+                  })),
+                ),
+                row.direction,
+                d.baseCurrency.code,
+              ),
+            },
             { label: "Reference", value: row.reference },
             {
               label: "Project",
@@ -155,7 +196,17 @@ export async function PaymentDetail({ org, id }: { org: string; id: string }) {
                           >
                             {a.vendorBill?.code ?? a.salesInvoice?.code}
                           </Link>{" "}
-                          · {money(a.amount)} · {date(a.allocatedAt)}
+                          · {row.currency} {money(a.amount)} ·{" "}
+                          {date(a.allocatedAt)} · {d.baseCurrency.code}{" "}
+                          {money(a.baseAmount)} paid vs{" "}
+                          {money(a.documentBaseAmount)} carried ·{" "}
+                          {row.status === "VOID"
+                            ? "FX reversed"
+                            : fxLabel(
+                                a.fxDifference,
+                                row.direction,
+                                d.baseCurrency.code,
+                              )}
                         </ItemContent>
                       </Item>
                     ))}

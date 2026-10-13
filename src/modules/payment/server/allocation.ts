@@ -1,5 +1,6 @@
 import { Decimal } from "@/core/decimal";
 import type { Prisma } from "@/generated/prisma/browser";
+import { assertSameCurrency, realisedFx } from "@/modules/currency/util";
 
 export { Decimal };
 export type Money = string | InstanceType<typeof Prisma.Decimal>;
@@ -74,4 +75,37 @@ export function runningBalance(entries: StatementEntry[]) {
       balance = balance.add(amount(e.debit)).sub(amount(e.credit));
       return { ...e, balance: balance.toFixed(2) };
     });
+}
+/**
+ * Base-currency effect of one allocation. Allocation is only allowed within one
+ * currency; fxDifference = baseAmount - documentBaseAmount (see PHASE3C_SHARED.md).
+ */
+export function allocationFx(input: {
+  amount: Money;
+  paymentCurrency: string;
+  documentCurrency: string;
+  paymentRate: Money;
+  documentRate: Money;
+  baseDecimals: number;
+  direction: "OUTGOING" | "INCOMING";
+}) {
+  assertSameCurrency(input.paymentCurrency, input.documentCurrency, "Payment");
+  return realisedFx({
+    amount: input.amount.toString(),
+    paymentRate: input.paymentRate.toString(),
+    documentRate: input.documentRate.toString(),
+    baseDecimals: input.baseDecimals,
+    direction: input.direction,
+  });
+}
+/**
+ * Realised FX of allocations still in force. Voided payments keep their
+ * allocation rows as a trail, but their FX is reversed (excluded) like amounts.
+ */
+export function activeFxTotal(
+  allocations: { fxDifference: Money; payment: { status: string } }[],
+) {
+  return allocations
+    .filter((a) => a.payment.status === "POSTED")
+    .reduce((v, a) => v.add(a.fxDifference.toString()), new Decimal(0));
 }

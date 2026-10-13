@@ -10,7 +10,7 @@ export async function FinanceNew({ org }: { org: string; kind?: string }) {
       backHref={`/${org}/finance/payment-requests`}
       backLabel="All payment requests"
       title="New payment request"
-      description="Amounts use the project currency or organization currency when no project is selected."
+      description="Choose the document currency; the exchange rate is prefilled for the date and can be overridden."
     >
       <RequestForm org={org} data={formData(d)} />
     </RequestFormPage>

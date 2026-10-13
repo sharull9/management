@@ -14,6 +14,7 @@ import {
 type Tx = Prisma.TransactionClient;
 
 import { allocatePayment } from "./allocation-service";
+import { documentFx } from "./fx";
 import { audit, lockSettlement, scope } from "./service";
 export async function recordPayment(
   tx: Tx,
@@ -21,7 +22,13 @@ export async function recordPayment(
   input: z.infer<typeof paymentInput>,
 ) {
   await lockSettlement(tx, ctx.org.id);
-  const currency = await scope(tx, ctx, input.projectId, "payment.record");
+  await scope(tx, ctx, input.projectId, "payment.record");
+  const currency = input.currency ?? ctx.org.baseCurrency;
+  const fx = await documentFx(tx, ctx, {
+    currency,
+    date: input.date,
+    override: input.exchangeRate,
+  });
   await tx.party.findFirstOrThrow({
     where: {
       id: input.partyId,
@@ -87,11 +94,19 @@ export async function recordPayment(
         "Request bill allocations no longer match its unpaid amount.",
       );
   }
-  const { paymentRequestId, reference, notes, ...base } = input;
+  const {
+    paymentRequestId,
+    reference,
+    notes,
+    exchangeRate: _override,
+    ...base
+  } = input;
   const row = await tx.payment.create({
     data: {
       ...base,
       currency,
+      exchangeRate: fx.exchangeRate,
+      baseAmount: fx.toBase(amount(input.amount)),
       reference: reference || null,
       notes: notes || null,
       paymentRequestId,

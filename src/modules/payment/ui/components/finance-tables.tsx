@@ -15,6 +15,7 @@ export type FinanceRow = {
   status: string;
   currency: string;
   amount: string;
+  baseAmount: string;
   allocation: string;
   direction: string;
 };
@@ -52,6 +53,15 @@ const financeColumns: ColumnDef<FinanceRow>[] = [
     ),
     sortingFn: (a, b) => new Decimal(a.original.amount).cmp(b.original.amount),
     cell: ({ row }) => formatMoney(row.original.amount, row.original.currency),
+  },
+  { accessorKey: "currency", header: "Currency" },
+  {
+    accessorKey: "baseAmount",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Base amount" />
+    ),
+    sortingFn: (a, b) =>
+      new Decimal(a.original.baseAmount).cmp(b.original.baseAmount),
   },
   { accessorKey: "allocation", header: "Allocation" },
 ];
@@ -95,6 +105,8 @@ export type BalanceRow = {
   outgoingAdvance: string;
   incomingAdvance: string;
   net: string;
+  /** Net position valued at each document's own rate, in base currency. */
+  baseNet: string;
 };
 const balanceAmounts = {
   billed: "Billed",
@@ -106,6 +118,7 @@ const balanceAmounts = {
   outgoingAdvance: "Vendor advance",
   incomingAdvance: "Customer advance",
   net: "Net",
+  baseNet: "Net (base)",
 } as const;
 const balanceColumns: ColumnDef<BalanceRow>[] = [
   {
@@ -164,10 +177,12 @@ export type AgingRow = {
   "31\u201360": string;
   "61\u201390": string;
   "90+": string;
+  total: string;
 };
 const agingColumns: ColumnDef<AgingRow>[] = [
   { accessorKey: "party", header: "Party / currency" },
   { accessorKey: "side", header: "Side" },
+  { accessorKey: "total", header: "Open (base)" },
   ...["current", "0\u201330", "31\u201360", "61\u201390", "90+"].map(
     (key): ColumnDef<AgingRow> => ({
       accessorKey: key,
@@ -200,6 +215,7 @@ export type StatementRow = {
   debit: string;
   credit: string;
   balance: string;
+  baseBalance: string;
 };
 const statementColumns: ColumnDef<StatementRow>[] = (
   [
@@ -212,6 +228,7 @@ const statementColumns: ColumnDef<StatementRow>[] = (
     { accessorKey: "debit", header: "Debit" },
     { accessorKey: "credit", header: "Credit" },
     { accessorKey: "balance", header: "Running balance" },
+    { accessorKey: "baseBalance", header: "Base balance" },
   ] satisfies ColumnDef<StatementRow>[]
 ).map((column) => ({ ...column, enableSorting: false }));
 export function StatementTable({

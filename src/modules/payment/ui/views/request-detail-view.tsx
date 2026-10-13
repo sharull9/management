@@ -96,6 +96,17 @@ export async function RequestDetail({ org, id }: { org: string; id: string }) {
             { label: "Mode", value: row.mode },
             { label: "Amount", value: amount },
             {
+              label: "Exchange rate",
+              value:
+                row.currency === d.baseCurrency.code
+                  ? "1 (base currency)"
+                  : `1 ${row.currency} = ${row.exchangeRate.toString()} ${d.baseCurrency.code}`,
+            },
+            {
+              label: `Amount (${d.baseCurrency.code})`,
+              value: formatMoney(money(row.baseAmount), d.baseCurrency.code),
+            },
+            {
               label: "Reason",
               value: row.reason ? (
                 <span className="whitespace-pre-wrap">{row.reason}</span>
