@@ -7,13 +7,13 @@ import { DateField } from "@/components/shared/form/date-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { TextareaField } from "@/components/shared/form/textarea-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
+import { CurrencyFxFields } from "@/modules/currency/ui/components/currency-fx-fields";
 import { modes } from "../../constants";
 import { paymentInput } from "../../schema";
 import { recordPaymentAction } from "../../server/actions";
 import { partyDefaultCurrency } from "../../server/fx-actions";
 import { findParties, findProjects } from "../../server/picker-actions";
 import type { FormData } from "../../type";
-import { CurrencyFxFields } from "./currency-fx-fields";
 import { PaymentChoice } from "./payment-choice";
 export function PaymentForm({
   org,

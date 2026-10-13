@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { nextDocumentNumber } from "@/core/numbering";
+import { assertEnabledCurrency } from "@/modules/currency/server/enabled";
 import { resolveDocumentFx } from "@/modules/currency/server/rates";
 import { lockStockProjects } from "@/modules/procurement/server/inventory/service";
 import { audit, stageInProject } from "@/modules/project/server/action-helpers";
@@ -76,17 +77,7 @@ export async function expense(
       date: input.date,
       override,
     });
-    if (currency !== fx.baseCurrency) {
-      const enabled = await tx.tenantCurrency.findFirst({
-        where: {
-          tenantId: ctx.tenant.id,
-          currencyCode: currency,
-          enabled: true,
-        },
-      });
-      if (!enabled)
-        throw new Error(`${currency} is not enabled for this account.`);
-    }
+    await assertEnabledCurrency(tx, ctx.tenant.id, currency, fx.baseCurrency);
     const currencyRow = await tx.currency.findUniqueOrThrow({
       where: { code: currency },
       select: { decimals: true },

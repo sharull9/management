@@ -9,7 +9,7 @@ import { toOptions } from "@/components/shared/form/enum-options";
 import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Button } from "@/components/ui/button";
-import { CurrencyFxFields } from "@/modules/payment/ui/components/currency-fx-fields";
+import { CurrencyFxFields } from "@/modules/currency/ui/components/currency-fx-fields";
 import { type invoiceFormInput, invoiceFormSchema } from "../../schema";
 import { saveInvoiceAction } from "../../server/actions";
 import {

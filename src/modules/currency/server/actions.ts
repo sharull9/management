@@ -13,6 +13,7 @@ import {
   tenantCurrencyInput,
 } from "../schema";
 import { assertBaseCurrencyChangeAllowed } from "./base-currency";
+import { assertEnabledCurrency } from "./enabled";
 
 async function activeCurrency(tx: Prisma.TransactionClient, code: string) {
   const currency = await tx.currency.findUnique({ where: { code } });
@@ -151,17 +152,7 @@ export async function saveExchangeRateAction(
       throw new Error("The base currency always has a rate of 1.");
     await db.$transaction(async (tx) => {
       await activeCurrency(tx, input.currencyCode);
-      const enabled = await tx.tenantCurrency.findFirst({
-        where: {
-          tenantId: ctx.tenant.id,
-          currencyCode: input.currencyCode,
-          enabled: true,
-        },
-      });
-      if (!enabled)
-        throw new Error(
-          `${input.currencyCode} is not enabled for this tenant.`,
-        );
+      await assertEnabledCurrency(tx, ctx.tenant.id, input.currencyCode);
       const data = {
         currencyCode: input.currencyCode,
         rateDate: input.rateDate,

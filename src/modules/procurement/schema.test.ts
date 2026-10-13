@@ -246,15 +246,18 @@ test("client resolver enforces required, linked, disabled variant levels and ite
 });
 
 test("exchange rates must be positive and are optional for dated resolution", () => {
-  const withRate = (exchangeRate: number | null) =>
+  const withRate = (exchangeRate: string | null) =>
     procurementFormInput.safeParse({ ...fixture("orders"), exchangeRate });
   assert.equal(withRate(null).success, true);
-  assert.equal(withRate(83.5).success, true);
-  assert.equal(withRate(0).success, false);
-  assert.equal(withRate(-1).success, false);
+  assert.equal(withRate("83.5").success, true);
+  assert.equal(withRate("0").success, false);
+  assert.equal(withRate("-1").success, false);
   const order = orderInput.parse(
     procurementServiceInput(
-      procurementFormInput.parse({ ...fixture("orders"), exchangeRate: 83.5 }),
+      procurementFormInput.parse({
+        ...fixture("orders"),
+        exchangeRate: "83.5",
+      }),
     ),
   );
   assert.equal(order.exchangeRate, "83.5");

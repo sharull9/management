@@ -18,16 +18,18 @@ export async function organizationBaseCurrency(tx: Db, organizationId: string) {
 
 /**
  * Base-currency units per 1 unit of `currencyCode`: the latest organization rate
- * on or before `date`. The base currency is exactly 1.
+ * on or before `date`, with the date of the row it came from (null for the base
+ * currency, which is exactly 1).
  */
-export async function resolveRate(
+export async function resolveRateWithDate(
   tx: Db,
   organizationId: string,
   currencyCode: string,
   date: Date | string,
 ) {
   const base = await organizationBaseCurrency(tx, organizationId);
-  if (currencyCode === base.code) return new Decimal(1);
+  if (currencyCode === base.code)
+    return { rate: new Decimal(1), rateDate: null as string | null };
   const day = isoDate(date);
   const row = await tx.exchangeRate.findFirst({
     where: {
@@ -36,13 +38,27 @@ export async function resolveRate(
       rateDate: { lte: new Date(`${day}T00:00:00Z`) },
     },
     orderBy: { rateDate: "desc" },
-    select: { rate: true },
+    select: { rate: true, rateDate: true },
   });
   if (!row)
     throw new Error(
       `No ${currencyCode} exchange rate on or before ${day}. Add one in Settings → Exchange rates.`,
     );
-  return new Decimal(row.rate);
+  return {
+    rate: new Decimal(row.rate),
+    rateDate: row.rateDate ? isoDate(row.rateDate) : null,
+  };
+}
+
+/** Base-currency units per 1 unit of `currencyCode` on `date`; see `resolveRateWithDate`. */
+export async function resolveRate(
+  tx: Db,
+  organizationId: string,
+  currencyCode: string,
+  date: Date | string,
+) {
+  return (await resolveRateWithDate(tx, organizationId, currencyCode, date))
+    .rate;
 }
 
 /** Base units per 1 unit of the project's currency on `date`. */

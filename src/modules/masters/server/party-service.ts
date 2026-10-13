@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
+import { assertEnabledCurrency } from "@/modules/currency/server/enabled";
 import {
   id,
   name,
@@ -43,18 +44,7 @@ export async function savePartyMaster(
         defaultCurrency: opt(data, "defaultCurrency"),
       };
       if (fields.defaultCurrency) {
-        const enabled = await tx.tenantCurrency.findFirst({
-          where: {
-            tenantId,
-            currencyCode: fields.defaultCurrency,
-            enabled: true,
-            currency: { active: true },
-          },
-        });
-        if (!enabled)
-          throw new Error(
-            `${fields.defaultCurrency} is not an enabled currency for this tenant.`,
-          );
+        await assertEnabledCurrency(tx, tenantId, fields.defaultCurrency);
       }
       if (!fields.isVendor && !fields.isCustomer)
         throw new Error("Select vendor, customer, or both.");

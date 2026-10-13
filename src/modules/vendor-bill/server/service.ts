@@ -4,8 +4,8 @@ import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
 import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
+import { assertEnabledCurrency } from "@/modules/currency/server/enabled";
 import { resolveDocumentFx } from "@/modules/currency/server/rates";
-import { assertDocumentCurrency } from "@/modules/procurement/server/currency";
 import {
   domainAudit,
   lockDocument,
@@ -165,7 +165,12 @@ export async function saveBill(
     requested: input.currency,
     orderCurrency: order?.currency ?? null,
   });
-  await assertDocumentCurrency(tx, ctx.tenant.id, ctx.org.id, currency);
+  await assertEnabledCurrency(
+    tx,
+    ctx.tenant.id,
+    currency,
+    ctx.org.baseCurrency,
+  );
   const fx = await resolveDocumentFx(tx, {
     organizationId: ctx.org.id,
     currency,

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useFieldArray, useWatch } from "react-hook-form";
+import { FormProvider, useFieldArray, useWatch } from "react-hook-form";
 import { Combobox } from "@/components/shared/combobox/combobox";
 import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -14,12 +14,8 @@ import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Decimal } from "@/core/decimal";
-import { describeRate } from "@/modules/currency/rate-format";
-import {
-  type RateSuggestion,
-  suggestExchangeRate,
-  vendorDefaultCurrency,
-} from "@/modules/procurement/server/rate-actions";
+import { CurrencyFxFields } from "@/modules/currency/ui/components/currency-fx-fields";
+import { vendorDefaultCurrency } from "@/modules/procurement/server/rate-actions";
 import { billFormInput } from "../../schema";
 import { saveBillAction } from "../../server/actions";
 import { billTotals, calculateBillLine } from "../../server/calculations";
@@ -88,9 +84,6 @@ export function BillForm({
     name: "lines",
   });
   const values = useWatch({ control: form.control });
-  const [rateInfo, setRateInfo] = useState<RateSuggestion | null>(null);
-  // A saved draft keeps its own rate until its currency or date is changed.
-  const keepSavedRate = useRef(!!initial.exchangeRate);
   const previousVendor = useRef(values.partyId);
   const currency = values.currency ?? data.baseCurrency;
   const isForeign = currency !== data.baseCurrency;
@@ -110,27 +103,6 @@ export function BillForm({
       stale = true;
     };
   }, [values.partyId, values.purchaseOrderId, org, form, data.currencies]);
-  useEffect(() => {
-    const date = values.date;
-    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-    let stale = false;
-    suggestExchangeRate(org, { currency, date })
-      .then((suggestion) => {
-        if (stale) return;
-        setRateInfo(suggestion);
-        if (keepSavedRate.current) {
-          keepSavedRate.current = false;
-          return;
-        }
-        form.setValue("exchangeRate", suggestion.rate ?? "", {
-          shouldDirty: true,
-        });
-      })
-      .catch(() => {});
-    return () => {
-      stale = true;
-    };
-  }, [org, currency, values.date, form]);
   const loaders = useMemo(
     () => ({
       vendors: findBillVendors.bind(null, org, "bill.create"),
@@ -199,290 +171,294 @@ export function BillForm({
   } catch {}
   const busy = pending || loadingOrder;
   return (
-    <form onSubmit={onSubmit} noValidate aria-busy={busy} className="space-y-4">
-      <fieldset disabled={busy} className="min-w-0 space-y-4 border-0 p-0">
-        <div className="grid gap-4 md:grid-cols-2">
-          <FieldFrame
-            control={form.control}
-            name="purchaseOrderId"
-            label="Purchase order"
-          >
-            {(field, accessibility) => (
-              <Combobox
-                {...accessibility}
-                ref={field.ref}
-                onBlur={field.onBlur}
-                value={typeof field.value === "string" ? field.value : null}
-                onChange={selectOrder}
-                options={order ? [{ value: order.id, label: order.name }] : []}
-                loadOptions={loaders.orders}
-                queryKey={["bill-orders", org]}
-                clearable
-                disabled={busy}
-                placeholder="Direct bill (services / no PO)"
-              />
-            )}
-          </FieldFrame>
-          <ComboboxField
-            control={form.control}
-            name="projectId"
-            label="Project"
-            options={toOptions(data.projects)}
-            disabled={busy || !!values.purchaseOrderId}
-          />
-          <ComboboxField
-            control={form.control}
-            name="partyId"
-            label="Vendor"
-            options={toOptions(vendors)}
-            loadOptions={loaders.vendors}
-            queryKey={["vendors", org, "bill"]}
-            disabled={busy || !!values.purchaseOrderId}
-          />
-          <ComboboxField
-            control={form.control}
-            name="currency"
-            label="Currency"
-            description={
-              values.purchaseOrderId
-                ? "Fixed to the purchase order's currency."
-                : undefined
-            }
-            options={data.currencies.map((c) => ({
-              value: c.code,
-              label: `${c.code} | ${c.name}`,
-            }))}
-            disabled={busy || !!values.purchaseOrderId}
-          />
-          <TextField
-            control={form.control}
-            name="exchangeRate"
-            label={`Exchange rate (${data.baseCurrency} per ${currency})`}
-            description={
-              !isForeign
-                ? `Base currency (${data.baseCurrency}); the rate is 1.`
-                : rateInfo?.error
-                  ? rateInfo.error
-                  : rateInfo?.rateDate && values.exchangeRate
-                    ? `${describeRate(currency, data.baseCurrency, values.exchangeRate)}. Latest dated rate: ${rateInfo.rateDate}. Editing overrides it for this bill only.`
-                    : undefined
-            }
-            inputMode="decimal"
-            disabled={busy || !isForeign}
-          />
-          <TextField
-            control={form.control}
-            name="vendorInvoiceNo"
-            label="Vendor invoice number"
-            required
-            maxLength={200}
-          />
-          <DateField
-            control={form.control}
-            name="vendorInvoiceDate"
-            label="Vendor invoice date"
-          />
-          <DateField control={form.control} name="date" label="Bill date" />
-          <DateField
-            control={form.control}
-            name="dueDate"
-            label="Due date"
-            description="Leave blank to use the vendor's payment terms from the bill date."
-          />
-          <TextareaField
-            control={form.control}
-            name="notes"
-            label="Notes"
-            maxLength={4000}
-          />
-        </div>
-        <p className="text-sm text-muted-foreground">
-          PO quantities show received amounts remaining after all non-cancelled
-          bills. Amounts are in {currency}; variance against receipts is posted
-          in {data.baseCurrency}. Duplicate vendor invoice numbers are blocked.
-        </p>
-        {fields.map((field, i) => {
-          const line = values.lines?.[i];
-          const receipt = order?.lines.find(
-            (l) =>
-              l.grnLineId === line?.grnLineId && l.poLineId === line?.poLineId,
-          );
-          const selectedReceipt =
-            receipt ??
-            initialLines?.find(
+    <FormProvider {...form}>
+      <form
+        onSubmit={onSubmit}
+        noValidate
+        aria-busy={busy}
+        className="space-y-4"
+      >
+        <fieldset disabled={busy} className="min-w-0 space-y-4 border-0 p-0">
+          <div className="grid gap-4 md:grid-cols-2">
+            <FieldFrame
+              control={form.control}
+              name="purchaseOrderId"
+              label="Purchase order"
+            >
+              {(field, accessibility) => (
+                <Combobox
+                  {...accessibility}
+                  ref={field.ref}
+                  onBlur={field.onBlur}
+                  value={typeof field.value === "string" ? field.value : null}
+                  onChange={selectOrder}
+                  options={
+                    order ? [{ value: order.id, label: order.name }] : []
+                  }
+                  loadOptions={loaders.orders}
+                  queryKey={["bill-orders", org]}
+                  clearable
+                  disabled={busy}
+                  placeholder="Direct bill (services / no PO)"
+                />
+              )}
+            </FieldFrame>
+            <ComboboxField
+              control={form.control}
+              name="projectId"
+              label="Project"
+              options={toOptions(data.projects)}
+              disabled={busy || !!values.purchaseOrderId}
+            />
+            <ComboboxField
+              control={form.control}
+              name="partyId"
+              label="Vendor"
+              options={toOptions(vendors)}
+              loadOptions={loaders.vendors}
+              queryKey={["vendors", org, "bill"]}
+              disabled={busy || !!values.purchaseOrderId}
+            />
+            <CurrencyFxFields
+              org={org}
+              baseCurrency={data.baseCurrency}
+              currencyOptions={data.currencies.map((c) => ({
+                value: c.code,
+                label: `${c.code} | ${c.name}`,
+              }))}
+              currencyDescription={
+                values.purchaseOrderId
+                  ? "Fixed to the purchase order's currency."
+                  : undefined
+              }
+              keepInitialRate={!!initial.exchangeRate}
+              disabled={busy}
+              locked={!!values.purchaseOrderId}
+              subject="bill"
+            />
+            <TextField
+              control={form.control}
+              name="vendorInvoiceNo"
+              label="Vendor invoice number"
+              required
+              maxLength={200}
+            />
+            <DateField
+              control={form.control}
+              name="vendorInvoiceDate"
+              label="Vendor invoice date"
+            />
+            <DateField control={form.control} name="date" label="Bill date" />
+            <DateField
+              control={form.control}
+              name="dueDate"
+              label="Due date"
+              description="Leave blank to use the vendor's payment terms from the bill date."
+            />
+            <TextareaField
+              control={form.control}
+              name="notes"
+              label="Notes"
+              maxLength={4000}
+            />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            PO quantities show received amounts remaining after all
+            non-cancelled bills. Amounts are in {currency}; variance against
+            receipts is posted in {data.baseCurrency}. Duplicate vendor invoice
+            numbers are blocked.
+          </p>
+          {fields.map((field, i) => {
+            const line = values.lines?.[i];
+            const receipt = order?.lines.find(
               (l) =>
                 l.grnLineId === line?.grnLineId &&
                 l.poLineId === line?.poLineId,
             );
-          return (
-            <div className="space-y-3 rounded-md border p-4" key={field.id}>
-              {receipt && (
-                <p className="text-sm">
-                  PO rate: {receipt.poRate}. Available quantity: {receipt.qty}
-                </p>
-              )}
-              <div className="grid gap-3 md:grid-cols-3">
-                {values.purchaseOrderId ? (
-                  <FieldFrame
+            const selectedReceipt =
+              receipt ??
+              initialLines?.find(
+                (l) =>
+                  l.grnLineId === line?.grnLineId &&
+                  l.poLineId === line?.poLineId,
+              );
+            return (
+              <div className="space-y-3 rounded-md border p-4" key={field.id}>
+                {receipt && (
+                  <p className="text-sm">
+                    PO rate: {receipt.poRate}. Available quantity: {receipt.qty}
+                  </p>
+                )}
+                <div className="grid gap-3 md:grid-cols-3">
+                  {values.purchaseOrderId ? (
+                    <FieldFrame
+                      control={form.control}
+                      name={`lines.${i}.grnLineId`}
+                      label="GRN receipt"
+                    >
+                      {(rhf, accessibility) => (
+                        <Combobox
+                          {...accessibility}
+                          ref={rhf.ref}
+                          onBlur={rhf.onBlur}
+                          value={
+                            typeof rhf.value === "string" ? rhf.value : null
+                          }
+                          options={
+                            selectedReceipt?.grnLineId
+                              ? [
+                                  {
+                                    value: selectedReceipt.grnLineId,
+                                    label: `${selectedReceipt.receiptName ?? "Receipt"} / ${selectedReceipt.description}`,
+                                  },
+                                ]
+                              : []
+                          }
+                          loadOptions={loaders.receipts}
+                          disabled={busy}
+                          onChange={(id) => {
+                            const replacement = order?.lines.find(
+                              (l) => l.grnLineId === id,
+                            );
+                            if (replacement) update(i, replacement);
+                            else
+                              form.setError(`lines.${i}.grnLineId`, {
+                                message:
+                                  "This receipt has no billable quantity.",
+                              });
+                          }}
+                        />
+                      )}
+                    </FieldFrame>
+                  ) : (
+                    <ComboboxField
+                      control={form.control}
+                      name={`lines.${i}.itemVariantId`}
+                      label="Item variant (optional for services)"
+                      options={toOptions(data.variants)}
+                      clearable
+                      disabled={busy}
+                    />
+                  )}
+                  <TextField
                     control={form.control}
-                    name={`lines.${i}.grnLineId`}
-                    label="GRN receipt"
-                  >
-                    {(rhf, accessibility) => (
-                      <Combobox
-                        {...accessibility}
-                        ref={rhf.ref}
-                        onBlur={rhf.onBlur}
-                        value={typeof rhf.value === "string" ? rhf.value : null}
-                        options={
-                          selectedReceipt?.grnLineId
-                            ? [
-                                {
-                                  value: selectedReceipt.grnLineId,
-                                  label: `${selectedReceipt.receiptName ?? "Receipt"} / ${selectedReceipt.description}`,
-                                },
-                              ]
-                            : []
-                        }
-                        loadOptions={loaders.receipts}
-                        disabled={busy}
-                        onChange={(id) => {
-                          const replacement = order?.lines.find(
-                            (l) => l.grnLineId === id,
-                          );
-                          if (replacement) update(i, replacement);
-                          else
-                            form.setError(`lines.${i}.grnLineId`, {
-                              message: "This receipt has no billable quantity.",
-                            });
-                        }}
-                      />
-                    )}
-                  </FieldFrame>
-                ) : (
+                    name={`lines.${i}.description`}
+                    label="Description"
+                    required
+                    maxLength={1000}
+                  />
+                  <TextField
+                    control={form.control}
+                    name={`lines.${i}.qty`}
+                    label="Quantity"
+                    inputMode="decimal"
+                    required
+                  />
                   <ComboboxField
                     control={form.control}
-                    name={`lines.${i}.itemVariantId`}
-                    label="Item variant (optional for services)"
-                    options={toOptions(data.variants)}
+                    name={`lines.${i}.uomId`}
+                    label="Unit"
+                    options={toOptions(data.uoms)}
+                    disabled={busy || !!values.purchaseOrderId}
+                  />
+                  <TextField
+                    control={form.control}
+                    name={`lines.${i}.rate`}
+                    label="Billed rate"
+                    inputMode="decimal"
+                    required
+                  />
+                  <TextField
+                    control={form.control}
+                    name={`lines.${i}.discountPercent`}
+                    label="Discount %"
+                    inputMode="decimal"
+                    required
+                  />
+                  <ComboboxField
+                    control={form.control}
+                    name={`lines.${i}.taxGroupId`}
+                    label="Tax group"
+                    options={toOptions(groups)}
+                    loadOptions={loaders.groups}
+                    queryKey={["tax-groups", org, "bill"]}
                     clearable
                     disabled={busy}
                   />
-                )}
-                <TextField
-                  control={form.control}
-                  name={`lines.${i}.description`}
-                  label="Description"
-                  required
-                  maxLength={1000}
-                />
-                <TextField
-                  control={form.control}
-                  name={`lines.${i}.qty`}
-                  label="Quantity"
-                  inputMode="decimal"
-                  required
-                />
-                <ComboboxField
-                  control={form.control}
-                  name={`lines.${i}.uomId`}
-                  label="Unit"
-                  options={toOptions(data.uoms)}
-                  disabled={busy || !!values.purchaseOrderId}
-                />
-                <TextField
-                  control={form.control}
-                  name={`lines.${i}.rate`}
-                  label="Billed rate"
-                  inputMode="decimal"
-                  required
-                />
-                <TextField
-                  control={form.control}
-                  name={`lines.${i}.discountPercent`}
-                  label="Discount %"
-                  inputMode="decimal"
-                  required
-                />
-                <ComboboxField
-                  control={form.control}
-                  name={`lines.${i}.taxGroupId`}
-                  label="Tax group"
-                  options={toOptions(groups)}
-                  loadOptions={loaders.groups}
-                  queryKey={["tax-groups", org, "bill"]}
-                  clearable
-                  disabled={busy}
-                />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => remove(i)}
+                >
+                  Remove line
+                </Button>
               </div>
-              <Button type="button" variant="outline" onClick={() => remove(i)}>
-                Remove line
-              </Button>
-            </div>
-          );
-        })}
-        {!values.purchaseOrderId && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => append(blank())}
-          >
-            Add line
-          </Button>
-        )}
-        {!fields.length && (
-          <EmptyState
-            title="No billable lines."
-            description="Select another PO or create a direct bill."
-          />
-        )}
-        {form.formState.errors.lines?.message && (
-          <p role="alert" className="text-sm text-destructive">
-            {form.formState.errors.lines.message}
-          </p>
-        )}
-        {netPreview && (
-          <p>
-            Net amount before tax: {netPreview} {currency}
-            {isForeign && values.exchangeRate
-              ? ` ≈ ${new Decimal(netPreview).mul(values.exchangeRate).toFixed(2)} ${data.baseCurrency}`
-              : ""}
-            . Tax and withholding snapshots are calculated when saved.
-          </p>
-        )}
-        <FieldFrame
-          control={form.control}
-          name="attachment"
-          label="Vendor invoice copy (PDF, PNG or JPEG, max 900 KB)"
-        >
-          {(field, accessibility) => (
-            <Input
-              {...accessibility}
-              ref={field.ref}
-              onBlur={field.onBlur}
-              type="file"
-              accept="application/pdf,image/png,image/jpeg"
-              onChange={(event) =>
-                field.onChange(event.target.files?.[0] ?? null)
-              }
+            );
+          })}
+          {!values.purchaseOrderId && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => append(blank())}
+            >
+              Add line
+            </Button>
+          )}
+          {!fields.length && (
+            <EmptyState
+              title="No billable lines."
+              description="Select another PO or create a direct bill."
             />
           )}
-        </FieldFrame>
-        {state.error && (
-          <p role="alert" className="text-sm text-destructive">
-            {state.error}
-          </p>
-        )}
-        <Button type="submit" disabled={busy}>
-          {loadingOrder
-            ? "Loading order..."
-            : pending
-              ? "Saving..."
-              : initial.id
-                ? "Save draft"
-                : "Create bill"}
-        </Button>
-      </fieldset>
-    </form>
+          {form.formState.errors.lines?.message && (
+            <p role="alert" className="text-sm text-destructive">
+              {form.formState.errors.lines.message}
+            </p>
+          )}
+          {netPreview && (
+            <p>
+              Net amount before tax: {netPreview} {currency}
+              {isForeign && values.exchangeRate
+                ? ` ≈ ${new Decimal(netPreview).mul(values.exchangeRate).toFixed(2)} ${data.baseCurrency}`
+                : ""}
+              . Tax and withholding snapshots are calculated when saved.
+            </p>
+          )}
+          <FieldFrame
+            control={form.control}
+            name="attachment"
+            label="Vendor invoice copy (PDF, PNG or JPEG, max 900 KB)"
+          >
+            {(field, accessibility) => (
+              <Input
+                {...accessibility}
+                ref={field.ref}
+                onBlur={field.onBlur}
+                type="file"
+                accept="application/pdf,image/png,image/jpeg"
+                onChange={(event) =>
+                  field.onChange(event.target.files?.[0] ?? null)
+                }
+              />
+            )}
+          </FieldFrame>
+          {state.error && (
+            <p role="alert" className="text-sm text-destructive">
+              {state.error}
+            </p>
+          )}
+          <Button type="submit" disabled={busy}>
+            {loadingOrder
+              ? "Loading order..."
+              : pending
+                ? "Saving..."
+                : initial.id
+                  ? "Save draft"
+                  : "Create bill"}
+          </Button>
+        </fieldset>
+      </form>
+    </FormProvider>
   );
 }

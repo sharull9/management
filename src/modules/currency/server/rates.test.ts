@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Prisma } from "@/generated/prisma/client";
 import { costEntryAmounts } from "./cost-entry";
-import { resolveProjectRate, resolveRate } from "./rates";
+import { resolveProjectRate, resolveRate, resolveRateWithDate } from "./rates";
 
 type Rate = { currencyCode: string; rateDate: string; rate: string };
 
@@ -35,7 +35,12 @@ function fakeTx(options: {
               new Date(`${r.rateDate}T00:00:00Z`) <= args.where.rateDate.lte,
           )
           .sort((a, b) => b.rateDate.localeCompare(a.rateDate))[0];
-        return found ? { rate: found.rate } : null;
+        return found
+          ? {
+              rate: found.rate,
+              rateDate: new Date(`${found.rateDate}T00:00:00Z`),
+            }
+          : null;
       },
     },
   };
@@ -146,4 +151,14 @@ test("an INR cost in a USD project divides by the project rate", async () => {
   });
   assert.equal(result.amount.toString(), "100");
   assert.equal(result.baseAmount.toString(), "8425");
+});
+
+test("resolveRateWithDate returns the source row date; the base has none", async () => {
+  const tx = fakeTx({ rates: usd });
+  const found = await resolveRateWithDate(tx, "org", "USD", "2026-10-13");
+  assert.equal(found.rate.toString(), "84.25");
+  assert.equal(found.rateDate, "2026-10-10");
+  const base = await resolveRateWithDate(tx, "org", "INR", "2026-10-13");
+  assert.equal(base.rate.toString(), "1");
+  assert.equal(base.rateDate, null);
 });

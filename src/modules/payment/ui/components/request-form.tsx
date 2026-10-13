@@ -8,6 +8,7 @@ import { DateField } from "@/components/shared/form/date-field";
 import { TextField } from "@/components/shared/form/text-field";
 import { TextareaField } from "@/components/shared/form/textarea-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
+import { CurrencyFxFields } from "@/modules/currency/ui/components/currency-fx-fields";
 import { modes } from "../../constants";
 import { requestInput } from "../../schema";
 import { saveRequestAction } from "../../server/actions";
@@ -19,7 +20,6 @@ import {
 } from "../../server/picker-actions";
 import type { FormData, RequestDraft } from "../../type";
 import { AllocationFields } from "./allocation-form";
-import { CurrencyFxFields } from "./currency-fx-fields";
 import { PaymentChoice } from "./payment-choice";
 export function RequestForm({
   org,

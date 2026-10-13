@@ -143,7 +143,7 @@ const formObject = z.object({
   paymentTerms: z.enum(["CREDIT", "CASH", "ADVANCE"]),
   paymentDays: z.number(),
   currency: z.string(),
-  exchangeRate: z.number().nullable(),
+  exchangeRate: z.string().nullable(),
   receiptTolerancePercent: z.number(),
   poId: id.nullable(),
   receivedDate: z.string(),
@@ -166,10 +166,7 @@ export function procurementServiceInput(input: z.input<typeof formObject>) {
     challanNumber: input.challanNumber?.trim() || null,
     vehicleNumber: input.vehicleNumber?.trim() || null,
     receiptTolerancePercent: String(input.receiptTolerancePercent),
-    exchangeRate:
-      input.exchangeRate === null
-        ? null
-        : new Decimal(input.exchangeRate).toFixed(),
+    exchangeRate: input.exchangeRate?.trim() || null,
     lines: input.lines.map(({ item, ...line }) => ({
       ...line,
       itemId: item.itemId,

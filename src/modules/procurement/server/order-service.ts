@@ -4,11 +4,11 @@ import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
 import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
+import { assertEnabledCurrency } from "@/modules/currency/server/enabled";
 import { resolveDocumentFx } from "@/modules/currency/server/rates";
 import { calculateTax, suggestTaxScope } from "@/modules/tax/util";
 import { convertUom } from "@/modules/uom/util";
 import type { orderInput } from "../schema";
-import { assertDocumentCurrency } from "./currency";
 
 import {
   domainAudit,
@@ -24,7 +24,12 @@ export async function savePurchaseOrder(
 ) {
   const project = await projectScope(tx, ctx, input.projectId);
   await siteInProject(tx, input.projectId, input.siteId);
-  await assertDocumentCurrency(tx, ctx.tenant.id, ctx.org.id, input.currency);
+  await assertEnabledCurrency(
+    tx,
+    ctx.tenant.id,
+    input.currency,
+    ctx.org.baseCurrency,
+  );
   const vendor = await tx.party.findFirstOrThrow({
     where: { id: input.vendorPartyId, tenantId: ctx.tenant.id, isVendor: true },
     include: { addresses: { where: { isDefault: true }, take: 1 } },

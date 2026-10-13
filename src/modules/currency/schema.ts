@@ -39,3 +39,8 @@ export const exchangeRateInput = z.object({
 });
 
 export const deleteExchangeRateInput = z.object({ id });
+
+export const exchangeRatePreviewInput = z.object({
+  currency: currencyCode,
+  date: z.iso.date(),
+});
