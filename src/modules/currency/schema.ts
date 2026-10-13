@@ -11,6 +11,8 @@ export const tenantCurrencyInput = z.object({
   enabled: z.boolean(),
 });
 
+export const addCurrencyInput = z.object({ currencyCode });
+
 export const baseCurrencyInput = z.object({ currencyCode });
 
 const rate = z
@@ -20,10 +22,14 @@ const rate = z
     /^\d{1,10}(?:\.\d{1,10})?$/,
     "Enter a rate with up to 10 decimal places.",
   )
-  .refine(
-    (value) => new Decimal(value).gt(0),
-    "Rate must be greater than zero.",
-  );
+  .refine((value) => {
+    // Zod keeps running checks after the regex fails, so the text may not parse.
+    try {
+      return new Decimal(value).gt(0);
+    } catch {
+      return false;
+    }
+  }, "Rate must be greater than zero.");
 
 export const exchangeRateInput = z.object({
   id: id.nullable().optional(),

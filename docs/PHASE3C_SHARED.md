@@ -117,3 +117,11 @@ Known gap until wave 2: for a project whose currency differs from the base curre
 5. Rate overrides must be positive; show the resolved rate and its source date to the user and keep the Phase 3b approval/numbering/audit flows intact.
 6. Import concrete files (no barrels). Keep pure logic in `util.ts` with adjacent tests; `pnpm check:boundaries` applies.
 7. Do not add migrations that touch the currency tables; additive migrations for your own models need a timestamp after `20261013100000_phase3c_currency`.
+
+## Agent A — currency settings UI (wave 2)
+
+- **Currencies** (`/settings/currencies`): table of the tenant's chosen currencies with enable/disable and a Base badge; add from the master via `AddCurrencyForm`. Read needs `currency.manage` or `settings.manage`; changes need `currency.manage`. New query `listCurrencySettings(tenantId)`.
+- **Exchange rates** (`/settings/exchange-rates`): `?currency=&from=&to=` filters, latest-rate summary, add/edit/delete. Same read/manage split with `exchangeRate.manage`. `listExchangeRates(orgId, filters | currencyCode)` now also returns `createdByName`; new `latestExchangeRates(orgId)`. `currency/rate-format.ts` holds `formatRate`/`describeRate` ("1 USD = 83.5000000000 INR").
+- **Party default currency**: `defaultCurrency` on the master party input; validated against enabled tenant currencies in `party-service.ts`. Not yet applied to documents — agents B/C may pre-select `party.defaultCurrency` on new PO/bill/invoice forms.
+- **Project currency**: picked from `findCurrencies`; `saveProject` rejects a currency that is not enabled and blocks a change once the project has any `CostEntry` (`project/currency-guard.ts`).
+- **Organization form**: base currency is a Combobox over the active master (`currencies` prop, required on `OrganizationForm`); the wave-1 guard message is shown by the form shell.

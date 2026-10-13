@@ -11,4 +11,5 @@ export type ExchangeRateRow = {
   currencyCode: string;
   rateDate: Date;
   rate: string;
+  createdByName?: string;
 };
