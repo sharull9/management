@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { FormCard } from "@/components/shared/form-card";
 import { listAccessibleOrgs, requireUser } from "@/core/context";
 import { db } from "@/core/db";
+import { listCurrencies } from "@/modules/currency/server/queries";
 import { OrganizationForm } from "../components/organization-form";
 import {
   OrganizationList,
@@ -14,7 +15,7 @@ import { SignOutButton } from "../components/sign-out-button";
 
 export async function OrganizationPickerView() {
   const user = await requireUser();
-  const [orgs, memberships, countries, states] = await Promise.all([
+  const [orgs, memberships, countries, states, currencies] = await Promise.all([
     listAccessibleOrgs(user.id),
     db.tenantMember.findMany({
       where: { userId: user.id, tenant: { status: "ACTIVE" } },
@@ -24,6 +25,7 @@ export async function OrganizationPickerView() {
     }),
     db.country.findMany({ orderBy: { name: "asc" } }),
     db.state.findMany({ orderBy: { name: "asc" } }),
+    listCurrencies(),
   ]);
   if (user.role === "admin" && !memberships.length) redirect("/admin");
 
@@ -131,6 +133,7 @@ export async function OrganizationPickerView() {
               >
                 <OrganizationForm
                   tenantId={m.tenantId}
+                  currencies={currencies}
                   countries={countries.map(({ id, name, code }) => ({
                     id,
                     name,

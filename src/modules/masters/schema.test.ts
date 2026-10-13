@@ -103,3 +103,15 @@ test("variant form validates required and allowed levels before submitting", () 
     false,
   );
 });
+test("party default currency is an optional ISO code", () => {
+  for (const defaultCurrency of ["USD", null, undefined])
+    assert.equal(
+      saveMasterInput.safeParse({ ...party, defaultCurrency }).success,
+      true,
+    );
+  for (const defaultCurrency of ["usd", "US", "USDX"])
+    assert.equal(
+      saveMasterInput.safeParse({ ...party, defaultCurrency }).success,
+      false,
+    );
+});

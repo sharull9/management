@@ -24,6 +24,7 @@ export async function PartiesView({ org }: { org: string }) {
             name: party.displayName,
             isVendor: party.isVendor,
             isCustomer: party.isCustomer,
+            defaultCurrency: party.defaultCurrency ?? "",
             taxId: party.taxIdentifiers[0]?.value ?? "",
             location: [
               address?.cityId && cities.get(address.cityId),

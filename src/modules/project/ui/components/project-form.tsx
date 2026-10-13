@@ -10,6 +10,7 @@ import { TextField } from "@/components/shared/form/text-field";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { statusTone } from "@/components/shared/status-badge-tone";
 import { ProjectStatus } from "@/generated/prisma/enums";
+import { findCurrencies } from "@/modules/currency/server/picker-actions";
 import { projectFormInput } from "../../schema";
 import { saveProjectAction } from "../../server/actions";
 import { findCustomers, findProjectMembers } from "../../server/picker-actions";
@@ -52,6 +53,7 @@ export function ProjectForm({
     () => findCustomers.bind(null, org, project?.id ?? null),
     [org, project?.id],
   );
+  const loadCurrencies = useMemo(() => findCurrencies.bind(null, org), [org]);
   const loadMembers = useMemo(
     () => findProjectMembers.bind(null, org, project?.id ?? null, "project"),
     [org, project?.id],
@@ -109,12 +111,19 @@ export function ProjectForm({
           inputMode="decimal"
           required
         />
-        <TextField
+        <ComboboxField
           control={form.control}
           name="currency"
           label="Currency"
-          maxLength={3}
-          required
+          description="Costs and budget are kept in this currency. It is fixed once the project has cost entries."
+          options={[
+            {
+              value: project?.currency ?? currency,
+              label: project?.currency ?? currency,
+            },
+          ]}
+          loadOptions={loadCurrencies}
+          queryKey={["currencies", org]}
         />
         <DateField control={form.control} name="startDate" label="Start date" />
         <DateField control={form.control} name="endDate" label="End date" />

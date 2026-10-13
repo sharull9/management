@@ -10,6 +10,7 @@ export type PartyListRow = {
   name: string;
   isVendor: boolean;
   isCustomer: boolean;
+  defaultCurrency: string;
   taxId: string;
   location: string;
   contact: string;
@@ -53,6 +54,18 @@ export function PartiesTable({
           {!row.original.isVendor && !row.original.isCustomer && "—"}
         </div>
       ),
+    },
+    {
+      accessorKey: "defaultCurrency",
+      header: "Currency",
+      cell: ({ row }) =>
+        row.original.defaultCurrency ? (
+          <span className="font-mono text-xs">
+            {row.original.defaultCurrency}
+          </span>
+        ) : (
+          "—"
+        ),
     },
     {
       accessorKey: "taxId",

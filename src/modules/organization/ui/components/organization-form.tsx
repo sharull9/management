@@ -18,6 +18,7 @@ export function OrganizationForm({
   countries,
   states,
   cities = [],
+  currencies,
 }: {
   tenantId: string;
   orgSlug?: string | null;
@@ -25,6 +26,8 @@ export function OrganizationForm({
   countries: (Location & { code: string })[];
   states: (Location & { countryId: string })[];
   cities?: Location[];
+  /** The active global currency master. */
+  currencies: { code: string; name: string }[];
 }) {
   const form = useZodForm(orgInput, {
     id: org?.id ?? null,
@@ -61,12 +64,20 @@ export function OrganizationForm({
           required
         />
         <TextField control={form.control} name="legalName" label="Legal name" />
-        <TextField
+        <ComboboxField
           control={form.control}
           name="baseCurrency"
           label="Base currency"
-          maxLength={3}
-          required
+          description={
+            org
+              ? "Stock and ledger values are kept in this currency. It cannot change once the organization has cost entries, stock movements, posted documents or any exchange rates (delete the rates first)."
+              : "Stock and ledger values are kept in this currency. It is locked once transactions or exchange rates exist."
+          }
+          options={currencies.map((currency) => ({
+            value: currency.code,
+            label: `${currency.code} | ${currency.name}`,
+          }))}
+          searchPlaceholder="Search by code or name…"
         />
         <ComboboxField
           control={form.control}

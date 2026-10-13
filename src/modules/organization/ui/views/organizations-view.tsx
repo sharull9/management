@@ -2,23 +2,26 @@ import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
 import { assertTenantAdmin, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
+import { listCurrencies } from "@/modules/currency/server/queries";
 import { OrganizationForm } from "../components/organization-form";
 
 export async function OrganizationsView({ org: slug }: { org: string }) {
   const ctx = await requireOrgContext(slug);
   assertTenantAdmin(ctx);
-  const [organizations, countries, states, cities] = await Promise.all([
-    db.organization.findMany({
-      where: { tenantId: ctx.tenant.id },
-      orderBy: { name: "asc" },
-    }),
-    db.country.findMany({ orderBy: { name: "asc" } }),
-    db.state.findMany({ orderBy: { name: "asc" } }),
-    db.city.findMany({
-      where: { tenantId: ctx.tenant.id },
-      orderBy: { name: "asc" },
-    }),
-  ]);
+  const [organizations, countries, states, cities, currencies] =
+    await Promise.all([
+      db.organization.findMany({
+        where: { tenantId: ctx.tenant.id },
+        orderBy: { name: "asc" },
+      }),
+      db.country.findMany({ orderBy: { name: "asc" } }),
+      db.state.findMany({ orderBy: { name: "asc" } }),
+      db.city.findMany({
+        where: { tenantId: ctx.tenant.id },
+        orderBy: { name: "asc" },
+      }),
+      listCurrencies(),
+    ]);
   return (
     <>
       <PageHeading
@@ -61,6 +64,7 @@ export async function OrganizationsView({ org: slug }: { org: string }) {
                     countryId,
                   }))}
                   cities={cities.map(({ id, name }) => ({ id, name }))}
+                  currencies={currencies}
                 />
               </div>
             </details>
@@ -82,6 +86,7 @@ export async function OrganizationsView({ org: slug }: { org: string }) {
             countryId,
           }))}
           cities={cities.map(({ id, name }) => ({ id, name }))}
+          currencies={currencies}
         />
       </FormCard>
     </>

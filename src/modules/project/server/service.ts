@@ -7,10 +7,30 @@ import {
 } from "@/core/context";
 import { db } from "@/core/db";
 import { nextDocumentNumber } from "@/core/numbering";
+import type { Prisma } from "@/generated/prisma/client";
 import { lockStockProjects } from "@/modules/procurement/server/inventory/service";
 import { validateProjectCostRecognitionChange } from "@/modules/project-cost/server/cost-recognition";
+import { projectCurrencyChangeError } from "../currency-guard";
 import type { projectFormInput } from "../schema";
 import { audit, dateOrder, member } from "./action-helpers";
+
+async function assertProjectCurrencyEnabled(
+  tx: Prisma.TransactionClient,
+  ctx: { tenant: { id: string }; org: { baseCurrency: string } },
+  currency: string,
+) {
+  if (currency === ctx.org.baseCurrency) return;
+  const enabled = await tx.tenantCurrency.findFirst({
+    where: {
+      tenantId: ctx.tenant.id,
+      currencyCode: currency,
+      enabled: true,
+      currency: { active: true },
+    },
+  });
+  if (!enabled)
+    throw new Error(`${currency} is not an enabled currency for this tenant.`);
+}
 
 export async function saveProject(
   org: string,
@@ -35,6 +55,23 @@ export async function saveProject(
   dateOrder(startDate, endDate);
   const saved = await db.$transaction(async (tx) => {
     await member(ctx, tx, input.managerUserId);
+    if (projectId) {
+      const [{ currency: current }, costEntries] = await Promise.all([
+        tx.project.findUniqueOrThrow({
+          where: { id: projectId },
+          select: { currency: true },
+        }),
+        tx.costEntry.count({ where: { projectId } }),
+      ]);
+      const blocked = projectCurrencyChangeError({
+        current,
+        next: input.currency,
+        costEntries,
+      });
+      if (blocked) throw new Error(blocked);
+      if (current !== input.currency)
+        await assertProjectCurrencyEnabled(tx, ctx, input.currency);
+    } else await assertProjectCurrencyEnabled(tx, ctx, input.currency);
     let clientPartyId = input.clientPartyId;
     if (
       clientPartyId &&

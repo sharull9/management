@@ -40,7 +40,22 @@ export async function savePartyMaster(
         phone: partyPhoneSchema.parse(opt(data, "phone")),
         paymentTerms: partyPaymentTermsSchema.parse(data.paymentTerms),
         creditLimit: partyCreditLimitSchema.parse(val(data, "creditLimit")),
+        defaultCurrency: opt(data, "defaultCurrency"),
       };
+      if (fields.defaultCurrency) {
+        const enabled = await tx.tenantCurrency.findFirst({
+          where: {
+            tenantId,
+            currencyCode: fields.defaultCurrency,
+            enabled: true,
+            currency: { active: true },
+          },
+        });
+        if (!enabled)
+          throw new Error(
+            `${fields.defaultCurrency} is not an enabled currency for this tenant.`,
+          );
+      }
       if (!fields.isVendor && !fields.isCustomer)
         throw new Error("Select vendor, customer, or both.");
       entityId = (

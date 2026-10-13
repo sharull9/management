@@ -45,6 +45,11 @@ export const partyTypeSchema = z.enum(["BUSINESS", "INDIVIDUAL"]);
 export const partyEmailSchema = z.email();
 export const partyPhoneSchema = z.string().max(50).nullable();
 export const partyPaymentTermsSchema = z.number().int().min(0).max(3650);
+export const partyDefaultCurrencySchema = z
+  .string()
+  .regex(/^[A-Z]{3}$/, "Use a three-letter ISO currency code.")
+  .nullable()
+  .optional();
 export const partyCreditLimitSchema = z
   .string()
   .regex(/^\d{1,16}(?:\.\d{1,2})?$/);
@@ -84,6 +89,7 @@ const masterFields = {
   factor: optionalText,
   rate: optionalText,
   creditLimit: optionalText,
+  defaultCurrency: partyDefaultCurrencySchema,
   level: itemLevelSchema.optional(),
   paymentTerms: partyPaymentTermsSchema.optional(),
   type: z
@@ -161,6 +167,7 @@ const kindInputs = {
       type: partyTypeSchema,
       paymentTerms: partyPaymentTermsSchema,
       creditLimit: partyCreditLimitSchema,
+      defaultCurrency: partyDefaultCurrencySchema,
       isVendor: z.boolean(),
       isCustomer: z.boolean(),
     })

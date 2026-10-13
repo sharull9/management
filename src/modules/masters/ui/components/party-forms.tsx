@@ -1,9 +1,11 @@
 "use client";
+import { useMemo } from "react";
 import { ComboboxField } from "@/components/shared/combobox/combobox-field";
 import { CheckboxField } from "@/components/shared/form/checkbox-field";
 import { enumOptions } from "@/components/shared/form/enum-options";
 import { NumberField } from "@/components/shared/form/number-field";
 import { TextField } from "@/components/shared/form/text-field";
+import { findCurrencies } from "@/modules/currency/server/picker-actions";
 import { partyTypeSchema } from "../../schema";
 import type { MasterData as Data } from "../../type";
 import { MasterForm } from "./master-form";
@@ -12,6 +14,7 @@ type PartyRow = Data["parties"][number];
 /** Create (no `party`) or edit form for one party. */
 export function PartyForm({ org, party }: { org: string; party?: PartyRow }) {
   const listHref = `/${org}/masters/parties`;
+  const loadCurrencies = useMemo(() => findCurrencies.bind(null, org), [org]);
   return (
     <MasterForm
       org={org}
@@ -30,6 +33,7 @@ export function PartyForm({ org, party }: { org: string; party?: PartyRow }) {
         phone: party?.phone ?? "",
         paymentTerms: party?.paymentTerms ?? 0,
         creditLimit: party?.creditLimit ?? "0",
+        defaultCurrency: party?.defaultCurrency ?? null,
       }}
     >
       {(form) => (
@@ -81,6 +85,26 @@ export function PartyForm({ org, party }: { org: string; party?: PartyRow }) {
             label="Credit limit"
             name="creditLimit"
             inputMode="decimal"
+          />
+          <ComboboxField
+            control={form.control}
+            label="Default currency"
+            name="defaultCurrency"
+            description="Pre-selected on new purchase orders, bills and invoices for this party."
+            options={
+              party?.defaultCurrency
+                ? [
+                    {
+                      value: party.defaultCurrency,
+                      label: party.defaultCurrency,
+                    },
+                  ]
+                : []
+            }
+            loadOptions={loadCurrencies}
+            queryKey={["currencies", org]}
+            placeholder="Organization base currency"
+            clearable
           />
         </>
       )}
