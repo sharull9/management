@@ -59,6 +59,8 @@ export async function BillsList({
           date: day(r.date),
           dueDate: day(r.dueDate),
           currency: r.currency,
+          baseGrandTotal: r.baseGrandTotal.toFixed(2),
+          baseCurrency: d.baseCurrency,
           grandTotal: r.grandTotal.toFixed(2),
           paidTotal: r.paidTotal.toFixed(2),
           balance: r.payableTotal.sub(r.paidTotal).toFixed(2),

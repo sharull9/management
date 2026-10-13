@@ -17,6 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { describeRate } from "@/modules/currency/rate-format";
 import { billDetail } from "../../server/queries";
 import { BackLink } from "../components/back-link";
 import { AttachBillForm } from "../components/bill-document-forms";
@@ -35,6 +36,8 @@ export async function BillDetail({
     row.status === "DRAFT" &&
     (ctx.isAdmin || ctx.permissions.has("bill.create"));
   const taxCount = row.lines.reduce((n, l) => n + l.taxes.length, 0);
+  const baseCurrency = ctx.org.baseCurrency;
+  const foreign = row.currency !== baseCurrency;
   return (
     <div className="space-y-6">
       <div className="space-y-3">
@@ -72,10 +75,30 @@ export async function BillDetail({
             { label: "Bill date", value: day(row.date) },
             { label: "Due date", value: day(row.dueDate) },
             { label: "Currency", value: row.currency },
+            ...(foreign
+              ? [
+                  {
+                    label: "Exchange rate",
+                    value: describeRate(
+                      row.currency,
+                      baseCurrency,
+                      row.exchangeRate.toString(),
+                    ),
+                  },
+                ]
+              : []),
             {
               label: "Grand total",
               value: `${row.grandTotal.toFixed(2)} ${row.currency}`,
             },
+            ...(foreign
+              ? [
+                  {
+                    label: "Base grand total",
+                    value: `${row.baseGrandTotal.toFixed(2)} ${baseCurrency}`,
+                  },
+                ]
+              : []),
             {
               label: "Balance",
               value: `${row.payableTotal.sub(row.paidTotal).toFixed(2)} ${row.currency}`,
@@ -104,7 +127,7 @@ export async function BillDetail({
                           "PO rate",
                           "Billed rate",
                           "Discount %",
-                          "Variance",
+                          `Variance (${baseCurrency})`,
                           "Net",
                           "Tax",
                           "Total",
@@ -201,6 +224,34 @@ export async function BillDetail({
                       value: row.withholdingTotal.toFixed(2),
                     },
                     { label: "Payable", value: row.payableTotal.toFixed(2) },
+                    ...(foreign
+                      ? [
+                          {
+                            label: `Base subtotal (${baseCurrency})`,
+                            value: row.baseSubtotal.toFixed(2),
+                          },
+                          {
+                            label: `Base discount (${baseCurrency})`,
+                            value: row.baseDiscountTotal.toFixed(2),
+                          },
+                          {
+                            label: `Base tax (${baseCurrency})`,
+                            value: row.baseTaxTotal.toFixed(2),
+                          },
+                          {
+                            label: `Base withholding (${baseCurrency})`,
+                            value: row.baseWithholdingTotal.toFixed(2),
+                          },
+                          {
+                            label: `Base grand total (${baseCurrency})`,
+                            value: row.baseGrandTotal.toFixed(2),
+                          },
+                          {
+                            label: `Base payable (${baseCurrency})`,
+                            value: row.basePayableTotal.toFixed(2),
+                          },
+                        ]
+                      : []),
                     { label: "Paid", value: row.paidTotal.toFixed(2) },
                     {
                       label: "Balance",

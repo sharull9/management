@@ -21,6 +21,9 @@ export type BillRow = {
   paidTotal: string;
   balance: string;
   currency: string;
+  /** Grand total in the organization base currency. */
+  baseGrandTotal: string;
+  baseCurrency: string;
   status: string;
 };
 const columns: ColumnDef<BillRow>[] = [
@@ -68,6 +71,17 @@ const columns: ColumnDef<BillRow>[] = [
       cell: ({ row }) => formatMoney(row.original[key], row.original.currency),
     }),
   ),
+  { accessorKey: "currency", header: "Currency" },
+  {
+    accessorKey: "baseGrandTotal",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Base total" />
+    ),
+    sortingFn: (a, b) =>
+      new Decimal(a.original.baseGrandTotal).cmp(b.original.baseGrandTotal),
+    cell: ({ row }) =>
+      formatMoney(row.original.baseGrandTotal, row.original.baseCurrency),
+  },
   {
     accessorKey: "status",
     header: "Status",

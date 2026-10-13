@@ -1,4 +1,5 @@
 import { Decimal, money } from "@/core/decimal";
+import { roundMoney } from "@/modules/currency/util";
 import { calculateTax, type TaxInput } from "@/modules/tax/util";
 
 type Numeric = string | InstanceType<typeof Decimal>;
@@ -98,4 +99,92 @@ export function billTotals(lines: ReturnType<typeof calculateBillLine>[]) {
     grandTotal,
     payableTotal,
   };
+}
+
+/**
+ * Bill totals converted once per stored total at the bill's rate. The inputs are
+ * document-currency totals; tax is always calculated in the document currency first.
+ */
+export function billBaseTotals(
+  totals: ReturnType<typeof billTotals>,
+  toBase: (amount: Numeric) => Numeric,
+) {
+  return {
+    baseSubtotal: toBase(totals.subtotal),
+    baseDiscountTotal: toBase(totals.discountTotal),
+    baseTaxTotal: toBase(totals.taxTotal),
+    baseWithholdingTotal: toBase(totals.withholdingTotal),
+    baseGrandTotal: toBase(totals.grandTotal),
+    basePayableTotal: toBase(totals.payableTotal),
+  };
+}
+
+/**
+ * Base rate of the receipts a bill line is matched to: the linked GRN's own rate,
+ * or the accepted-quantity weighted rate of the PO line's approved receipts, or the
+ * PO's rate when nothing was received (services and non-stock lines).
+ */
+export function matchedReceiptRate(
+  receipts: { qty: Numeric; rate: Numeric }[],
+  fallback: Numeric,
+) {
+  const total = receipts.reduce((sum, r) => sum.add(r.qty), new Decimal(0));
+  if (!total.gt(0)) return new Decimal(fallback);
+  return receipts
+    .reduce((sum, r) => sum.add(new Decimal(r.qty).mul(r.rate)), new Decimal(0))
+    .div(total);
+}
+
+/**
+ * Bill price variance in BASE currency: the billed line (net of discount, at the
+ * bill's rate) minus the matched receipt value (PO net price at the receipt's
+ * rate). Both sides are converted once and rounded to base decimals, so the result
+ * includes the exchange-rate difference between receipt and bill.
+ * Negative when the bill is cheaper than the receipt. Zero without a PO line.
+ */
+export function billVarianceBase(input: {
+  qty: Numeric;
+  rate: Numeric;
+  discountPercent: Numeric;
+  poNetRate: Numeric | null;
+  billRate: Numeric;
+  receiptRate: Numeric;
+  baseDecimals: number;
+}) {
+  if (input.poNetRate === null) return new Decimal(0);
+  const qty = new Decimal(input.qty);
+  // PO net rates are snapshotted at eight decimals; match that precision.
+  const billNet = new Decimal(input.rate)
+    .mul(new Decimal(1).sub(new Decimal(input.discountPercent).div(100)))
+    .toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
+  const billBase = roundMoney(
+    qty.mul(billNet).mul(input.billRate),
+    input.baseDecimals,
+  );
+  const receiptBase = roundMoney(
+    qty.mul(input.poNetRate).mul(input.receiptRate),
+    input.baseDecimals,
+  );
+  return billBase.sub(receiptBase);
+}
+
+/** A bill linked to a PO or GRN must be in that document's currency. */
+export function assertBillCurrency(input: {
+  requested: string | null;
+  orderCurrency: string | null;
+  receiptCurrency?: string | null;
+}) {
+  if (
+    input.orderCurrency &&
+    input.requested &&
+    input.requested !== input.orderCurrency
+  )
+    throw new Error(
+      `Bill currency must match the purchase order currency (${input.orderCurrency}).`,
+    );
+  const currency = input.orderCurrency ?? input.requested;
+  if (input.receiptCurrency && currency && input.receiptCurrency !== currency)
+    throw new Error(
+      `Bill currency must match the linked receipt currency (${input.receiptCurrency}).`,
+    );
 }

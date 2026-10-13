@@ -60,6 +60,8 @@ export async function BillEdit({
             vendorInvoiceDate: day(row.vendorInvoiceDate),
             dueDate: day(row.dueDate),
             notes: row.notes ?? "",
+            currency: row.currency,
+            exchangeRate: row.exchangeRate.toString(),
           }}
           initialLines={initialLines}
         />

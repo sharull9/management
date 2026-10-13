@@ -43,13 +43,14 @@ async function decide(
           projectId: bill.projectId,
           date: bill.date,
           costType: "MATERIAL",
+          // Line variances are stored in BASE currency (bill line base minus the
+          // matched receipt base, FX included), so the entry's original currency
+          // is the base currency at rate 1.
           ...(await costEntryAmounts(tx, {
             organizationId: bill.organizationId,
             projectId: bill.projectId,
             date: bill.date,
-            currency: bill.currency,
             amount,
-            exchangeRate: bill.exchangeRate,
           })),
           description: `${bill.code} bill price variance`,
           sourceType: "BILL_VARIANCE",

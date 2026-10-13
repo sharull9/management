@@ -83,7 +83,8 @@ export async function submitBillAction(
             documentId: bill.id,
             title: `${bill.code} Vendor bill`,
             projectId: bill.projectId,
-            amount: bill.grandTotal.toString(),
+            // Approval thresholds are evaluated in the base currency.
+            amount: bill.baseGrandTotal.toString(),
           },
           tx,
           ctx,

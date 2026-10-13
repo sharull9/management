@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFieldArray, useWatch } from "react-hook-form";
 import { Combobox } from "@/components/shared/combobox/combobox";
 import { ComboboxField } from "@/components/shared/combobox/combobox-field";
@@ -13,6 +13,13 @@ import { useActionSubmit } from "@/components/shared/form/use-action-submit";
 import { useZodForm } from "@/components/shared/form/use-zod-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Decimal } from "@/core/decimal";
+import { describeRate } from "@/modules/currency/rate-format";
+import {
+  type RateSuggestion,
+  suggestExchangeRate,
+  vendorDefaultCurrency,
+} from "@/modules/procurement/server/rate-actions";
 import { billFormInput } from "../../schema";
 import { saveBillAction } from "../../server/actions";
 import { billTotals, calculateBillLine } from "../../server/calculations";
@@ -67,6 +74,12 @@ export function BillForm({
     vendorInvoiceNo: initial.vendorInvoiceNo ?? "",
     vendorInvoiceDate: initial.vendorInvoiceDate ?? initial.date ?? today,
     dueDate: initial.dueDate || null,
+    currency:
+      initial.currency ??
+      order?.currency ??
+      vendors.find((v) => v.id === initial.partyId)?.defaultCurrency ??
+      data.baseCurrency,
+    exchangeRate: initial.exchangeRate ?? "",
     notes: initial.notes ?? "",
     lines: initialLines ?? order?.lines ?? [blank()],
   });
@@ -75,6 +88,49 @@ export function BillForm({
     name: "lines",
   });
   const values = useWatch({ control: form.control });
+  const [rateInfo, setRateInfo] = useState<RateSuggestion | null>(null);
+  // A saved draft keeps its own rate until its currency or date is changed.
+  const keepSavedRate = useRef(!!initial.exchangeRate);
+  const previousVendor = useRef(values.partyId);
+  const currency = values.currency ?? data.baseCurrency;
+  const isForeign = currency !== data.baseCurrency;
+  useEffect(() => {
+    const vendorId = values.partyId;
+    if (!vendorId || previousVendor.current === vendorId) return;
+    previousVendor.current = vendorId;
+    if (values.purchaseOrderId) return;
+    let stale = false;
+    vendorDefaultCurrency(org, vendorId)
+      .then((code) => {
+        if (!stale && code && data.currencies.some((c) => c.code === code))
+          form.setValue("currency", code, { shouldDirty: true });
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [values.partyId, values.purchaseOrderId, org, form, data.currencies]);
+  useEffect(() => {
+    const date = values.date;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    let stale = false;
+    suggestExchangeRate(org, { currency, date })
+      .then((suggestion) => {
+        if (stale) return;
+        setRateInfo(suggestion);
+        if (keepSavedRate.current) {
+          keepSavedRate.current = false;
+          return;
+        }
+        form.setValue("exchangeRate", suggestion.rate ?? "", {
+          shouldDirty: true,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+  }, [org, currency, values.date, form]);
   const loaders = useMemo(
     () => ({
       vendors: findBillVendors.bind(null, org, "bill.create"),
@@ -113,6 +169,7 @@ export function BillForm({
       setGroups(selected.groups);
       form.setValue("projectId", selected.order.projectId);
       form.setValue("partyId", selected.order.partyId);
+      form.setValue("currency", selected.order.currency, { shouldDirty: true });
       form.setValue("dueDate", null);
       replace(selected.order.lines);
     } catch {
@@ -182,6 +239,37 @@ export function BillForm({
             queryKey={["vendors", org, "bill"]}
             disabled={busy || !!values.purchaseOrderId}
           />
+          <ComboboxField
+            control={form.control}
+            name="currency"
+            label="Currency"
+            description={
+              values.purchaseOrderId
+                ? "Fixed to the purchase order's currency."
+                : undefined
+            }
+            options={data.currencies.map((c) => ({
+              value: c.code,
+              label: `${c.code} | ${c.name}`,
+            }))}
+            disabled={busy || !!values.purchaseOrderId}
+          />
+          <TextField
+            control={form.control}
+            name="exchangeRate"
+            label={`Exchange rate (${data.baseCurrency} per ${currency})`}
+            description={
+              !isForeign
+                ? `Base currency (${data.baseCurrency}); the rate is 1.`
+                : rateInfo?.error
+                  ? rateInfo.error
+                  : rateInfo?.rateDate && values.exchangeRate
+                    ? `${describeRate(currency, data.baseCurrency, values.exchangeRate)}. Latest dated rate: ${rateInfo.rateDate}. Editing overrides it for this bill only.`
+                    : undefined
+            }
+            inputMode="decimal"
+            disabled={busy || !isForeign}
+          />
           <TextField
             control={form.control}
             name="vendorInvoiceNo"
@@ -210,9 +298,8 @@ export function BillForm({
         </div>
         <p className="text-sm text-muted-foreground">
           PO quantities show received amounts remaining after all non-cancelled
-          bills. Currency:{" "}
-          {data.projects.find((p) => p.id === values.projectId)?.currency}.
-          Duplicate vendor invoice numbers are blocked.
+          bills. Amounts are in {currency}; variance against receipts is posted
+          in {data.baseCurrency}. Duplicate vendor invoice numbers are blocked.
         </p>
         {fields.map((field, i) => {
           const line = values.lines?.[i];
@@ -356,8 +443,11 @@ export function BillForm({
         )}
         {netPreview && (
           <p>
-            Net amount before tax: {netPreview}. Tax and withholding snapshots
-            are calculated when saved.
+            Net amount before tax: {netPreview} {currency}
+            {isForeign && values.exchangeRate
+              ? ` ≈ ${new Decimal(netPreview).mul(values.exchangeRate).toFixed(2)} ${data.baseCurrency}`
+              : ""}
+            . Tax and withholding snapshots are calculated when saved.
           </p>
         )}
         <FieldFrame

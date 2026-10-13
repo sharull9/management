@@ -23,4 +23,6 @@ export type BillInitial = {
   vendorInvoiceDate?: string;
   dueDate?: string;
   notes?: string;
+  currency?: string;
+  exchangeRate?: string;
 };

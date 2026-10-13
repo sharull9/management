@@ -172,3 +172,19 @@ test("bill submission and filter inputs validate ids and enum choices", () => {
     false,
   );
 });
+
+test("bill exchange rates must be positive; blank rates resolve server-side", () => {
+  const base = { ...draft, currency: "USD" };
+  assert.equal(billInput.parse(base).exchangeRate, null);
+  assert.equal(
+    billInput.parse({ ...base, exchangeRate: "83.25" }).exchangeRate,
+    "83.25",
+  );
+  for (const exchangeRate of ["0", "-1", "abc", "0.0"])
+    assert.equal(billInput.safeParse({ ...base, exchangeRate }).success, false);
+  assert.equal(
+    billInput.safeParse({ ...base, currency: "usd" }).success,
+    false,
+  );
+  assert.equal(billInput.parse(draft).currency, null);
+});

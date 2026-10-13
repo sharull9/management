@@ -6,6 +6,7 @@ import {
   requireProjectContext,
 } from "@/core/context";
 import { db } from "@/core/db";
+import { listEnabledCurrencies } from "@/modules/currency/server/queries";
 import { moduleProjectWhere } from "@/modules/procurement/server/queries";
 import { billableReceipts } from "./calculations";
 export async function billOptions(
@@ -47,56 +48,58 @@ export async function billOptions(
     ...(editing?.lines ?? []),
     ...(selectedOrder?.lines ?? []),
   ].flatMap((l) => (l.taxGroupId ? [l.taxGroupId] : []));
-  const [vendors, uoms, groups, variants, orders] = await Promise.all([
-    db.party.findMany({
-      where: { tenantId: ctx.tenant.id, isVendor: true },
-      orderBy: { displayName: "asc" },
-      take: 25,
-    }),
-    db.uom.findMany({
-      where: { OR: [{ tenantId: ctx.tenant.id }, { tenantId: null }] },
-      orderBy: { name: "asc" },
-    }),
-    db.taxGroup.findMany({
-      where: { tenantId: ctx.tenant.id },
-      orderBy: { name: "asc" },
-      take: 25,
-    }),
-    db.itemVariant.findMany({
-      where: { item: { tenantId: ctx.tenant.id } },
-      orderBy: { name: "asc" },
-    }),
-    db.purchaseOrder.findMany({
-      where: {
-        id: orderId ?? "",
-        organizationId: ctx.org.id,
-        projectId: { in: projects.map((p) => p.id) },
-        status: {
-          in: ["APPROVED", "PARTIALLY_RECEIVED", "RECEIVED", "CLOSED"],
+  const [vendors, uoms, groups, variants, orders, currencies] =
+    await Promise.all([
+      db.party.findMany({
+        where: { tenantId: ctx.tenant.id, isVendor: true },
+        orderBy: { displayName: "asc" },
+        take: 25,
+      }),
+      db.uom.findMany({
+        where: { OR: [{ tenantId: ctx.tenant.id }, { tenantId: null }] },
+        orderBy: { name: "asc" },
+      }),
+      db.taxGroup.findMany({
+        where: { tenantId: ctx.tenant.id },
+        orderBy: { name: "asc" },
+        take: 25,
+      }),
+      db.itemVariant.findMany({
+        where: { item: { tenantId: ctx.tenant.id } },
+        orderBy: { name: "asc" },
+      }),
+      db.purchaseOrder.findMany({
+        where: {
+          id: orderId ?? "",
+          organizationId: ctx.org.id,
+          projectId: { in: projects.map((p) => p.id) },
+          status: {
+            in: ["APPROVED", "PARTIALLY_RECEIVED", "RECEIVED", "CLOSED"],
+          },
         },
-      },
-      include: {
-        lines: {
-          include: {
-            variant: true,
-            vendorBillLineRows: {
-              where: {
-                bill: { status: { not: "CANCELLED" } },
-                ...(editingBillId ? { billId: { not: editingBillId } } : {}),
+        include: {
+          lines: {
+            include: {
+              variant: true,
+              vendorBillLineRows: {
+                where: {
+                  bill: { status: { not: "CANCELLED" } },
+                  ...(editingBillId ? { billId: { not: editingBillId } } : {}),
+                },
+                include: { bill: { select: { status: true } } },
               },
-              include: { bill: { select: { status: true } } },
-            },
-            goodsReceiptLineRows: {
-              where: { receipt: { status: "APPROVED" } },
-              include: { receipt: { select: { code: true } } },
-              orderBy: { createdAt: "asc" },
+              goodsReceiptLineRows: {
+                where: { receipt: { status: "APPROVED" } },
+                include: { receipt: { select: { code: true } } },
+                orderBy: { createdAt: "asc" },
+              },
             },
           },
         },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
+        orderBy: { createdAt: "desc" },
+      }),
+      listEnabledCurrencies(ctx.tenant.id, ctx.org.baseCurrency),
+    ]);
   vendors.push(
     ...(await db.party.findMany({
       where: {
@@ -119,6 +122,8 @@ export async function billOptions(
     })),
   );
   return {
+    baseCurrency: ctx.org.baseCurrency,
+    currencies: currencies.map((c) => ({ code: c.code, name: c.name })),
     projects: projects.map((p) => ({
       id: p.id,
       name: `${p.code} ${p.name}`,
@@ -128,6 +133,7 @@ export async function billOptions(
       id: v.id,
       name: v.displayName,
       paymentTerms: v.paymentTerms,
+      defaultCurrency: v.defaultCurrency,
     })),
     uoms: uoms.map((u) => ({ id: u.id, name: `${u.code} ${u.name}` })),
     groups: groups.map((g) => ({ id: g.id, name: g.name })),
@@ -137,6 +143,7 @@ export async function billOptions(
       name: o.code,
       projectId: o.projectId,
       partyId: o.vendorPartyId,
+      currency: o.currency,
       lines: o.lines.flatMap((l) =>
         billableReceipts(
           l.receivedQty,
@@ -230,6 +237,7 @@ export async function billList(
     where: moduleProjectWhere(ctx, "bill.create"),
   });
   return {
+    baseCurrency: ctx.org.baseCurrency,
     projects,
     vendors,
     writable: writable > 0,

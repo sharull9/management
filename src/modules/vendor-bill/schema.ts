@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Decimal } from "@/core/decimal";
 import { date, id, quantity, rate } from "@/core/schema";
+import { exchangeRateInput } from "@/modules/procurement/schema";
 
 export const billLineInput = z.object({
   poLineId: id.nullable().default(null),
@@ -25,6 +26,14 @@ export const billInput = z.object({
   vendorInvoiceNo: z.string().trim().min(1).max(200),
   vendorInvoiceDate: date,
   dueDate: date.nullable(),
+  /** Null resolves to the PO's currency, else the vendor default, else base. */
+  currency: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .nullable()
+    .default(null),
+  /** User-confirmed base-per-document-unit rate; null resolves the dated rate. */
+  exchangeRate: exchangeRateInput,
   notes: z.string().trim().max(4000).default(""),
   lines: z.array(billLineInput).min(1).max(100),
 });
@@ -60,6 +69,11 @@ export const billAttachmentInput = z
 
 export const billFormInput = billInput.extend({
   dueDate: z.union([date, z.literal("").transform(() => null), z.null()]),
+  // A cleared rate field resolves the dated rate on the server.
+  exchangeRate: z.union([
+    exchangeRateInput,
+    z.literal("").transform(() => null),
+  ]),
   attachment: billAttachmentInput.nullable(),
 });
 export const billAttachmentFormInput = billDocumentInput.extend({

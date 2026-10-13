@@ -4,6 +4,8 @@ import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
 import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
+import { resolveDocumentFx } from "@/modules/currency/server/rates";
+import { assertDocumentCurrency } from "@/modules/procurement/server/currency";
 import {
   domainAudit,
   lockDocument,
@@ -12,10 +14,13 @@ import {
 import { suggestTaxScope } from "@/modules/tax/util";
 import type { billInput } from "../schema";
 import {
+  assertBillCurrency,
   billableQty,
+  billBaseTotals,
   billTotals,
-  billVariance,
+  billVarianceBase,
   calculateBillLine,
+  matchedReceiptRate,
 } from "./calculations";
 export async function assertBillReceipts(
   tx: Prisma.TransactionClient,
@@ -143,7 +148,6 @@ export async function saveBill(
           organizationId: ctx.org.id,
           projectId: project.id,
           vendorPartyId: vendor.id,
-          currency: project.currency,
           status: {
             in: ["APPROVED", "PARTIALLY_RECEIVED", "RECEIVED", "CLOSED"],
           },
@@ -151,6 +155,23 @@ export async function saveBill(
         include: { lines: true },
       })
     : null;
+  // A linked PO fixes the bill currency; otherwise vendor default, else base.
+  const currency =
+    order?.currency ??
+    input.currency ??
+    vendor.defaultCurrency ??
+    ctx.org.baseCurrency;
+  assertBillCurrency({
+    requested: input.currency,
+    orderCurrency: order?.currency ?? null,
+  });
+  await assertDocumentCurrency(tx, ctx.tenant.id, ctx.org.id, currency);
+  const fx = await resolveDocumentFx(tx, {
+    organizationId: ctx.org.id,
+    currency,
+    date: input.date,
+    override: input.exchangeRate,
+  });
   await assertBillReceipts(
     tx,
     ctx.org.id,
@@ -158,6 +179,15 @@ export async function saveBill(
     input.purchaseOrderId,
     input.lines,
   );
+  const approvedReceiptLines = order
+    ? await tx.goodsReceiptLine.findMany({
+        where: {
+          poLineId: { in: order.lines.map((l) => l.id) },
+          receipt: { status: "APPROVED", poId: order.id },
+        },
+        include: { receipt: { select: { exchangeRate: true } } },
+      })
+    : [];
   const calculated = [],
     lines = [];
   for (const line of input.lines) {
@@ -171,18 +201,28 @@ export async function saveBill(
         (line.itemVariantId && line.itemVariantId !== poLine.itemVariantId))
     )
       throw new Error("PO bill item and unit must match the PO line.");
-    if (line.grnLineId)
-      await tx.goodsReceiptLine.findFirstOrThrow({
-        where: {
-          id: line.grnLineId,
-          poLineId: line.poLineId ?? "",
-          uomId: line.uomId,
-          receipt: {
-            status: "APPROVED",
-            poId: order?.id,
-            organizationId: ctx.org.id,
+    const grnLine = line.grnLineId
+      ? await tx.goodsReceiptLine.findFirstOrThrow({
+          where: {
+            id: line.grnLineId,
+            poLineId: line.poLineId ?? "",
+            uomId: line.uomId,
+            receipt: {
+              status: "APPROVED",
+              poId: order?.id,
+              organizationId: ctx.org.id,
+            },
           },
-        },
+          include: {
+            receipt: { select: { currency: true, exchangeRate: true } },
+          },
+        })
+      : null;
+    if (grnLine)
+      assertBillCurrency({
+        requested: currency,
+        orderCurrency: null,
+        receiptCurrency: grnLine.receipt.currency,
       });
     const uom = await tx.uom.findFirstOrThrow({
       where: {
@@ -237,12 +277,27 @@ export async function saveBill(
       ...line,
       itemVariantId: poLine?.itemVariantId ?? line.itemVariantId,
       poRate: poLine?.rate ?? null,
-      varianceAmount: billVariance(
-        line.qty,
-        line.rate,
-        line.discountPercent,
-        poLine?.netRate ?? null,
-      ),
+      // Base-currency price variance against the matched receipt (includes FX
+      // between the receipt rate and this bill's rate).
+      varianceAmount: billVarianceBase({
+        qty: line.qty,
+        rate: line.rate,
+        discountPercent: line.discountPercent,
+        poNetRate: poLine?.netRate ?? null,
+        billRate: fx.exchangeRate,
+        receiptRate: grnLine
+          ? grnLine.receipt.exchangeRate
+          : matchedReceiptRate(
+              approvedReceiptLines
+                .filter((r) => r.poLineId === poLine?.id)
+                .map((r) => ({
+                  qty: r.acceptedQty,
+                  rate: r.receipt.exchangeRate,
+                })),
+              order?.exchangeRate ?? "1",
+            ),
+        baseDecimals: fx.baseDecimals,
+      }),
       lineSubtotal: calc.lineSubtotal,
       lineTax: calc.lineTax,
       lineTotal: calc.lineTotal,
@@ -255,6 +310,7 @@ export async function saveBill(
     });
     await tx.vendorBillLine.deleteMany({ where: { billId: input.id } });
   }
+  const totals = billTotals(calculated);
   const dueDate =
     input.dueDate ??
     new Date(input.date.getTime() + vendor.paymentTerms * 86400000);
@@ -267,8 +323,10 @@ export async function saveBill(
     vendorInvoiceDate: input.vendorInvoiceDate,
     dueDate,
     notes: input.notes,
-    currency: project.currency,
-    ...billTotals(calculated),
+    currency,
+    exchangeRate: fx.exchangeRate,
+    ...totals,
+    ...billBaseTotals(totals, fx.toBase),
     lines: { create: lines },
   };
   const row = input.id
