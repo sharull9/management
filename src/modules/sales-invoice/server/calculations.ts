@@ -1,4 +1,5 @@
 import { Decimal, money } from "@/core/decimal";
+import { roundMoney } from "@/modules/currency/util";
 import {
   calculateTax,
   suggestTaxScope,
@@ -54,8 +55,10 @@ export function calculateInvoiceLine(input: {
     taxes: tax.lines,
   };
 }
+/** `decimals` is the document currency's own decimals (0 for JPY). */
 export function invoiceTotals(
   lines: ReturnType<typeof calculateInvoiceLine>[],
+  decimals = 2,
 ) {
   const sum = (
     key: "subtotal" | "discountTotal" | "lineTax" | "withholdingTotal",
@@ -75,7 +78,7 @@ export function invoiceTotals(
       withholdingTotal,
       grandTotal,
       payableTotal,
-    }).map(([k, v]) => [k, v.toFixed(2)]),
+    }).map(([k, v]) => [k, roundMoney(v, decimals).toFixed(2)]),
   ) as {
     subtotal: string;
     discountTotal: string;

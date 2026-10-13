@@ -139,12 +139,15 @@ export async function savePurchaseOrder(
       taxes: { create: taxes.lines },
     });
   }
-  const subtotal = lines.reduce((a, l) => a.add(l.netAmount), new Decimal(0));
-  const taxTotal = lines
+  const exactSubtotal = lines.reduce(
+    (a, l) => a.add(l.netAmount),
+    new Decimal(0),
+  );
+  const exactTaxTotal = lines
     .flatMap((l) => l.taxes.create)
     .filter((l) => !l.isWithholding)
     .reduce((a, l) => a.add(l.amount), new Decimal(0));
-  const withholdingTotal = lines
+  const exactWithholdingTotal = lines
     .flatMap((l) => l.taxes.create)
     .filter((l) => l.isWithholding)
     .reduce((a, l) => a.add(l.amount), new Decimal(0));
@@ -162,7 +165,13 @@ export async function savePurchaseOrder(
     date: input.date,
     override: input.exchangeRate,
   });
-  const grandTotal = subtotal.add(taxTotal).sub(withholdingTotal);
+  // Stored totals carry the document currency's own decimals (0 for JPY).
+  const subtotal = fx.round(exactSubtotal);
+  const taxTotal = fx.round(exactTaxTotal);
+  const withholdingTotal = fx.round(exactWithholdingTotal);
+  const grandTotal = fx.round(
+    exactSubtotal.add(exactTaxTotal).sub(exactWithholdingTotal),
+  );
   const fields = {
     projectId: project.id,
     vendorPartyId: vendor.id,

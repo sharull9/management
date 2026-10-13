@@ -135,7 +135,7 @@ export async function saveInvoice(
     date: input.date,
     override: input.exchangeRate,
   });
-  const totals = invoiceTotals(calculations);
+  const totals = invoiceTotals(calculations, fx.decimals);
   const fields = {
     projectId: project?.id ?? null,
     partyId: party.id,

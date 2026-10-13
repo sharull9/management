@@ -6,6 +6,7 @@ import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
 import { assertEnabledCurrency } from "@/modules/currency/server/enabled";
 import { resolveDocumentFx } from "@/modules/currency/server/rates";
+import { roundTotals } from "@/modules/currency/util";
 import {
   domainAudit,
   lockDocument,
@@ -315,7 +316,7 @@ export async function saveBill(
     });
     await tx.vendorBillLine.deleteMany({ where: { billId: input.id } });
   }
-  const totals = billTotals(calculated);
+  const totals = roundTotals(billTotals(calculated), fx.decimals);
   const dueDate =
     input.dueDate ??
     new Date(input.date.getTime() + vendor.paymentTerms * 86400000);

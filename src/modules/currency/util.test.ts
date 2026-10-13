@@ -9,6 +9,7 @@ import {
   fromBase,
   realisedFx,
   roundMoney,
+  roundTotals,
   toBase,
 } from "./util";
 
@@ -244,4 +245,22 @@ test("currencies with more than two decimals are rejected until columns are wide
   assert.doesNotThrow(() => assertStorableCurrency("JPY", 0));
   assert.doesNotThrow(() => assertStorableCurrency("INR", 2));
   assert.throws(() => assertStorableCurrency("KWD", 3), /KWD uses 3 decimal/);
+});
+
+test("roundTotals rounds every document total to the currency's decimals", () => {
+  const jpy = roundTotals(
+    { subtotal: "1000.50", taxTotal: "100.05", grandTotal: "1100.55" },
+    0,
+  );
+  assert.equal(str(jpy.subtotal), "1001");
+  assert.equal(str(jpy.taxTotal), "100");
+  assert.equal(str(jpy.grandTotal), "1101");
+  const usd = roundTotals({ grandTotal: "10.005" }, 2);
+  assert.equal(str(usd.grandTotal), "10.01");
+});
+
+test("a rounded 0-decimal document converts to base from whole units", () => {
+  const { grandTotal } = roundTotals({ grandTotal: "1234.5" }, 0);
+  assert.equal(str(grandTotal), "1235");
+  assert.equal(str(toBase(grandTotal, "0.55", 2)), "679.25");
 });

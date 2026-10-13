@@ -29,6 +29,10 @@ export async function recordPayment(
     date: input.date,
     override: input.exchangeRate,
   });
+  // Currencies with fewer minor units (JPY) round to their own decimals.
+  const paymentAmount = fx.round(amount(input.amount));
+  if (paymentAmount.lte(0))
+    throw new Error("Amount rounds to zero in the payment currency.");
   await tx.party.findFirstOrThrow({
     where: {
       id: input.partyId,
@@ -76,8 +80,8 @@ export async function recordPayment(
     const remaining = request.amount.sub(
       request.payments.reduce((v, p) => v.add(p.amount), new Decimal(0)),
     );
-    validateAllocation(remaining, remaining, input.amount);
-    let available = amount(input.amount);
+    validateAllocation(remaining, remaining, paymentAmount);
+    let available = paymentAmount;
     for (const b of request.bills) {
       const already = request.payments
         .flatMap((p) => p.allocations)
@@ -106,12 +110,12 @@ export async function recordPayment(
       ...base,
       currency,
       exchangeRate: fx.exchangeRate,
-      baseAmount: fx.toBase(amount(input.amount)),
+      baseAmount: fx.toBase(paymentAmount),
       reference: reference || null,
       notes: notes || null,
       paymentRequestId,
-      amount: amount(input.amount),
-      unallocatedAmount: amount(input.amount),
+      amount: paymentAmount,
+      unallocatedAmount: paymentAmount,
       allocatedAmount: "0",
       organizationId: ctx.org.id,
       createdById: ctx.user.id,
@@ -122,7 +126,7 @@ export async function recordPayment(
   if (request) {
     const paid = request.payments.reduce(
       (v, p) => v.add(p.amount),
-      amount(input.amount),
+      paymentAmount,
     );
     if (paid.eq(request.amount))
       await tx.paymentRequest.update({

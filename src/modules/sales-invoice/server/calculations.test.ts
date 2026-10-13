@@ -92,6 +92,16 @@ test("sales tax snapshots and totals separate discount, tax, withholding and set
     payableTotal: "258.80",
   });
 });
+test("totals round to a 0-decimal document currency", () => {
+  const line = calculateInvoiceLine({
+    qty: "3",
+    rate: "100.50",
+    discountPercent: "0",
+    components: [],
+  });
+  assert.equal(invoiceTotals([line], 0).grandTotal, "302.00");
+  assert.equal(invoiceTotals([line]).grandTotal, "301.50");
+});
 test("fractional rates use half-up rounding and preserve total identities", () => {
   const line = calculateInvoiceLine({
     qty: "3",

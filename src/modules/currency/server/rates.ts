@@ -1,6 +1,6 @@
 import { Decimal, type Numeric } from "@/core/decimal";
 import type { Prisma } from "@/generated/prisma/client";
-import { assertPositiveRate, toBase } from "../util";
+import { assertPositiveRate, roundMoney, toBase } from "../util";
 
 type Db = Prisma.TransactionClient;
 const isoDate = (date: Date | string) =>
@@ -100,10 +100,18 @@ export async function resolveDocumentFx(
             input.currency,
             input.date,
           );
+  const document = await tx.currency.findUniqueOrThrow({
+    where: { code: input.currency },
+    select: { decimals: true },
+  });
   return {
     exchangeRate,
     baseCurrency: base.code,
     baseDecimals: base.decimals,
+    /** Decimals of the document currency (0 for JPY, KRW, ...). */
+    decimals: document.decimals,
+    /** Rounds a document-currency amount to the currency's own decimals. */
+    round: (amount: Numeric) => roundMoney(amount, document.decimals),
     toBase: (amount: Numeric) => toBase(amount, exchangeRate, base.decimals),
   };
 }

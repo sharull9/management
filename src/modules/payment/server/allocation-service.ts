@@ -3,9 +3,11 @@ import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
 import type { Prisma } from "@/generated/prisma/client";
 import { organizationBaseCurrency } from "@/modules/currency/server/rates";
+import { roundMoney } from "@/modules/currency/util";
 import type { allocationsInput } from "../schema";
 import {
   allocationFx,
+  amount,
   Decimal,
   settlementStatus,
   validateAllocation,
@@ -67,6 +69,10 @@ export async function allocatePayment(
   });
   await scope(tx, ctx, payment.projectId, "payment.record");
   const base = await organizationBaseCurrency(tx, ctx.org.id);
+  const { decimals } = await tx.currency.findUniqueOrThrow({
+    where: { code: payment.currency },
+    select: { decimals: true },
+  });
   let available = new Decimal(payment.unallocatedAmount);
   const checked = [];
   for (const a of allocations) {
@@ -77,7 +83,12 @@ export async function allocatePayment(
       a.documentId,
       "payment.record",
     );
-    const value = validateAllocation(available, outstanding, a.amount);
+    // Allocation inputs round to the payment currency's own decimals.
+    const value = validateAllocation(
+      available,
+      outstanding,
+      roundMoney(amount(a.amount), decimals),
+    );
     available = available.sub(value);
     // The payment's own rate prices the cash side (advances keep the advance's
     // rate); the document's stored rate prices what it carried.

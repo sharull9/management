@@ -69,6 +69,14 @@ export async function saveRequest(
     date: input.date,
     override: input.exchangeRate,
   });
+  // Currencies with fewer minor units (JPY) round to their own decimals.
+  const requestAmount = fx.round(amount(input.amount));
+  if (requestAmount.lte(0))
+    throw new Error("Amount rounds to zero in the request currency.");
+  const billAmounts = input.allocations.map((a) => ({
+    billId: a.documentId,
+    amount: fx.round(amount(a.amount)),
+  }));
   await tx.party.findFirstOrThrow({
     where: { id: input.partyId, tenantId: ctx.tenant.id, isVendor: true },
   });
@@ -90,8 +98,8 @@ export async function saveRequest(
     projectId: input.projectId,
     currency,
     exchangeRate: fx.exchangeRate,
-    amount: amount(input.amount),
-    baseAmount: fx.toBase(amount(input.amount)),
+    amount: requestAmount,
+    baseAmount: fx.toBase(requestAmount),
     date: input.date,
     purpose: input.purpose,
     mode: input.mode,
@@ -100,10 +108,7 @@ export async function saveRequest(
   await validateRequestBills(tx, {
     ...data,
     organizationId: ctx.org.id,
-    bills: input.allocations.map((a) => ({
-      billId: a.documentId,
-      amount: amount(a.amount),
-    })),
+    bills: billAmounts,
   });
   if (input.id) {
     const previous = await tx.paymentRequest.findFirstOrThrow({
@@ -115,10 +120,7 @@ export async function saveRequest(
     });
   }
   const bills = {
-    create: input.allocations.map((a) => ({
-      billId: a.documentId,
-      amount: a.amount,
-    })),
+    create: billAmounts,
   };
   const row = input.id
     ? await tx.paymentRequest.update({

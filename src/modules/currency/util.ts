@@ -18,6 +18,19 @@ export function roundMoney(value: Numeric, decimals: number) {
   return new Decimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
 }
 
+/** Rounds every total to the document currency's decimals (columns store two). */
+export function roundTotals<T extends Record<string, Numeric>>(
+  totals: T,
+  decimals: number,
+) {
+  return Object.fromEntries(
+    Object.entries(totals).map(([key, value]) => [
+      key,
+      roundMoney(value, decimals),
+    ]),
+  ) as { [K in keyof T]: ReturnType<typeof roundMoney> };
+}
+
 export function assertPositiveRate(rate: Numeric, label = "Exchange rate") {
   const value = new Decimal(rate);
   if (!value.isFinite() || !value.gt(0))
