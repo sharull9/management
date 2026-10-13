@@ -125,3 +125,12 @@ Known gap until wave 2: for a project whose currency differs from the base curre
 - **Party default currency**: `defaultCurrency` on the master party input; validated against enabled tenant currencies in `party-service.ts`. Not yet applied to documents — agents B/C may pre-select `party.defaultCurrency` on new PO/bill/invoice forms.
 - **Project currency**: picked from `findCurrencies`; `saveProject` rejects a currency that is not enabled and blocks a change once the project has any `CostEntry` (`project/currency-guard.ts`).
 - **Organization form**: base currency is a Combobox over the active master (`currencies` prop, required on `OrganizationForm`); the wave-1 guard message is shown by the form shell.
+
+## Agent D (attendance, expenses, project costs, budget, dashboard)
+
+- Expense form: `currency` (tenant-enabled via `findCurrencies`, default project currency) and `exchangeRate` (blank resolves the dated rate server-side; prefilled by `expenseFx` in `project-cost/server/picker-actions`, fixed 1 and disabled for the base currency). Expense `baseAmount` = `toBase` of the total once; the amount's precision must fit the currency's decimals.
+- Approval requests for expenses carry `baseAmount` as `amount`, so policy thresholds are in the organization base currency.
+- Cost ledger shows original (amount + code) and project-currency amount; expenses list shows original, project amount (once posted, or same-currency) and base amount.
+- Attendance resolves the project-currency rate once before writing; a missing rate fails with "Cannot record attendance costs for <date>. No <CUR> exchange rate ...". Worker pay has no currency field: salary and overrides are treated as project currency.
+- Project pages show project currency; the overview Spent tile adds the base-currency total (`projectSpentBase`) when the project currency differs from base. Org dashboard "Spent this month" sums `baseAmount` in base currency (`dashboard/util.summariseSpend`) with the project-currency breakdown in the detail line; per-project rows stay in project currency.
+- `project-cost-policy` is pure and value-agnostic; unchanged.
