@@ -162,7 +162,10 @@ There are no module barrels. See [the module map](docs/ARCHITECTURE.md#module-ma
 
 After a document action validates and authorizes its domain operation, call
 `submitForApproval({ orgSlug, documentType, documentId, title, amount, projectId, stageId })`.
-Use decimal strings for money. An optional transaction lets submission share a transaction
+Use decimal strings for money. `amount` is always in the organization's **base currency**
+(`baseGrandTotal`, `baseAmount`; purchase requests and stock transfers have no foreign currency),
+so step minimum amounts compare one currency across documents; never pass a document-currency total.
+An optional transaction lets submission share a transaction
 with the document write. Pass the already verified `OrgContext` as the third argument when
 using a transaction, avoiding repeated session/DAL reads while its database connection is held.
 The service checks organization/project/stage consistency. Policy lookup selects active stage,

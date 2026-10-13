@@ -174,7 +174,7 @@ export function PolicyEditor({
             <TextField
               control={form.control}
               name={`steps.${index}.minAmount`}
-              label="Minimum amount (optional)"
+              label="Minimum amount in base currency (optional)"
               inputMode="decimal"
               placeholder="0.00"
             />

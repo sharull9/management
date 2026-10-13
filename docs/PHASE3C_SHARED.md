@@ -1,6 +1,6 @@
 # Phase 3c shared contract — multi-currency
 
-Wave 1 (this foundation) is merged. Wave 2 agents A–D wire their modules to it in parallel and must not edit `prisma/schema.prisma`, `src/modules/currency/util.ts` or `src/modules/currency/server/{rates,cost-entry,base-currency}.ts`; ask the integration owner for changes.
+Waves 1–2 and integration are merged; see [PHASE3C_REPORT.md](PHASE3C_REPORT.md). During wave 2, agents A–D wired their modules in parallel and did not edit `prisma/schema.prisma`, `src/modules/currency/util.ts` or `src/modules/currency/server/{rates,cost-entry,base-currency}.ts`; ask the integration owner for changes.
 
 ## Money model
 
@@ -78,6 +78,14 @@ resolveDocumentFx(tx, { organizationId, currency, date, override? })
   : { exchangeRate, baseCurrency, baseDecimals, toBase(amount) }    // use for every document's rate + base totals
 ```
 
+`resolveRateWithDate(tx, organizationId, currencyCode, date): { rate, rateDate }` is the same lookup with the source row's date (`null` for the base currency); `resolveRate` wraps it.
+
+`@/modules/currency/server/enabled`: `assertEnabledCurrency(tx, tenantId, code, baseCurrency?)` is the one tenant-enabled (and active) currency check, used by documents, expenses, projects and party defaults. Pass the organization's base currency to skip the lookup for it.
+
+`@/modules/currency/server/fx-actions`: `previewExchangeRate(org, { currency, date }): { baseCurrency, exchangeRate, rateDate, error }`, the single server function that prefills the rate on every form (organization-scoped, Zod-validated; a missing rate is `error`, not a throw).
+
+`@/modules/currency/ui/components/currency-fx-fields`: `CurrencyFxFields` (currency combobox + rate) and `ExchangeRateField` (rate only), used by PO, GRN, vendor bill, payment request, payment, sales invoice and expense forms. Render inside a react-hook-form `FormProvider` with `currency`, `exchangeRate` and the date field (`dateName`, default `date`).
+
 `@/modules/currency/server/cost-entry`:
 
 ```ts
@@ -128,7 +136,7 @@ Known gap until wave 2: for a project whose currency differs from the base curre
 
 ## Agent D (attendance, expenses, project costs, budget, dashboard)
 
-- Expense form: `currency` (tenant-enabled via `findCurrencies`, default project currency) and `exchangeRate` (blank resolves the dated rate server-side; prefilled by `expenseFx` in `project-cost/server/picker-actions`, fixed 1 and disabled for the base currency). Expense `baseAmount` = `toBase` of the total once; the amount's precision must fit the currency's decimals.
+- Expense form: `currency` (tenant-enabled via `findCurrencies`, default project currency) and `exchangeRate` (blank resolves the dated rate server-side; prefilled by the shared `previewExchangeRate`, fixed 1 and disabled for the base currency). Expense `baseAmount` = `toBase` of the total once; the amount's precision must fit the currency's decimals.
 - Approval requests for expenses carry `baseAmount` as `amount`, so policy thresholds are in the organization base currency.
 - Cost ledger shows original (amount + code) and project-currency amount; expenses list shows original, project amount (once posted, or same-currency) and base amount.
 - Attendance resolves the project-currency rate once before writing; a missing rate fails with "Cannot record attendance costs for <date>. No <CUR> exchange rate ...". Worker pay has no currency field: salary and overrides are treated as project currency.
@@ -142,13 +150,32 @@ Known gap until wave 2: for a project whose currency differs from the base curre
 - **Consumption / transfer**: stock is base-valued; their `CostEntry` rows use base as the original currency. The same-currency transfer restriction was removed: the source loses `V` base and the destination gains `V` base, each converted into its own project currency.
 - **Vendor bill**: `currency` must equal its PO's (and any linked GRN's); otherwise vendor default, else base. `exchangeRate` prefilled for the bill date, editable. Tax is calculated in the document currency, then `base{Subtotal,DiscountTotal,TaxTotal,WithholdingTotal,GrandTotal,PayableTotal}` are each converted once.
 - **`VendorBillLine.varianceAmount` is now BASE currency**: `round(qty × billNetRate × billRate) − round(qty × poNetRate × receiptRate)`, where `receiptRate` is the linked GRN's rate, else the accepted-qty weighted rate of the PO line's approved receipts, else the PO's rate. It therefore includes FX between receipt and bill (USD PO at 83, received at 84, billed at 85 and same price: +1,000 per 10 × 100 USD). The `BILL_VARIANCE` CostEntry sums these and is posted with the base currency as its original currency at rate 1.
-- Picker helpers: `procurement/server/rate-actions` (`suggestExchangeRate` returns rate + source date or an error message, `vendorDefaultCurrency`, `purchaseOrderCurrency`); `procurement/server/currency.assertDocumentCurrency`.
+- Picker helpers: `procurement/server/rate-actions` (`vendorDefaultCurrency`, `purchaseOrderCurrency`). Rate prefill and the currency check were consolidated into `currency/server/fx-actions` and `currency/server/enabled` during integration.
 
 ## Agent C: payment and sales-invoice (wave 2)
 
-- **Documents**: payment requests, payments and sales invoices carry `currency` (any tenant-enabled currency, validated server-side via `TenantCurrency`; omitted = base) and `exchangeRate`. The rate is the user override or the dated lookup (`resolveDocumentFx`); the base currency is always 1. `base<Field>` totals are converted once per total. Forms use `payment/ui/components/currency-fx-fields.tsx`, which prefills the rate with `payment/server/fx-actions.previewDocumentFx` on currency/date change. Default currency is the party's `defaultCurrency`, else base.
+- **Documents**: payment requests, payments and sales invoices carry `currency` (any tenant-enabled currency, validated server-side via `TenantCurrency`; omitted = base) and `exchangeRate`. The rate is the user override or the dated lookup (`resolveDocumentFx`); the base currency is always 1. `base<Field>` totals are converted once per total. Forms use the shared `currency/ui/components/currency-fx-fields.tsx`, which prefills the rate with `currency/server/fx-actions.previewExchangeRate` on currency/date change. Default currency is the party's `defaultCurrency`, else base.
 - **Drafts**: the stored rate (override or the value resolved at save) is kept on submit; it is frozen once the document leaves draft. Approval requests carry the **base** amount (`baseAmount`/`baseGrandTotal`) so thresholds compare in one currency.
 - **Allocation**: `target()` calls `assertSameCurrency`; the open-document picker already filters by currency. Per allocation: `baseAmount = toBase(amount, payment.exchangeRate)`, `documentBaseAmount = toBase(amount, document.exchangeRate)`, `fxDifference = baseAmount − documentBaseAmount` (`allocationFx` wraps `realisedFx`). Positive = loss for OUTGOING/vendor bills, gain for INCOMING/sales invoices. An advance allocated later uses the advance payment's own rate.
 - **Void**: allocation rows are kept as the trail; realised FX is summed over allocations of `POSTED` payments only (`activeFxTotal`), so voiding reverses FX exactly as amounts.
 - **Sales stock**: `SALE_OUT` stays base-valued (moving average); the old "project currency must equal invoice currency" check was removed.
 - **Reports**: balances/aging stay per party and document currency, plus base columns (outstanding at each document's rate) and base tiles; statements are per party and currency (default: party default currency if it has activity, else the only/first currency) with a base running balance.
+
+## Approval threshold convention
+
+`submitForApproval({ amount })` always receives the **base-currency** amount, so policy `minAmount` steps compare one currency across documents and the approvals inbox formats `ApprovalRequest.amount` in the organization base currency.
+
+| Document | Amount passed |
+| --- | --- |
+| Purchase request | `estimatedTotal` (requests carry no currency; estimates are base) |
+| Purchase order | `baseGrandTotal` |
+| Goods receipt | none (no money total) |
+| Stock transfer | none (value is set at approval from base stock cost) |
+| Vendor bill | `baseGrandTotal` |
+| Payment request | `baseAmount` |
+| Sales invoice | `baseGrandTotal` |
+| Expense | `baseAmount` |
+| Task submission / delay | none |
+| Payment | not approved |
+
+The approval policy form labels the threshold "Minimum amount in base currency". Never pass a document-currency total.

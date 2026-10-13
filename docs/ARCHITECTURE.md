@@ -35,7 +35,7 @@ The four refactor ownership groups are retained as the module maintenance map:
 - G3 owns `procurement`, `vendor-bill`, `stock-valuation`.
 - G4 owns `payment`, `sales-invoice`.
 
-Phase 3c adds `currency`, owned by the integration owner in wave 1; wave 2 ownership is in [PHASE3C_SHARED.md](PHASE3C_SHARED.md).
+Phase 3c adds `currency`, owned by the integration owner; the contract is [PHASE3C_SHARED.md](PHASE3C_SHARED.md) and the outcome [PHASE3C_REPORT.md](PHASE3C_REPORT.md). Rate prefill (`previewExchangeRate`), the tenant-enabled check (`assertEnabledCurrency`) and the currency/rate form fields live in the currency module; feature modules import them from there.
 
 The integration owner maintains `approvals`, `notifications`, `src/core`, shared components, navigation, package scripts and docs. Route adapters follow their feature's ownership; the project Materials adapter belongs to G2 and renders G3's inventory view. During parallel work, each group edits its modules and route adapters. Coordinate shared edits and consumer import changes with their owner. Completed R2 moves and temporary shim handoffs no longer apply.
 
@@ -52,7 +52,7 @@ Cross-module consumers use the concrete entry files below. Paths omit only the `
 | `admin` | Tenant administration and suspension | `server/actions`, `schema` |
 | `approvals` | Policies, engine, inbox, links, manager authorization and timelines | `schema`, `server/actions`, `server/picker-actions`, `workflows/approval-reminder`, `server/start-reminder`, `server/authorization`, `server/document-link`, `server/handlers`, `server/policy`, `server/project-effects`, `server/register`, `server/service`, `ui/components/approval-timeline` |
 | `attendance` | Attendance and labour costing | `server/actions`, `server/costing`, `schema` |
-| `currency` | Currency master, tenant currencies, base currency, exchange rates, rate resolution and cost-entry amounts | `util`, `schema`, `server/rates`, `server/cost-entry`, `server/base-currency`, `server/queries`, `server/actions`, `server/picker-actions` |
+| `currency` | Currency master, tenant currencies, base currency, exchange rates, rate resolution and cost-entry amounts | `util`, `schema`, `rate-format`, `server/rates`, `server/enabled`, `server/fx-actions`, `server/cost-entry`, `server/base-currency`, `server/queries`, `server/actions`, `server/picker-actions`, `ui/components/currency-fx-fields` |
 | `dashboard` | Organization dashboard | None |
 | `item-variant` | Pure variant identity and level configuration | `util` |
 | `masters` | Tenant locations, items, UOMs, parties and taxes | `server/location-actions`, `server/queries`, `server/service`, `schema`, `server/actions`, `server/picker-actions` |

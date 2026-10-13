@@ -186,8 +186,8 @@ The module refactor is done. Routes are thin, shared infrastructure is in `src/c
 feature code is in `src/modules`, and cross-module imports use public indexes.
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the final module map and rules.
 
-### Phase 3c — Multi-currency (in progress)
-Wave 1 (foundation) is done; the exact contract is [PHASE3C_SHARED.md](PHASE3C_SHARED.md).
+### Phase 3c — Multi-currency ✅ Done
+Contract: [PHASE3C_SHARED.md](PHASE3C_SHARED.md). Outcome and verification: [PHASE3C_REPORT.md](PHASE3C_REPORT.md). Next: Phase 4.
 - Global `Currency` master (ISO 4217: code, name, symbol, decimals 0–4, active), enabled per
   tenant through `TenantCurrency`. `Organization.baseCurrency`, `Project.currency` and
   `Party.defaultCurrency` are FKs; the base currency is always enabled and cannot change once
@@ -203,9 +203,11 @@ Wave 1 (foundation) is done; the exact contract is [PHASE3C_SHARED.md](PHASE3C_S
 - Allocate only within the same currency. `PaymentAllocation` stores `baseAmount`,
   `documentBaseAmount` and `fxDifference` (realised FX for phase 5).
   Balances are shown per currency plus a base-currency total.
-- Wave 2 (parallel): A currency/settings UI + party default currency + project currency field;
-  B procurement PO/GRN + vendor bills; C payments + sales invoices; D attendance,
-  expenses/project-cost views, budget and dashboard.
+- Built in waves: foundation, then A currency/settings UI + party default currency + project
+  currency, B procurement PO/GRN + vendor bills, C payments + sales invoices, D attendance,
+  expenses/project-cost views, budget and dashboard, then integration.
+- Approval thresholds compare base-currency amounts. Currencies with more than two minor-unit
+  digits (BHD, KWD, …) are not enabled yet because money columns are Decimal(18,2).
 
 ### Phase 4 — Vehicles & machinery
 - `Asset` (type VEHICLE/MACHINE, meter KM/HOURS, power DIESEL/PETROL/ELECTRIC/OTHER, kW rating,
