@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
@@ -15,6 +16,7 @@ import {
 
 type Tx = Prisma.TransactionClient;
 
+import { syncPaymentJournals } from "@/modules/accounting/server/source-payments";
 import { audit, lockSettlement, scope, target } from "./service";
 export async function recomputeDocument(
   tx: Tx,
@@ -62,7 +64,7 @@ export async function allocatePayment(
   allocations: z.infer<typeof allocationsInput>,
 ) {
   if (new Set(allocations.map((a) => a.documentId)).size !== allocations.length)
-    throw new Error("Select each document once.");
+    throw new UserFacingError("Select each document once.");
   await lockSettlement(tx, ctx.org.id);
   const payment = await tx.payment.findFirstOrThrow({
     where: { id: paymentId, organizationId: ctx.org.id, status: "POSTED" },
@@ -128,4 +130,5 @@ export async function allocatePayment(
     },
   });
   await audit(tx, ctx, "Payment", paymentId, "ALLOCATE");
+  await syncPaymentJournals(tx, ctx.org.id, paymentId, ctx.user.id);
 }

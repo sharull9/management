@@ -3,8 +3,9 @@ import Link from "next/link";
 import { PageHeading } from "@/components/shared/page-heading";
 import { Button } from "@/components/ui/button";
 import { db } from "@/core/db";
+import type { ListParams } from "@/core/pagination";
 import { moduleProjectWhere } from "@/modules/procurement/server/queries";
-import { financeData } from "../../server/queries";
+import { requestListData } from "../../server/list-queries";
 import { FinanceFilters } from "../components/finance-filters";
 import { RequestTable } from "../components/request-table";
 import { money } from "../util";
@@ -12,12 +13,14 @@ import { money } from "../util";
 export async function FinanceList({
   org,
   projectId,
+  params,
 }: {
   org: string;
   kind?: string;
   projectId?: string;
+  params?: ListParams;
 }) {
-  const d = await financeData(org, "payment.view", projectId);
+  const d = await requestListData(org, params, projectId);
   const canCreate =
     d.ctx.isAdmin ||
     d.ctx.permissions.has("payment.request.create") ||
@@ -47,18 +50,35 @@ export async function FinanceList({
             org={org}
             permission="payment.view"
             projects={d.projects.map((p) => ({ id: p.id, name: p.name }))}
+            dateRange
+            fields={[
+              {
+                name: "status",
+                label: "Status",
+                multiple: true,
+                options: [
+                  "DRAFT",
+                  "PENDING_APPROVAL",
+                  "APPROVED",
+                  "PAID",
+                  "CANCELLED",
+                ].map((value) => ({
+                  value,
+                  label: value.replaceAll("_", " "),
+                })),
+              },
+            ]}
           />
         }
-        data={d.requests.map((r) => ({
+        serverPage={d.page}
+        data={d.rows.map((r) => ({
           id: r.id,
           code: r.code,
           date: r.date.toISOString(),
           party: r.party.displayName,
-          project:
-            d.projects.find((p) => p.id === r.projectId)?.name ??
-            "Organization",
+          project: r.project?.name ?? "Organization",
           documents: r.bills
-            .map((b) => d.bills.find((x) => x.id === b.billId)?.code ?? "")
+            .map((b) => b.bill.code)
             .filter(Boolean)
             .join(", "),
           status: r.status,

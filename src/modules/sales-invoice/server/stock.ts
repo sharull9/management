@@ -1,7 +1,10 @@
 import { Decimal } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
+import { lockAccountingScope } from "@/modules/accounting/server/locking";
 import "server-only";
 import { writeAudit } from "@/core/audit";
 import type { Prisma, SalesInvoice } from "@/generated/prisma/client";
+import { syncStockMovementJournal } from "@/modules/accounting/server/source-stock";
 import { movingAverage } from "@/modules/stock-valuation/util";
 import { convertUom } from "@/modules/uom/util";
 import { validateStockLine } from "./calculations";
@@ -10,13 +13,14 @@ export async function postInvoiceStock(
   invoice: SalesInvoice,
   actorId: string,
 ) {
+  await lockAccountingScope(tx, invoice.organizationId);
   if (!invoice.projectId) {
     if (
       await tx.salesInvoiceLine.count({
         where: { invoiceId: invoice.id, fromProjectStock: true },
       })
     )
-      throw new Error("Project required for stock sales.");
+      throw new UserFacingError("Project required for stock sales.");
     return;
   }
   await tx.project.findFirstOrThrow({
@@ -45,9 +49,9 @@ export async function postInvoiceStock(
       stockTracked: item?.stockTracked,
     });
     if (!item || !line.itemVariantId || line.stockMovementId)
-      throw new Error("Invalid or already posted stock line.");
+      throw new UserFacingError("Invalid or already posted stock line.");
     if (item.tenantId !== organization.tenantId)
-      throw new Error("Invalid stock item tenant.");
+      throw new UserFacingError("Invalid stock item tenant.");
     if (
       await tx.stockMovement.findFirst({
         where: {
@@ -58,7 +62,9 @@ export async function postInvoiceStock(
         },
       })
     )
-      throw new Error("Stock sales cannot predate existing movements.");
+      throw new UserFacingError(
+        "Stock sales cannot predate existing movements.",
+      );
     const sum = await tx.stockMovement.aggregate({
       where: {
         organizationId: invoice.organizationId,
@@ -89,6 +95,12 @@ export async function postInvoiceStock(
         sourceId: line.id,
       },
     });
+    await syncStockMovementJournal(
+      tx,
+      invoice.organizationId,
+      movement.id,
+      actorId,
+    );
     await tx.salesInvoiceLine.update({
       where: { id: line.id },
       data: { stockMovementId: movement.id },

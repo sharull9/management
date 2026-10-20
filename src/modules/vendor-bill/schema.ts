@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Decimal } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 import { date, id, quantity, rate } from "@/core/schema";
 import { exchangeRateInput } from "@/modules/procurement/schema";
 
@@ -88,7 +89,7 @@ export const billUploadInput = z
       const payload = z.string().max(250000).parse(data.get("payload"));
       const parsed: unknown = JSON.parse(payload);
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
-        throw new Error();
+        throw new UserFacingError();
       return { ...parsed, attachment: data.get("attachment") ?? null };
     } catch {
       ctx.addIssue({ code: "custom", message: "Invalid bill payload." });

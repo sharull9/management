@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import {
@@ -12,7 +13,12 @@ import { lockStockProjects } from "@/modules/procurement/server/inventory/servic
 import { validateProjectCostRecognitionChange } from "@/modules/project-cost/server/cost-recognition";
 import { projectCurrencyChangeError } from "../currency-guard";
 import type { projectFormInput } from "../schema";
-import { audit, dateOrder, member } from "./action-helpers";
+import {
+  audit,
+  canManageProjectApprovers,
+  dateOrder,
+  member,
+} from "./action-helpers";
 
 export async function saveProject(
   org: string,
@@ -34,24 +40,42 @@ export async function saveProject(
   if (projectId && ctx.permissions.has("project.manage"))
     assertPermission(ctx, "project.manage");
   else assertPermission(ctx, projectId ? "project.edit" : "project.create");
+  const canManageApprovers = canManageProjectApprovers(ctx);
   dateOrder(startDate, endDate);
   const saved = await db.$transaction(async (tx) => {
-    await member(ctx, tx, input.managerUserId);
-    if (projectId) {
-      const [{ currency: current }, costEntries] = await Promise.all([
-        tx.project.findUniqueOrThrow({
+    const current = projectId
+      ? await tx.project.findUniqueOrThrow({
           where: { id: projectId },
-          select: { currency: true },
-        }),
-        tx.costEntry.count({ where: { projectId } }),
-      ]);
+          select: { managerUserId: true, currency: true },
+        })
+      : null;
+    if (!projectId && !canManageApprovers && input.managerUserId)
+      throw new UserFacingError(
+        "Project management, project settings management, or administrator access is required to assign the project manager.",
+      );
+    const managerUserId =
+      projectId && !canManageApprovers
+        ? (current?.managerUserId ?? null)
+        : input.managerUserId;
+    if (
+      projectId &&
+      !canManageApprovers &&
+      managerUserId !== input.managerUserId
+    )
+      throw new UserFacingError(
+        "Project management, project settings management, or administrator access is required to change the project manager.",
+      );
+    await member(ctx, tx, managerUserId);
+    if (projectId) {
+      if (!current) throw new UserFacingError("Project not found.");
+      const costEntries = await tx.costEntry.count({ where: { projectId } });
       const blocked = projectCurrencyChangeError({
-        current,
+        current: current.currency,
         next: input.currency,
         costEntries,
       });
-      if (blocked) throw new Error(blocked);
-      if (current !== input.currency)
+      if (blocked) throw new UserFacingError(blocked);
+      if (current.currency !== input.currency)
         await assertEnabledCurrency(
           tx,
           ctx.tenant.id,
@@ -76,7 +100,7 @@ export async function saveProject(
         },
       }))
     )
-      throw new Error("Select a customer from this tenant.");
+      throw new UserFacingError("Select a customer from this tenant.");
     if (customerName) {
       const displayName = customerName;
       const customer = await tx.party.create({
@@ -110,6 +134,7 @@ export async function saveProject(
     }
     const fields = {
       ...input,
+      managerUserId,
       clientPartyId,
       startDate,
       endDate,

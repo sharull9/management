@@ -12,7 +12,8 @@ import {
 } from "@tanstack/react-table";
 import { Search } from "lucide-react";
 import Link from "next/link";
-import { type ReactNode, useState } from "react";
+import { parseAsString, useQueryStates } from "nuqs";
+import { type ReactNode, useState, useTransition } from "react";
 import {
   InputGroup,
   InputGroupAddon,
@@ -26,7 +27,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { PageInfo } from "@/core/pagination";
 import { EmptyState, type EmptyStateProps } from "../empty-state";
+import { FilterSearch } from "../filter-bar/filter-bar";
+import { ServerPagination } from "../server-pagination";
 import { DataTablePagination } from "./data-table-pagination";
 
 export type DataTableProps<TData> = {
@@ -40,6 +44,7 @@ export type DataTableProps<TData> = {
   emptyState?: EmptyStateProps;
   /** Controls shown beside the search box, typically a FilterBar. */
   toolbar?: ReactNode;
+  serverPage?: PageInfo;
 };
 
 // TanStack v8 returns mutable functions. Keep this component outside React Compiler memoization.
@@ -53,28 +58,64 @@ export function DataTable<TData>({
   rowHref,
   emptyState = { title: "No records found." },
   toolbar,
+  serverPage,
 }: DataTableProps<TData>) {
   "use no memo";
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
+  const [pending, startTransition] = useTransition();
+  const [remote, setRemote] = useQueryStates(
+    { sort: parseAsString, sortDirection: parseAsString, page: parseAsString },
+    { shallow: false, scroll: false, history: "replace", startTransition },
+  );
+  const remoteSorting: SortingState =
+    remote.sort && serverPage?.sortKeys?.includes(remote.sort)
+      ? [{ id: remote.sort, desc: remote.sortDirection !== "asc" }]
+      : [];
   const table = useReactTable({
     data,
-    columns,
+    columns: serverPage
+      ? columns.map((column) => ({
+          ...column,
+          enableSorting:
+            column.enableSorting !== false &&
+            !!serverPage.sortKeys?.includes(
+              "accessorKey" in column
+                ? String(column.accessorKey)
+                : (column.id ?? ""),
+            ),
+        }))
+      : columns,
     getRowId,
-    state: { sorting, globalFilter },
-    onSortingChange: setSorting,
+    state: { sorting: serverPage ? remoteSorting : sorting, globalFilter },
+    onSortingChange: serverPage
+      ? (update) => {
+          const next =
+            typeof update === "function" ? update(remoteSorting) : update;
+          void setRemote({
+            sort: next[0]?.id ?? null,
+            sortDirection: next[0] ? (next[0].desc ? "desc" : "asc") : null,
+            page: null,
+          });
+        }
+      : setSorting,
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    getFilteredRowModel: serverPage ? undefined : getFilteredRowModel(),
+    getSortedRowModel: serverPage ? undefined : getSortedRowModel(),
+    getPaginationRowModel: serverPage ? undefined : getPaginationRowModel(),
+    manualPagination: !!serverPage,
+    manualSorting: !!serverPage,
+    manualFiltering: !!serverPage,
     initialState: { pagination: { pageSize } },
   });
   return (
-    <div className="flex min-w-0 flex-col gap-4">
+    <div className="flex min-w-0 flex-col gap-4" aria-busy={pending}>
       {(searchPlaceholder || toolbar) && (
         <div className="flex flex-wrap items-center gap-2">
-          {searchPlaceholder && (
+          {searchPlaceholder && serverPage ? (
+            <FilterSearch placeholder={searchPlaceholder} />
+          ) : searchPlaceholder ? (
             <InputGroup className="w-full sm:w-64">
               <InputGroupAddon>
                 <Search />
@@ -87,7 +128,7 @@ export function DataTable<TData>({
                 onChange={(event) => table.setGlobalFilter(event.target.value)}
               />
             </InputGroup>
-          )}
+          ) : null}
           {toolbar}
         </div>
       )}
@@ -177,7 +218,11 @@ export function DataTable<TData>({
           )}
         </TableBody>
       </Table>
-      <DataTablePagination table={table} />
+      {serverPage ? (
+        <ServerPagination {...serverPage} />
+      ) : (
+        <DataTablePagination table={table} />
+      )}
     </div>
   );
 }

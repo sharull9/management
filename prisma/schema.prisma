@@ -70,6 +70,21 @@ enum ApprovalStatus {
   CANCELED
 }
 
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+enum JournalStatus {
+  DRAFT
+  PENDING_APPROVAL
+  POSTED
+  CANCELLED
+}
+
 enum ApprovalStepStatus {
   WAITING
   PENDING
@@ -92,15 +107,20 @@ model User {
   materialConsumptionRows MaterialConsumption[]
   stockTransferRows       StockTransfer[]
 
-  managedProjects Project[]          @relation("ProjectManager")
-  managedStages   Stage[]            @relation("StageManager")
-  projectMembers  ProjectMember[]
-  assignedTasks   TaskAssignment[]
-  submissions     TaskSubmission[]
-  delayRequests   TaskDelayRequest[]
-  attendance      Attendance[]
-  expenses        Expense[]
-  costEntries     CostEntry[]
+  managedProjects    Project[]          @relation("ProjectManager")
+  managedStages      Stage[]            @relation("StageManager")
+  projectMembers     ProjectMember[]
+  assignedTasks      TaskAssignment[]
+  submissions        TaskSubmission[]
+  delayRequests      TaskDelayRequest[]
+  attendance         Attendance[]
+  expenses           Expense[]
+  costEntries        CostEntry[]
+  assetsCreated      Asset[]            @relation("AssetCreator")
+  allocationsCreated AssetAllocation[]  @relation("AssetAllocationCreator")
+  tripsCreated       AssetTrip[]        @relation("AssetTripCreator")
+  usagesCreated      AssetUsage[]       @relation("AssetUsageCreator")
+  fuelLogsCreated    AssetFuelLog[]     @relation("AssetFuelCreator")
 
   id                   String                @id @default(cuid())
   name                 String
@@ -125,6 +145,8 @@ model User {
   auditLogs            AuditLog[]
   attachments          Attachment[]
   exchangeRatesCreated ExchangeRate[]
+  accountingJournalsCreated JournalEntry[] @relation("JournalCreator")
+  accountingJournalsPosted JournalEntry[] @relation("JournalPoster")
 
   @@map("users")
 }
@@ -203,6 +225,7 @@ model Tenant {
   designations     Designation[]
   auditLogs        AuditLog[]
   currencies       TenantCurrency[]
+  accountTemplates AccountTemplate[]
 
   @@map("tenants")
 }
@@ -236,10 +259,19 @@ model Organization {
   stockTransferRows       StockTransfer[]
   stockMovementRows       StockMovement[]
 
-  projects    Project[]
-  workers     Worker[]
-  attendance  Attendance[]
-  costEntries CostEntry[]
+  projects         Project[]
+  workers          Worker[]
+  attendance       Attendance[]
+  costEntries      CostEntry[]
+  assets           Asset[]
+  assetAllocations AssetAllocation[]
+  assetTrips       AssetTrip[]
+  assetUsages      AssetUsage[]
+  assetFuelLogs    AssetFuelLog[]
+  ledgerAccounts LedgerAccount[]
+  accountingSources AccountingSource[]
+  journalEntries JournalEntry[]
+  journalLines JournalLine[]
 
   id              String            @id @default(cuid())
   name            String
@@ -578,6 +610,7 @@ model Party {
   paymentRequestRows PaymentRequest[]
   paymentRows        Payment[]
   salesInvoiceRows   SalesInvoice[]
+  journalLines       JournalLine[]
 
   purchaseOrderRows PurchaseOrder[]
 
@@ -605,7 +638,6 @@ model Party {
   addresses          PartyAddress[]
   contacts           PartyContact[]
   taxIdentifiers     TaxIdentifier[]
-
   @@unique([tenantId, code])
   @@map("parties")
 }
@@ -651,6 +683,7 @@ model PartyContact {
 model TaxComponent {
   vendorBillLineTaxRows   VendorBillLineTax[]
   salesInvoiceLineTaxRows SalesInvoiceLineTax[]
+  accountingJournalLines JournalLine[]
 
   purchaseOrderLineTaxRows PurchaseOrderLineTax[]
 
@@ -834,6 +867,7 @@ model ApprovalRequest {
   policy         ApprovalPolicy?       @relation(fields: [policyId], references: [id], onDelete: SetNull)
   requestedBy    User                  @relation(fields: [requestedById], references: [id])
   steps          ApprovalRequestStep[]
+  accountingJournal JournalEntry?
 
   @@index([organizationId, status])
   @@index([organizationId, documentType, documentId])
@@ -976,6 +1010,10 @@ enum CostSourceType {
   ATTENDANCE
   EXPENSE
   MANUAL
+  ASSET_TRIP
+  ASSET_USAGE
+  ASSET_ELECTRICITY
+  ASSET_FUEL
 }
 
 model Project {
@@ -993,35 +1031,40 @@ model Project {
   stockTransferRows       StockTransfer[]
   stockMovementRows       StockMovement[]
 
-  id             String              @id @default(cuid())
-  organizationId String
-  code           String
-  name           String
-  description    String?
-  clientPartyId  String?
-  status         ProjectStatus       @default(PLANNED)
-  startDate      DateTime?           @db.Date
-  endDate        DateTime?           @db.Date
-  managerUserId  String?
-  budgetAmount   Decimal             @default(0) @db.Decimal(18, 2)
-  currency       String
-  currencyRef    Currency            @relation(fields: [currency], references: [code])
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  organization   Organization        @relation(fields: [organizationId], references: [id])
-  clientParty    Party?              @relation(fields: [clientPartyId], references: [id])
-  manager        User?               @relation("ProjectManager", fields: [managerUserId], references: [id])
-  sites          ProjectSite[]
-  budgetLines    ProjectBudgetLine[]
-  members        ProjectMember[]
-  stages         Stage[]
-  tasks          Task[]
-  workers        ProjectWorker[]
-  attendance     Attendance[]
-  expenses       Expense[]
-  costs          CostEntry[]
-  policies       ApprovalPolicy[]
-  requests       ApprovalRequest[]
+  id               String              @id @default(cuid())
+  organizationId   String
+  code             String
+  name             String
+  description      String?
+  clientPartyId    String?
+  status           ProjectStatus       @default(PLANNED)
+  startDate        DateTime?           @db.Date
+  endDate          DateTime?           @db.Date
+  managerUserId    String?
+  budgetAmount     Decimal             @default(0) @db.Decimal(18, 2)
+  currency         String
+  currencyRef      Currency            @relation(fields: [currency], references: [code])
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  organization     Organization        @relation(fields: [organizationId], references: [id])
+  clientParty      Party?              @relation(fields: [clientPartyId], references: [id])
+  manager          User?               @relation("ProjectManager", fields: [managerUserId], references: [id])
+  sites            ProjectSite[]
+  budgetLines      ProjectBudgetLine[]
+  members          ProjectMember[]
+  stages           Stage[]
+  tasks            Task[]
+  workers          ProjectWorker[]
+  attendance       Attendance[]
+  expenses         Expense[]
+  costs            CostEntry[]
+  policies         ApprovalPolicy[]
+  requests         ApprovalRequest[]
+  assetAllocations AssetAllocation[]
+  assetTrips       AssetTrip[]
+  assetUsages      AssetUsage[]
+  assetFuelLogs    AssetFuelLog[]
+  journalLines JournalLine[]
 
   @@unique([organizationId, code])
   @@index([organizationId, status])
@@ -1338,6 +1381,160 @@ model CostEntry {
   @@unique([organizationId, sourceType, sourceId])
   @@index([projectId, date, costType])
   @@map("cost_entries")
+}
+
+enum AssetType {
+  VEHICLE
+  MACHINE
+}
+
+enum AssetMeterType {
+  KM
+  HOURS
+}
+
+enum AssetPowerType {
+  DIESEL
+  PETROL
+  ELECTRIC
+  OTHER
+}
+
+model Asset {
+  id                    String            @id @default(cuid())
+  organizationId        String
+  type                  AssetType
+  meterType             AssetMeterType
+  powerType             AssetPowerType
+  name                  String
+  code                  String
+  active                Boolean           @default(true)
+  equipmentRatePerMeter Decimal           @default(0) @db.Decimal(18, 2)
+  powerRatingKw         Decimal?          @db.Decimal(18, 4)
+  electricityTariff     Decimal?          @db.Decimal(18, 2)
+  createdById           String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  organization          Organization      @relation(fields: [organizationId], references: [id])
+  createdBy             User?             @relation("AssetCreator", fields: [createdById], references: [id])
+  allocations           AssetAllocation[]
+  trips                 AssetTrip[]
+  usages                AssetUsage[]
+  fuelLogs              AssetFuelLog[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId, active, name])
+  @@map("assets")
+}
+
+model AssetAllocation {
+  id             String         @id @default(cuid())
+  organizationId String
+  assetId        String
+  projectId      String
+  startDate      DateTime       @db.Date
+  endDate        DateTime?      @db.Date
+  createdById    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  asset          Asset          @relation(fields: [assetId], references: [id])
+  project        Project        @relation(fields: [projectId], references: [id])
+  createdBy      User?          @relation("AssetAllocationCreator", fields: [createdById], references: [id])
+  trips          AssetTrip[]
+  usages         AssetUsage[]
+  fuelLogs       AssetFuelLog[]
+
+  @@index([organizationId, projectId, startDate])
+  @@index([assetId, startDate, endDate])
+  @@map("asset_allocations")
+}
+
+model AssetTrip {
+  id                        String          @id @default(cuid())
+  organizationId            String
+  assetId                   String
+  allocationId              String
+  projectId                 String
+  outAt                     DateTime
+  inAt                      DateTime
+  startReading              Decimal         @db.Decimal(18, 4)
+  endReading                Decimal         @db.Decimal(18, 4)
+  equipmentRateSnapshot     Decimal         @db.Decimal(18, 2)
+  equipmentCost             Decimal         @db.Decimal(18, 2)
+  powerRatingKwSnapshot     Decimal?        @db.Decimal(18, 4)
+  electricityTariffSnapshot Decimal?        @db.Decimal(18, 2)
+  electricityKwh            Decimal?        @db.Decimal(18, 4)
+  electricityCost           Decimal?        @db.Decimal(18, 2)
+  notes                     String?
+  createdById               String?
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
+  organization              Organization    @relation(fields: [organizationId], references: [id])
+  asset                     Asset           @relation(fields: [assetId], references: [id])
+  allocation                AssetAllocation @relation(fields: [allocationId], references: [id])
+  project                   Project         @relation(fields: [projectId], references: [id])
+  createdBy                 User?           @relation("AssetTripCreator", fields: [createdById], references: [id])
+
+  @@index([organizationId, projectId, outAt])
+  @@index([assetId, outAt])
+  @@map("asset_trips")
+}
+
+model AssetUsage {
+  id                        String          @id @default(cuid())
+  organizationId            String
+  assetId                   String
+  allocationId              String
+  projectId                 String
+  startAt                   DateTime
+  endAt                     DateTime
+  startReading              Decimal         @db.Decimal(18, 4)
+  endReading                Decimal         @db.Decimal(18, 4)
+  equipmentRateSnapshot     Decimal         @db.Decimal(18, 2)
+  equipmentCost             Decimal         @db.Decimal(18, 2)
+  powerRatingKwSnapshot     Decimal?        @db.Decimal(18, 4)
+  electricityTariffSnapshot Decimal?        @db.Decimal(18, 2)
+  electricityKwh            Decimal?        @db.Decimal(18, 4)
+  electricityCost           Decimal?        @db.Decimal(18, 2)
+  notes                     String?
+  createdById               String?
+  createdAt                 DateTime        @default(now())
+  updatedAt                 DateTime        @updatedAt
+  organization              Organization    @relation(fields: [organizationId], references: [id])
+  asset                     Asset           @relation(fields: [assetId], references: [id])
+  allocation                AssetAllocation @relation(fields: [allocationId], references: [id])
+  project                   Project         @relation(fields: [projectId], references: [id])
+  createdBy                 User?           @relation("AssetUsageCreator", fields: [createdById], references: [id])
+
+  @@index([organizationId, projectId, startAt])
+  @@index([assetId, startAt])
+  @@map("asset_usages")
+}
+
+model AssetFuelLog {
+  id             String          @id @default(cuid())
+  organizationId String
+  assetId        String
+  allocationId   String
+  projectId      String
+  date           DateTime        @db.Date
+  quantityLitres Decimal         @db.Decimal(18, 4)
+  totalCost      Decimal         @db.Decimal(18, 2)
+  meterReading   Decimal         @db.Decimal(18, 4)
+  notes          String?
+  createdById    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  organization   Organization    @relation(fields: [organizationId], references: [id])
+  asset          Asset           @relation(fields: [assetId], references: [id])
+  allocation     AssetAllocation @relation(fields: [allocationId], references: [id])
+  project        Project         @relation(fields: [projectId], references: [id])
+  createdBy      User?           @relation("AssetFuelCreator", fields: [createdById], references: [id])
+
+  @@index([organizationId, projectId, date])
+  @@index([assetId, date, meterReading])
+  @@map("asset_fuel_logs")
 }
 
 enum TaxApplicability {
@@ -2087,4 +2284,127 @@ model ExchangeRate {
   @@unique([organizationId, currencyCode, rateDate])
   @@index([organizationId, rateDate])
   @@map("exchange_rates")
+}
+
+model AccountTemplate {
+  id        String      @id @default(cuid())
+  tenantId  String
+  code      String
+  name      String
+  type      AccountType
+  systemKey String?
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  tenant    Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  accounts  LedgerAccount[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, systemKey])
+  @@map("account_templates")
+}
+
+model LedgerAccount {
+  id             String      @id @default(cuid())
+  organizationId String
+  templateId     String?
+  code           String
+  name           String
+  type           AccountType
+  systemKey      String?
+  active         Boolean     @default(true)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template       AccountTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  journalLines   JournalLine[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, systemKey])
+  @@unique([id, organizationId])
+  @@map("ledger_accounts")
+}
+
+model AccountingSource {
+  id             String       @id @default(cuid())
+  organizationId String
+  sourceType     String
+  sourceId       String
+  revision       Int          @default(0)
+  fingerprint    String?
+  currentEntryId String?      @unique
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  currentEntry   JournalEntry? @relation("CurrentSourceJournal", fields: [currentEntryId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  entries        JournalEntry[] @relation("SourceJournals")
+
+  @@unique([organizationId, sourceType, sourceId])
+  @@unique([id, organizationId])
+  @@unique([currentEntryId, organizationId])
+  @@map("accounting_sources")
+}
+
+model JournalEntry {
+  id                String       @id @default(cuid())
+  organizationId    String
+  code              String
+  date              DateTime     @db.Date
+  description       String
+  status            JournalStatus @default(DRAFT)
+  sourceType        String       @default("MANUAL")
+  sourceDocumentId  String?
+  accountingSourceId String?
+  revision          Int?
+  reversalOfId      String?      @unique
+  approvalRequestId String?      @unique
+  createdById       String
+  postedById        String?
+  postedAt          DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  creator           User         @relation("JournalCreator", fields: [createdById], references: [id])
+  poster            User?        @relation("JournalPoster", fields: [postedById], references: [id])
+  lines             JournalLine[]
+  source             AccountingSource? @relation("SourceJournals", fields: [accountingSourceId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  currentForSource   AccountingSource? @relation("CurrentSourceJournal")
+  reversalOf         JournalEntry? @relation("JournalReversal", fields: [reversalOfId, organizationId], references: [id, organizationId])
+  reversal           JournalEntry? @relation("JournalReversal")
+  approvalRequest    ApprovalRequest? @relation(fields: [approvalRequestId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, code])
+  @@unique([id, organizationId])
+  @@unique([accountingSourceId, revision])
+  @@unique([reversalOfId, organizationId])
+  @@index([organizationId, status, date])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id              String        @id @default(cuid())
+  journalEntryId  String
+  organizationId  String
+  accountId       String
+  description     String        @default("")
+  debit           Decimal       @default(0) @db.Decimal(18, 2)
+  credit          Decimal       @default(0) @db.Decimal(18, 2)
+  projectId       String?
+  partyId         String?
+  taxComponentId  String?
+  taxName         String?
+  taxRate         Decimal?      @db.Decimal(18, 4)
+  taxBaseAmount   Decimal?      @db.Decimal(18, 2)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  journalEntry    JournalEntry @relation(fields: [journalEntryId, organizationId], references: [id, organizationId], onDelete: Cascade)
+  account         LedgerAccount @relation(fields: [accountId, organizationId], references: [id, organizationId], onDelete: Restrict)
+  project         Project?      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  party           Party?        @relation(fields: [partyId], references: [id], onDelete: Restrict)
+  taxComponent    TaxComponent? @relation(fields: [taxComponentId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, accountId, journalEntryId])
+  @@index([projectId])
+  @@index([partyId])
+  @@index([taxComponentId])
+  @@map("journal_lines")
 }

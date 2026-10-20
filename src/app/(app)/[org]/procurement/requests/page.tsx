@@ -7,11 +7,22 @@ async function Content({
   searchParams,
 }: {
   params: Promise<{ org: string }>;
-  searchParams: Promise<{ projectId?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { org } = await params;
-  const { projectId } = await searchParams;
-  return <ProcurementList org={org} kind="requests" projectId={projectId} />;
+  const filters = await searchParams;
+  return (
+    <ProcurementList
+      org={org}
+      kind="requests"
+      projectId={
+        Array.isArray(filters.projectId)
+          ? filters.projectId[0]
+          : filters.projectId
+      }
+      searchParams={filters}
+    />
+  );
 }
 export default function Page(props: Parameters<typeof Content>[0]) {
   return (

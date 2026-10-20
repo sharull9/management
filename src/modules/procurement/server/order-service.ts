@@ -1,4 +1,5 @@
 import { Decimal, money } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
@@ -43,13 +44,14 @@ export async function savePurchaseOrder(
         projectId: input.projectId,
       },
     });
-    if (old.status !== "DRAFT") throw new Error("Only drafts can be edited.");
+    if (old.status !== "DRAFT")
+      throw new UserFacingError("Only drafts can be edited.");
   }
   const linkedIds = input.lines
     .flatMap((l) => (l.prLineId ? [l.prLineId] : []))
     .sort();
   if (new Set(linkedIds).size !== linkedIds.length)
-    throw new Error("Combine quantities for the same PR line.");
+    throw new UserFacingError("Combine quantities for the same PR line.");
   for (const prLineId of linkedIds) await lockDocument(tx, "PR_LINE", prLineId);
   const lines = [];
   for (const line of input.lines) {
@@ -80,7 +82,9 @@ export async function savePurchaseOrder(
         new Decimal(0),
       );
       if (previously.add(convertUom(line.qty, uom, pr.uom)).gt(pr.qty))
-        throw new Error("Ordered quantity exceeds the approved PR quantity.");
+        throw new UserFacingError(
+          "Ordered quantity exceeds the approved PR quantity.",
+        );
     }
     const group = line.taxGroupId
       ? await tx.taxGroup.findFirstOrThrow({
@@ -98,7 +102,9 @@ export async function savePurchaseOrder(
       ctx.org.countryId &&
       group.countryId !== ctx.org.countryId
     )
-      throw new Error("Tax group country differs from the organization.");
+      throw new UserFacingError(
+        "Tax group country differs from the organization.",
+      );
     const suggestedScope = suggestTaxScope(
       ctx.org.stateId,
       vendor.addresses[0]?.stateId ?? null,
@@ -109,7 +115,7 @@ export async function savePurchaseOrder(
       suggestedScope !== "ANY" &&
       group.scope !== suggestedScope
     )
-      throw new Error(
+      throw new UserFacingError(
         "Tax group scope differs from the organization and vendor states.",
       );
     const netRate = new Decimal(line.rate).mul(
@@ -122,7 +128,9 @@ export async function savePurchaseOrder(
     );
     const stockFactor = new Decimal(uom.factor).div(item.stockUom.factor);
     if (!stockFactor.eq(stockFactor.toDecimalPlaces(8)))
-      throw new Error("UOM conversion factor exceeds snapshot precision.");
+      throw new UserFacingError(
+        "UOM conversion factor exceeds snapshot precision.",
+      );
     lines.push({
       itemVariantId: variant.id,
       description: line.description || variant.name,

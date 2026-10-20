@@ -7,15 +7,17 @@ async function Content({
   searchParams,
 }: {
   params: Promise<{ org: string; projectId?: string }>;
-  searchParams: Promise<{ projectId?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const p = await params;
   const s = await searchParams;
+  const projectId = Array.isArray(s.projectId) ? s.projectId[0] : s.projectId;
   return (
     <InventoryView
       org={p.org}
       kind="stock"
-      projectId={p.projectId ?? s.projectId}
+      projectId={p.projectId ?? projectId}
+      searchParams={s}
     />
   );
 }

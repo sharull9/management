@@ -52,6 +52,10 @@ export async function procurementData(
   org: string,
   projectId?: string,
   inventory = false,
+  formKind?: DocumentKind,
+  includeStock = true,
+  includeFormChoices = true,
+  selectedItemIds: string[] = [],
 ) {
   const ctx = projectId
     ? await requireProjectContext(org, projectId)
@@ -67,17 +71,18 @@ export async function procurementData(
   });
   const ids = projects.map((p) => p.id),
     tenantId = ctx.tenant.id;
-  const purchaseIds = inventory
-    ? (
-        await db.project.findMany({
-          where: {
-            ...moduleProjectWhere(ctx, "purchase.view"),
-            id: { in: ids },
-          },
-          select: { id: true },
-        })
-      ).map((p) => p.id)
-    : ids;
+  const purchaseIds =
+    inventory && formKind === undefined
+      ? (
+          await db.project.findMany({
+            where: {
+              ...moduleProjectWhere(ctx, "purchase.view"),
+              id: { in: ids },
+            },
+            select: { id: true },
+          })
+        ).map((p) => p.id)
+      : ids;
   const [
     items,
     uoms,
@@ -93,76 +98,109 @@ export async function procurementData(
     transfers,
     currencies,
   ] = await Promise.all([
-    pickerItems(tenantId, inventory),
-    db.uom.findMany({
-      where: { OR: [{ tenantId }, { tenantId: null }] },
-      orderBy: { name: "asc" },
-    }),
-    db.party.findMany({
-      where: { tenantId, isVendor: true },
-      include: { addresses: { where: { isDefault: true }, take: 1 } },
-      orderBy: { displayName: "asc" },
-    }),
-    db.taxGroup.findMany({ where: { tenantId }, orderBy: { name: "asc" } }),
-    db.projectSite.findMany({ where: { projectId: { in: ids } } }),
-    db.stage.findMany({ where: { projectId: { in: ids } } }),
-    db.task.findMany({ where: { projectId: { in: ids } } }),
-    db.purchaseRequest.findMany({
-      where: { organizationId: ctx.org.id, projectId: { in: purchaseIds } },
-      include: {
-        project: true,
-        lines: { include: { variant: true, uom: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    db.purchaseOrder.findMany({
-      where: { organizationId: ctx.org.id, projectId: { in: purchaseIds } },
-      include: {
-        project: true,
-        vendor: true,
-        lines: { include: { variant: true, uom: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    db.goodsReceipt.findMany({
-      where: { organizationId: ctx.org.id, projectId: { in: purchaseIds } },
-      include: { project: true, order: true },
-      orderBy: { createdAt: "desc" },
-    }),
-    db.materialConsumption.findMany({
-      where: { organizationId: ctx.org.id, projectId: { in: ids } },
-      include: {
-        project: true,
-        stage: true,
-        task: true,
-        lines: { include: { variant: true, uom: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    db.stockTransfer.findMany({
-      where: { organizationId: ctx.org.id, projectId: { in: ids } },
-      include: {
-        project: true,
-        toProject: true,
-        lines: { include: { variant: true, uom: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    listEnabledCurrencies(tenantId, ctx.org.baseCurrency),
+    includeFormChoices
+      ? pickerItems(tenantId, {
+          stockOnly: inventory,
+          take: 50,
+          selectedIds: selectedItemIds,
+        })
+      : Promise.resolve([]),
+    includeFormChoices
+      ? db.uom.findMany({
+          where: { OR: [{ tenantId }, { tenantId: null }] },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
+    includeFormChoices
+      ? db.party.findMany({
+          where: { tenantId, isVendor: true },
+          include: { addresses: { where: { isDefault: true }, take: 1 } },
+          orderBy: { displayName: "asc" },
+        })
+      : Promise.resolve([]),
+    includeFormChoices
+      ? db.taxGroup.findMany({ where: { tenantId }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
+    includeFormChoices
+      ? db.projectSite.findMany({ where: { projectId: { in: ids } } })
+      : Promise.resolve([]),
+    includeFormChoices
+      ? db.stage.findMany({ where: { projectId: { in: ids } } })
+      : Promise.resolve([]),
+    includeFormChoices
+      ? db.task.findMany({ where: { projectId: { in: ids } } })
+      : Promise.resolve([]),
+    formKind === undefined
+      ? db.purchaseRequest.findMany({
+          where: { organizationId: ctx.org.id, projectId: { in: purchaseIds } },
+          include: {
+            project: true,
+            lines: { include: { variant: true, uom: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
+    formKind === undefined
+      ? db.purchaseOrder.findMany({
+          where: { organizationId: ctx.org.id, projectId: { in: purchaseIds } },
+          include: {
+            project: true,
+            vendor: true,
+            lines: { include: { variant: true, uom: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
+    formKind === undefined
+      ? db.goodsReceipt.findMany({
+          where: { organizationId: ctx.org.id, projectId: { in: purchaseIds } },
+          include: { project: true, order: true },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
+    formKind === undefined
+      ? db.materialConsumption.findMany({
+          where: { organizationId: ctx.org.id, projectId: { in: ids } },
+          include: {
+            project: true,
+            stage: true,
+            task: true,
+            lines: { include: { variant: true, uom: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
+    formKind === undefined
+      ? db.stockTransfer.findMany({
+          where: { organizationId: ctx.org.id, projectId: { in: ids } },
+          include: {
+            project: true,
+            toProject: true,
+            lines: { include: { variant: true, uom: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
+    includeFormChoices
+      ? listEnabledCurrencies(tenantId, ctx.org.baseCurrency)
+      : Promise.resolve([]),
   ]);
-  const stock = inventory ? await stockOnHand(ctx, ids) : [];
+  const stock = inventory && includeStock ? await stockOnHand(ctx, ids) : [];
+  const uomGroupById = new Map(uoms.map((uom) => [uom.id, uom.groupId]));
+  const uomIdsByGroup = new Map<string, string[]>();
+  for (const uom of uoms) {
+    if (!uom.groupId) continue;
+    uomIdsByGroup.set(uom.groupId, [
+      ...(uomIdsByGroup.get(uom.groupId) ?? []),
+      uom.id,
+    ]);
+  }
   return {
     ctx,
     projects,
     items: items.map((item) => ({
       ...item,
-      uomIds: uoms
-        .filter(
-          (uom) =>
-            uom.groupId ===
-            uoms.find((unit) => unit.id === item.stockUomId)?.groupId,
-        )
-        .map((uom) => uom.id),
+      uomIds: uomIdsByGroup.get(uomGroupById.get(item.stockUomId) ?? "") ?? [],
     })),
     uoms,
     vendors,
@@ -184,6 +222,7 @@ export async function procurementData(
     })),
   };
 }
+
 export async function stockOnHand(ctx: OrgContext, projectIds: string[]) {
   const rows = await db.stockMovement.groupBy({
     by: ["projectId", "itemVariantId"],
@@ -201,8 +240,9 @@ export async function stockOnHand(ctx: OrgContext, projectIds: string[]) {
     },
     include: { item: { include: { stockUom: true } } },
   });
+  const variantById = new Map(variants.map((variant) => [variant.id, variant]));
   return rows.map((r) => {
-    const variant = variants.find((v) => v.id === r.itemVariantId);
+    const variant = variantById.get(r.itemVariantId);
     const qty = new Decimal(r._sum.qty ?? 0),
       value = new Decimal(r._sum.totalCost ?? 0);
     return {
@@ -245,7 +285,7 @@ export async function documentDetail(
                   variant: true,
                   uom: true,
                   taxes: true,
-                  prLine: { include: { request: true } },
+                  prLine: { include: { request: true, variant: true } },
                 },
               },
             },

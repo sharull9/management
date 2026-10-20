@@ -10,6 +10,10 @@ import {
 } from "@/components/ui/card";
 import { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
+import {
+  canManageProjectApprovers,
+  canViewCompensation,
+} from "@/modules/project/server/action-helpers";
 import { projectUserOptions } from "@/modules/project/server/queries";
 import { rangesOverlap } from "@/modules/workforce/server/availability";
 import { MemberForm, WorkerForm } from "../components/team-forms";
@@ -44,6 +48,8 @@ export async function TeamView({
     db.role.findMany({ where: { tenantId: ctx.tenant.id } }),
   ]);
   const manage = ctx.isAdmin || ctx.permissions.has("project.edit");
+  const canManageApprovers = canManageProjectApprovers(ctx);
+  const canViewRates = canViewCompensation(ctx);
   return (
     <>
       <SectionHeader
@@ -73,6 +79,7 @@ export async function TeamView({
                           org={org}
                           projectId={projectId}
                           users={users}
+                          canManageApprovers={canManageApprovers}
                           roles={roles.map((role) => ({
                             id: role.id,
                             name: role.name,
@@ -87,6 +94,7 @@ export async function TeamView({
                     org={org}
                     projectId={projectId}
                     manage={manage}
+                    canManageApprovers={canManageApprovers}
                     data={members.map((member) => ({
                       id: member.id,
                       userId: member.userId,
@@ -119,6 +127,7 @@ export async function TeamView({
                           org={org}
                           projectId={projectId}
                           workers={workers}
+                          showRates={canViewRates}
                         />
                       </SideSheet>
                     </CardAction>
@@ -129,6 +138,7 @@ export async function TeamView({
                     org={org}
                     projectId={projectId}
                     manage={manage}
+                    canViewRates={canViewRates}
                     data={assignments.map((assignment) => {
                       const overlaps = assignment.worker.projects.filter(
                         (other) =>
@@ -144,10 +154,15 @@ export async function TeamView({
                           .slice(0, 10),
                         endDate:
                           assignment.endDate?.toISOString().slice(0, 10) ?? "",
-                        dayRateOverride:
-                          assignment.dayRateOverride?.toString() ?? "",
-                        otHourlyRateOverride:
-                          assignment.otHourlyRateOverride?.toString() ?? "",
+                        ...(canViewRates
+                          ? {
+                              dayRateOverride:
+                                assignment.dayRateOverride?.toString() ?? "",
+                              otHourlyRateOverride:
+                                assignment.otHourlyRateOverride?.toString() ??
+                                "",
+                            }
+                          : {}),
                         notes: assignment.notes ?? "",
                         confirmOverlap: false,
                         availability: overlaps.length

@@ -14,6 +14,7 @@ const sections = [
   "Costs",
   "Budget",
   "Sites",
+  "Assets",
   "Materials",
 ];
 

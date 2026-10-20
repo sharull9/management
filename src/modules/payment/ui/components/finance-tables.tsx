@@ -5,6 +5,7 @@ import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney } from "@/core/format";
+import type { PageInfo } from "@/core/pagination";
 import { Decimal } from "../../server/allocation";
 export type FinanceRow = {
   id: string;
@@ -70,17 +71,20 @@ export function FinanceTable({
   org,
   requests,
   data,
+  serverPage,
 }: {
   toolbar?: ReactNode;
   org: string;
   requests: boolean;
   data: FinanceRow[];
+  serverPage?: PageInfo;
 }) {
   return (
     <DataTable
       toolbar={toolbar}
       columns={financeColumns}
       data={data}
+      serverPage={serverPage}
       searchPlaceholder="Search documents, parties or projects..."
       getRowId={(r) => r.id}
       rowHref={(r) =>

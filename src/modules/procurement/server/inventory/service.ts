@@ -1,10 +1,13 @@
 import { Decimal } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
+import { lockAccountingScope } from "@/modules/accounting/server/locking";
 import "server-only";
 import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
 import type { OrgContext } from "@/core/context";
 import { nextDocumentNumber } from "@/core/numbering";
 import type { Prisma } from "@/generated/prisma/client";
+import { syncStockMovementJournal } from "@/modules/accounting/server/source-stock";
 import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
 import { getProjectCostRecognition } from "@/modules/project-cost/server/cost-recognition";
 import { materialCostEffects } from "@/modules/project-cost-policy/util";
@@ -57,7 +60,7 @@ export async function assertStockDate(
       },
     })
   )
-    throw new Error(
+    throw new UserFacingError(
       "Stock movements cannot predate an existing movement for this project and variant.",
     );
 }
@@ -66,6 +69,7 @@ export async function recordConsumption(
   ctx: OrgContext,
   input: z.output<typeof consumptionInput>,
 ) {
+  await lockAccountingScope(tx, ctx.org.id);
   await projectScope(tx, ctx, input.projectId, input.stageId, input.taskId);
   await lockStockProjects(tx, ctx.org.id, [input.projectId]);
   const costRecognition = await getProjectCostRecognition(tx, input.projectId);
@@ -124,6 +128,7 @@ export async function recordConsumption(
         taskId: input.taskId,
       },
     });
+    await syncStockMovementJournal(tx, ctx.org.id, movement.id, ctx.user.id);
     for (const effect of materialCostEffects({
       event: "CONSUMPTION",
       sourceMode: costRecognition,
@@ -175,7 +180,7 @@ export async function saveStockTransfer(
   const from = await projectScope(tx, ctx, input.projectId),
     to = await projectScope(tx, ctx, input.toProjectId);
   if (from.id === to.id)
-    throw new Error("Choose a different destination project.");
+    throw new UserFacingError("Choose a different destination project.");
   if (input.id) {
     await lockDocument(tx, "ST", input.id);
     const old = await tx.stockTransfer.findFirstOrThrow({
@@ -186,7 +191,7 @@ export async function saveStockTransfer(
       },
     });
     if (old.status !== "DRAFT")
-      throw new Error("Only draft transfers can be edited.");
+      throw new UserFacingError("Only draft transfers can be edited.");
     await tx.stockTransferLine.deleteMany({ where: { transferId: old.id } });
   }
   const lines = [];

@@ -1,4 +1,5 @@
 import "server-only";
+import { journalApproval } from "@/modules/accounting/server/approval";
 import { paymentRequestApproval } from "@/modules/payment/server/approval";
 import { registerProcurementHandlers } from "@/modules/procurement/server/approval";
 import { resolveProjectManagers } from "@/modules/project/server/approval";
@@ -20,3 +21,4 @@ registerProcurementHandlers(registerApprovalHandler);
 registerApprovalHandler("VENDOR_BILL", vendorBillApproval);
 registerApprovalHandler("PAYMENT_REQUEST", paymentRequestApproval);
 registerApprovalHandler("SALES_INVOICE", salesInvoiceApproval);
+registerApprovalHandler("JOURNAL", journalApproval);

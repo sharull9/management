@@ -1,7 +1,13 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
+import { lockAccountingScope } from "@/modules/accounting/server/locking";
+import {
+  removeCostEntryJournal,
+  syncCostEntryJournal,
+} from "@/modules/accounting/server/source-costs";
 import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
 import { resolveProjectRate } from "@/modules/currency/server/rates";
 import { audit } from "@/modules/project/server/action-helpers";
@@ -17,22 +23,28 @@ export async function attendance(
   assertPermission(ctx, "attendance.record");
   const { date: day, rows } = input;
   if (new Set(rows.map((r) => r.workerId)).size !== rows.length)
-    throw new Error("Duplicate worker rows.");
+    throw new UserFacingError("Duplicate worker rows.");
   await db.$transaction(
     async (tx) => {
+      await lockAccountingScope(tx, ctx.org.id);
       if (rows.some((r) => !r.remove)) {
         // Labour is costed in the project currency; its base value needs that
         // currency's rate on the attendance date. Fail once, before any write.
         try {
           await resolveProjectRate(tx, ctx.org.id, projectId, day);
         } catch (error) {
-          throw new Error(
-            `Cannot record attendance costs for ${day.toISOString().slice(0, 10)}. ${error instanceof Error ? error.message : "Exchange rate unavailable."}`,
+          if (!(error instanceof UserFacingError)) throw error;
+          throw new UserFacingError(
+            `Cannot record attendance costs for ${day.toISOString().slice(0, 10)}. ${error.message}`,
           );
         }
       }
+      const locks = [...rows]
+        .sort((a, b) => a.workerId.localeCompare(b.workerId))
+        .map((row) => `${projectId}${row.workerId}${day.toISOString()}`);
+      for (const key of locks)
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${key}))::text`;
       for (const row of rows) {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${projectId + row.workerId + day.toISOString()}))::text`;
         const key = { workerId: row.workerId, date: day, projectId };
         if (row.remove) {
           const existing = await tx.attendance.findUnique({
@@ -49,6 +61,12 @@ export async function attendance(
               },
             });
             if (entry) {
+              await removeCostEntryJournal(
+                tx,
+                ctx.org.id,
+                entry.id,
+                ctx.user.id,
+              );
               await tx.costEntry.delete({ where: { id: entry.id } });
               await audit(ctx, tx, "CostEntry", entry.id, "DELETE");
             }
@@ -68,7 +86,9 @@ export async function attendance(
           include: { worker: true },
         });
         if (!assignment)
-          throw new Error("Worker is inactive or unassigned on this date.");
+          throw new UserFacingError(
+            "Worker is inactive or unassigned on this date.",
+          );
         const { dayCost, otCost, totalCost } = attendanceCost(
           {
             ...assignment.worker,
@@ -123,6 +143,7 @@ export async function attendance(
           },
           update: cost,
         });
+        await syncCostEntryJournal(tx, entry, ctx.user.id);
         await audit(ctx, tx, "Attendance", attendance.id, "UPSERT");
         await audit(ctx, tx, "CostEntry", entry.id, "UPSERT");
       }

@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { variantIdentity } from "@/modules/item-variant/util";
@@ -62,12 +63,14 @@ export async function validateLocation(
       where: { id: location.stateId, countryId: location.countryId ?? "" },
     }))
   )
-    throw new Error("State must belong to the selected country.");
+    throw new UserFacingError("State must belong to the selected country.");
   if (
     location.cityId &&
     !(await tx.city.findFirst({
       where: { id: location.cityId, stateId: location.stateId ?? "", tenantId },
     }))
   )
-    throw new Error("City must belong to this tenant and selected state.");
+    throw new UserFacingError(
+      "City must belong to this tenant and selected state.",
+    );
 }

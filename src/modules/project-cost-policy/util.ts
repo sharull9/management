@@ -1,4 +1,5 @@
 import { Decimal, money, type Numeric } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 export type MaterialCostMode = "ON_RECEIPT" | "ON_CONSUMPTION";
 export function materialCostEffects(input: {
   event: "GRN" | "CONSUMPTION" | "TRANSFER";
@@ -8,11 +9,11 @@ export function materialCostEffects(input: {
 }): { projectSide: "source" | "destination"; amount: string }[] {
   const rawValue = new Decimal(input.value);
   if (!rawValue.isFinite() || rawValue.lt(0))
-    throw new Error("Invalid material value.");
+    throw new UserFacingError("Invalid material value.");
   const value = money(rawValue);
   if (input.event === "TRANSFER") {
     if (!input.destMode)
-      throw new Error("Destination recognition mode is required.");
+      throw new UserFacingError("Destination recognition mode is required.");
     return [
       ...(input.sourceMode === "ON_RECEIPT"
         ? [{ projectSide: "source" as const, amount: value.neg().toFixed(2) }]
@@ -40,7 +41,7 @@ export function assertCostRecognitionChange(input: {
     input.hasStockMovements &&
     !input.confirmed
   )
-    throw new Error(
+    throw new UserFacingError(
       "Confirm that this change applies only to future transactions; past cost entries are not restated.",
     );
 }

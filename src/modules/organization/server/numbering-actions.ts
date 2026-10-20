@@ -4,6 +4,7 @@ import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { typedAction } from "@/core/typed-action";
 
 import { saveSeriesInput } from "../schema";
@@ -23,7 +24,7 @@ export async function saveSeriesAction(
         },
       });
       if (existing && input.nextNumber < existing.nextNumber)
-        throw new Error("The next number cannot move backwards.");
+        throw new UserFacingError("The next number cannot move backwards.");
       const series = await tx.documentSeries.upsert({
         where: {
           organizationId_type: { organizationId: ctx.org.id, type: input.type },

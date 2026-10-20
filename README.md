@@ -8,6 +8,13 @@ Phase 3a adds shared master screens, purchase requests and orders, approved good
 project stock, material consumption costing and approved inter-project transfers.
 Phase 3b adds vendor bills, payment requests, partial settlements, advances, voids,
 customer invoices, stock sales and per-project material cost recognition.
+Phase 3c adds currencies and dated exchange rates. Phase IV adds vehicles and machinery,
+project allocations, trip and usage logs, fuel tracking, electricity estimates and project costs.
+Phase V adds account templates and organization charts, automatic double-entry posting,
+manual journals with approval and reversal, ledgers, trial balance, profit and loss,
+balance sheet and tax summaries. See [Phase V verification](docs/PHASE5_REPORT.md).
+
+The 25 audit fixes and their checks are recorded in [the improvement report](docs/IMPROVEMENTS_REPORT.md).
 
 ## Run locally
 
@@ -55,16 +62,18 @@ Factors use four decimal places, so sqft conversions are rounded to that precisi
 
 ```powershell
 pnpm db:generate       # Regenerate src/generated/prisma
-pnpm db:migrate        # Create/apply development migrations
+pnpm db:migrate        # Apply committed migrations
+pnpm db:migrate:dev    # Create/apply a migration on a development database
 pnpm db:seed           # Idempotent global location and UOM seed
 pnpm db:studio         # Inspect data
 pnpm prisma validate
-pnpm exec tsc --noEmit
+pnpm typecheck
 pnpm lint
 pnpm format
 pnpm check:boundaries  # Enforce public module imports
 pnpm test              # Approvals, costing, procurement, sales and settlement guards
-pnpm smoke:phase3b     # Authenticated local DB workflow; environment below
+pnpm verify            # TypeScript, lint, boundaries and unit tests
+pnpm test:db           # Opt-in suites; disposable loopback *_test database only
 pnpm build
 pnpm start
 ```
@@ -77,46 +86,36 @@ Restart the dev server after regenerating Prisma for a schema change so all rout
 the new client. `PRISMA_SHADOW_DATABASE_URL` optionally selects a separate shadow database,
 which is useful with Prisma dev's separate TCP shadow endpoint.
 
-## Phase 3b local smoke
+## Isolated database verification
 
-Use an isolated localhost PostgreSQL database. The harness creates tenants and documents
-and retains them for inspection. It updates the password of `phase3b@example.test`.
-Do not run it against a database containing an account you need to preserve.
-
-Set these variables in both the dev-server shell and smoke shell, without editing `.env`:
+Use a disposable PostgreSQL database on localhost with a name ending in `_test`.
+Set its URL only in the test shell, without changing `.env`:
 
 ```powershell
-$env:DATABASE_URL = '<localhost PostgreSQL TCP URL>'
-$env:BETTER_AUTH_URL = 'http://localhost:3000'
-pnpm prisma migrate deploy
+$env:DATABASE_URL = '<loopback PostgreSQL URL ending in /management_test>'
+pnpm db:migrate
 pnpm db:seed
-pnpm dev
+pnpm test:db
 ```
 
-In the smoke shell, also set:
+Concurrency suites retain exact fixtures when immutable posted journals prevent deletion.
+Discard the disposable database after verification; do not point this runner at a development workspace database you need to keep.
 
-```powershell
-$env:PHASE3B_SMOKE_CONFIRM = 'local-only'
-$env:PHASE3B_SMOKE_PASSWORD = '<throwaway password of at least 12 characters>'
-pnpm smoke:phase3b
-$env:PAYMENTS_DB_TEST = 'local-only'
-pnpm exec node --import tsx --test src/modules/payment/server/service.test.ts
-```
+The runner enables the opt-in suites and runs test files serially. Individual tests
+use rollback fixtures or explicitly clean up committed concurrent fixtures. The CI
+workflow uses a fresh PostgreSQL service, applies every migration and runs the same
+checks. `pnpm test` remains the database-free default.
 
-The harness signs in over HTTP, runs real services with the session cookie, checks
-all ten approval document links in the inbox/history, and verifies rendered document
-content. Node-only hooks replace `next/headers` and the `server-only` sentinel in this
-process. The settlement test rolls back its fixtures. Neither command changes `.env`.
+The old `smoke:phase3b` harness and local demo seed are not part of this checkout's
+verification commands. Earlier phase reports describe historical runs. Optional
+gitignored `scripts/demo-*` files remain local tools and are not required for setup.
 
-### R3 local runtime check
-
-Run the smoke and settlement commands above, then sign in as the smoke user to
-check picker search, table pagination, form validation and attachment downloads.
-Set `APPROVAL_REMINDER_HOURS=0.005` in the dev-server shell before startup to
-verify three reminders about 18 seconds apart and the notification bell's
-mark-read action. Standalone `tsx` smoke calls are not Workflow SDK compiled
-HTTP actions and can log reminder-launch warnings; submit a document in the
-browser to verify delivery. Results are in [R3_REPORT.md](docs/R3_REPORT.md#runtime-verification).
+For browser verification, start the app with the disposable database URL in its own
+shell and create an administrator through `/setup`. Check login, role restrictions,
+picker search, pagination and attachment downloads. Set
+`APPROVAL_REMINDER_HOURS=0.005` before starting the server to check reminders about
+18 seconds apart. Submit through the browser so Workflow compilation and delivery
+run through the HTTP app.
 
 ## Access model
 
@@ -153,7 +152,13 @@ browser to verify delivery. Results are in [R3_REPORT.md](docs/R3_REPORT.md#runt
 - `/[org]/projects/[projectId]/tasks/[taskId]` worker assignments, work submission/photos,
   delay requests, approval timelines and task history.
 - `/[org]/workforce` worker/designation management and date-range availability.
+- `/[org]/assets` asset register and `/[org]/assets/[assetId]` allocations, logs and operating costs.
+- `/[org]/projects/[projectId]/assets` project-scoped assets and logging access for project managers.
 - `/api/attachments/[attachmentId]` private task photo downloads.
+
+Task work photos accept up to ten JPEG, PNG or WebP files, with a 900 KB aggregate
+limit per submission. The form and server apply the same limits, leaving room for
+multipart fields within the Server Action request limit.
 
 ## Approval integration for later phases
 
@@ -246,12 +251,13 @@ physical receipts against ordered quantity plus the PO tolerance (default 0%). A
 posts GRN_IN in stock UOM. Physical receipts, including rejected quantities, determine PO receipt
 completion; accepted totals remain separate. Rejected quantities do not create stock.
 
-`MATERIAL_COST_RECOGNITION = "ON_CONSUMPTION"` is defined in
-`src/server/procurement/calculations.ts`. GRNs post no project cost. Material consumption withdraws
+Projects choose `ON_RECEIPT` or `ON_CONSUMPTION` material recognition through
+`src/modules/project-cost-policy/util.ts` and the currency-aware cost-entry helper.
+Under `ON_CONSUMPTION`, GRNs post no project cost. Material consumption withdraws
 on-hand stock at weighted-average cost and creates one MATERIAL CostEntry per consumption line,
 with stage/task allocation, in the same transaction. Transfers approve at the source average and
-post equal opposite stock value without CostEntry. Both projects must belong to the org and use
-the same currency. Stock movements cannot predate an existing movement for that project/variant;
+post equal opposite base stock value, with project cost effects determined by each project's
+recognition policy. Both projects must belong to the org. Stock movements cannot predate an existing movement for that project/variant;
 same-date entries follow posting order. Quantities use four decimal places; inventory value and
 unit-cost snapshots use eight; CostEntry amounts round half up to two.
 

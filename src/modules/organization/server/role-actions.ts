@@ -4,6 +4,7 @@ import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { typedAction } from "@/core/typed-action";
 import { recordIdInput, saveRoleInput } from "../schema";
 export async function saveRoleAction(
@@ -15,7 +16,7 @@ export async function saveRoleAction(
     assertPermission(ctx, "roles.manage");
     const { id: roleId, ...roleData } = input;
     if (!ctx.isAdmin && input.permissions.some((p) => !ctx.permissions.has(p)))
-      throw new Error("You may only grant permissions you hold.");
+      throw new UserFacingError("You may only grant permissions you hold.");
     await db.$transaction(async (tx) => {
       if (roleId) {
         const role = await tx.role.findFirstOrThrow({
@@ -23,7 +24,9 @@ export async function saveRoleAction(
           include: { members: true, projectMembers: true },
         });
         if (!ctx.isAdmin && (role.members.length || role.projectMembers.length))
-          throw new Error("Only administrators can edit assigned roles.");
+          throw new UserFacingError(
+            "Only administrators can edit assigned roles.",
+          );
       }
       const role = roleId
         ? await tx.role.update({ where: { id: roleId }, data: roleData })
@@ -59,7 +62,9 @@ export async function deleteRoleAction(
         include: { members: true, projectMembers: true },
       });
       if (role.members.length || role.projectMembers.length)
-        throw new Error("Unassign this role from members before deleting it.");
+        throw new UserFacingError(
+          "Unassign this role from members before deleting it.",
+        );
       await tx.role.delete({ where: { id: role.id } });
       await writeAudit(
         {

@@ -1,4 +1,5 @@
 import { Decimal, money } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 import { roundMoney } from "@/modules/currency/util";
 import { calculateTax, type TaxInput } from "@/modules/tax/util";
 
@@ -9,13 +10,13 @@ export function billableQty(
 ) {
   const receipt = new Decimal(received);
   if (!receipt.isFinite() || receipt.lt(0))
-    throw new Error("Invalid received quantity.");
+    throw new UserFacingError("Invalid received quantity.");
   const billed = bills
     .filter((b) => b.status !== "CANCELLED")
     .reduce((sum, b) => {
       const qty = new Decimal(b.qty);
       if (!qty.isFinite() || qty.lt(0))
-        throw new Error("Invalid billed quantity.");
+        throw new UserFacingError("Invalid billed quantity.");
       return sum.add(qty);
     }, new Decimal(0));
   return Decimal.max(0, receipt.sub(billed));
@@ -65,7 +66,7 @@ export function calculateBillLine(
     discount.lt(0) ||
     discount.gt(100)
   )
-    throw new Error("Invalid bill quantity, rate or discount.");
+    throw new UserFacingError("Invalid bill quantity, rate or discount.");
   const subtotal = money(qty.mul(rate));
   const lineSubtotal = money(
     qty.mul(rate).mul(new Decimal(1).sub(discount.div(100))),
@@ -179,12 +180,12 @@ export function assertBillCurrency(input: {
     input.requested &&
     input.requested !== input.orderCurrency
   )
-    throw new Error(
+    throw new UserFacingError(
       `Bill currency must match the purchase order currency (${input.orderCurrency}).`,
     );
   const currency = input.orderCurrency ?? input.requested;
   if (input.receiptCurrency && currency && input.receiptCurrency !== currency)
-    throw new Error(
+    throw new UserFacingError(
       `Bill currency must match the linked receipt currency (${input.receiptCurrency}).`,
     );
 }

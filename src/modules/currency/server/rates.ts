@@ -1,4 +1,5 @@
 import { Decimal, type Numeric } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 import type { Prisma } from "@/generated/prisma/client";
 import { assertPositiveRate, roundMoney, toBase } from "../util";
 
@@ -41,7 +42,7 @@ export async function resolveRateWithDate(
     select: { rate: true, rateDate: true },
   });
   if (!row)
-    throw new Error(
+    throw new UserFacingError(
       `No ${currencyCode} exchange rate on or before ${day}. Add one in Settings → Exchange rates.`,
     );
   return {

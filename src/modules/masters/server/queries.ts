@@ -72,21 +72,42 @@ export async function masterData(org: string) {
     cities,
   });
 }
-export async function pickerItems(tenantId: string, stockOnly = false) {
+export async function pickerItems(
+  tenantId: string,
+  options: {
+    stockOnly?: boolean;
+    search?: string;
+    take?: number;
+    selectedIds?: string[];
+  } = {},
+) {
+  const search = options.search?.trim();
+  const include = {
+    levelConfigs: {
+      include: { definition: { include: { values: true } }, links: true },
+    },
+  } as const;
   const items = await db.item.findMany({
     where: {
       tenantId,
       active: true,
-      ...(stockOnly ? { stockTracked: true } : {}),
+      ...(options.stockOnly ? { stockTracked: true } : {}),
+      ...(search ? { OR: itemSearch(search) } : {}),
     },
-    include: {
-      levelConfigs: {
-        include: { definition: { include: { values: true } }, links: true },
-      },
-    },
+    include,
     orderBy: { name: "asc" },
+    ...(options.take ? { take: options.take } : {}),
   });
-  return items.map((i) => ({
+  const selectedIds = (options.selectedIds ?? []).filter(
+    (id) => !items.some((item) => item.id === id),
+  );
+  const selected = selectedIds.length
+    ? await db.item.findMany({
+        where: { tenantId, id: { in: selectedIds } },
+        include,
+      })
+    : [];
+  return [...items, ...selected].map((i) => ({
     id: i.id,
     name: `${i.code} · ${i.name}`,
     stockUomId: i.stockUomId,
@@ -102,4 +123,10 @@ export async function pickerItems(tenantId: string, stockOnly = false) {
       linkedIds: c.links.map((l) => l.valueId),
     })),
   }));
+}
+function itemSearch(search: string) {
+  return [
+    { name: { contains: search, mode: "insensitive" as const } },
+    { code: { contains: search, mode: "insensitive" as const } },
+  ];
 }

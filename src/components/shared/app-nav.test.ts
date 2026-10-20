@@ -33,3 +33,47 @@ test("permission-gated links are hidden without the permission", () => {
     true,
   );
 });
+
+test("assets navigation is permission-gated and owns nested asset pages", () => {
+  const titles = (permissions: string[]) =>
+    visibleNav(permissions).flatMap((group) =>
+      group.links.map((link) => link.title),
+    );
+  assert.equal(titles([]).includes("Assets"), false);
+  assert.equal(titles(["asset.view"]).includes("Assets"), true);
+  assert.equal(
+    findNavLocation("/acme/assets/asset-1", "/acme")?.link.title,
+    "Assets",
+  );
+});
+
+test("journal creators see journals without gaining report navigation", () => {
+  const links = (permissions: string[]) =>
+    visibleNav(permissions).flatMap((group) => group.links);
+  const journalOnly = links(["journal.create"]);
+  assert.equal(
+    journalOnly.some((link) => link.title === "Journals"),
+    true,
+  );
+  assert.equal(
+    journalOnly.some((link) => link.title === "Trial balance"),
+    false,
+  );
+  assert.equal(
+    journalOnly.some((link) => link.title === "Profit and loss"),
+    false,
+  );
+  const accounting = links(["accounting.view"]);
+  assert.equal(
+    accounting.some((link) => link.title === "Journals"),
+    true,
+  );
+  assert.equal(
+    accounting.some((link) => link.title === "Balance sheet"),
+    true,
+  );
+  assert.equal(
+    links(["accounting.manage"]).some((link) => link.title === "Accounts"),
+    true,
+  );
+});

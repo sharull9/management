@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import { assertPermission, requireProjectContext } from "@/core/context";
@@ -27,14 +28,16 @@ export async function saveTask(
         where: { id: taskId, projectId },
       });
       if (["SUBMITTED", "COMPLETED"].includes(task.status))
-        throw new Error("Submitted/completed tasks cannot be edited.");
+        throw new UserFacingError(
+          "Submitted/completed tasks cannot be edited.",
+        );
       if (
         task.dueDate?.getTime() !== dueDate?.getTime() &&
         (await tx.taskDelayRequest.count({
           where: { taskId, status: "PENDING" },
         }))
       )
-        throw new Error(
+        throw new UserFacingError(
           "Decide the pending delay before changing the due date.",
         );
     }

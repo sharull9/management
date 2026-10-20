@@ -17,6 +17,8 @@ const tables = [
   "salesInvoice",
   "payment",
   "expense",
+  "asset",
+  "journalEntry",
   "exchangeRate",
 ] as const;
 

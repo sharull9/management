@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import { assertPermission, requireProjectContext } from "@/core/context";
@@ -63,7 +64,7 @@ export async function expense(
         where: { id: input.taskId, projectId },
       });
       if (input.stageId && input.stageId !== task.stageId)
-        throw new Error("Task does not belong to selected stage.");
+        throw new UserFacingError("Task does not belong to selected stage.");
       input.stageId = task.stageId;
     }
     if (input.partyId)

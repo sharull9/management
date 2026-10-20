@@ -8,6 +8,7 @@ import {
   requireUser,
 } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { typedAction } from "@/core/typed-action";
 import { assertBaseCurrencyChangeAllowed } from "@/modules/currency/server/base-currency";
 import { assertStorableCurrency } from "@/modules/currency/util";
@@ -23,7 +24,8 @@ export async function saveOrganizationAction(
     if (orgSlug) {
       const ctx = await requireOrgContext(orgSlug);
       assertTenantAdmin(ctx);
-      if (ctx.tenant.id !== input.tenantId) throw new Error("Invalid tenant.");
+      if (ctx.tenant.id !== input.tenantId)
+        throw new UserFacingError("Invalid tenant.");
       currentOrgId = ctx.org.id;
     } else {
       const membership = await db.tenantMember.findUnique({
@@ -37,7 +39,7 @@ export async function saveOrganizationAction(
         membership.role === "MEMBER" ||
         membership.tenant.status !== "ACTIVE"
       )
-        throw new Error("Tenant administrator access is required.");
+        throw new UserFacingError("Tenant administrator access is required.");
     }
     if (
       input.stateId &&
@@ -45,7 +47,7 @@ export async function saveOrganizationAction(
         where: { id: input.stateId, countryId: input.countryId ?? "" },
       }))
     )
-      throw new Error("Select a state in the selected country.");
+      throw new UserFacingError("Select a state in the selected country.");
     if (
       input.cityId &&
       !(await db.city.findFirst({
@@ -56,7 +58,7 @@ export async function saveOrganizationAction(
         },
       }))
     )
-      throw new Error("Select a city in the selected state.");
+      throw new UserFacingError("Select a city in the selected state.");
     const { id: orgId, ...organizationData } = input;
     const org = await db.$transaction(async (tx) => {
       if (
@@ -65,12 +67,12 @@ export async function saveOrganizationAction(
           where: { id: orgId, tenantId: input.tenantId },
         }))
       )
-        throw new Error("Organization not found.");
+        throw new UserFacingError("Organization not found.");
       const currency = await tx.currency.findUnique({
         where: { code: organizationData.baseCurrency },
       });
       if (!currency?.active)
-        throw new Error(
+        throw new UserFacingError(
           `Currency ${organizationData.baseCurrency} is not available.`,
         );
       assertStorableCurrency(currency.code, currency.decimals);

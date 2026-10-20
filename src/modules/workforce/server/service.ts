@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import { assertPermission, requireOrgContext } from "@/core/context";
@@ -56,7 +57,8 @@ export async function designation(
       await tx.designation.delete({ where: { id: designationId } });
       await audit(ctx, tx, "Designation", designationId, "DELETE");
     } else {
-      if (input.operation !== "SAVE") throw new Error("Choose a designation.");
+      if (input.operation !== "SAVE")
+        throw new UserFacingError("Choose a designation.");
       const fields = { name: input.name };
       const row = designationId
         ? await tx.designation.update({

@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 export type StepRule = {
   sequence: number;
   name: string;
@@ -8,7 +9,7 @@ export type StepRule = {
 };
 export function moneyCents(value: string): bigint {
   if (!/^\d+(?:\.\d{1,2})?$/.test(value))
-    throw new Error(
+    throw new UserFacingError(
       "Amount must be a non-negative decimal with at most two places.",
     );
   const [whole, fraction = ""] = value.split(".");

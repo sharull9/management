@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 
 import { Prisma } from "@/generated/prisma/client";
@@ -26,7 +27,7 @@ export async function saveTaxMaster(
         appliesTo: taxAppliesToSchema.parse(val(data, "appliesTo")),
       };
       if (new Prisma.Decimal(fields.rate).gt(100))
-        throw new Error("Tax rate cannot exceed 100%.");
+        throw new UserFacingError("Tax rate cannot exceed 100%.");
       entityId = (
         rowId
           ? await tx.taxComponent.update({
@@ -50,7 +51,7 @@ export async function saveTaxMaster(
           where: { id: { in: componentIds }, tenantId },
         })) !== componentIds.length
       )
-        throw new Error("Invalid tax components.");
+        throw new UserFacingError("Invalid tax components.");
       const fields = {
         name: name.parse(val(data, "name")),
         countryId: opt(data, "countryId"),

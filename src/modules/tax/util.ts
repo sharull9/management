@@ -1,4 +1,5 @@
 import { Decimal, money, type Numeric } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 export function suggestTaxScope(
   orgState: string | null,
   partyState: string | null,
@@ -23,13 +24,13 @@ export function calculateTax(
 ) {
   const base = new Decimal(taxable);
   if (!base.isFinite() || base.lt(0))
-    throw new Error("Invalid taxable amount.");
+    throw new UserFacingError("Invalid taxable amount.");
   const lines = components
     .filter((c) => c.appliesTo === "BOTH" || c.appliesTo === appliesTo)
     .map((c) => {
       const rate = new Decimal(c.rate);
       if (!rate.isFinite() || rate.lt(0) || rate.gt(100))
-        throw new Error("Invalid tax rate.");
+        throw new UserFacingError("Invalid tax rate.");
       return {
         componentId: c.id,
         name: c.name,
@@ -45,7 +46,8 @@ export function calculateTax(
     .filter((l) => l.isWithholding)
     .reduce((a, l) => a.add(l.amount), new Decimal(0));
   const total = money(base.add(tax).sub(withholding));
-  if (total.lt(0)) throw new Error("Withholding exceeds the invoice value.");
+  if (total.lt(0))
+    throw new UserFacingError("Withholding exceeds the invoice value.");
   return {
     lines,
     tax,

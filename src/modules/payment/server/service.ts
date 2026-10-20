@@ -1,14 +1,16 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import { writeAudit } from "@/core/audit";
 import { assertPermission, type OrgContext } from "@/core/context";
 import type { Prisma } from "@/generated/prisma/client";
+import { lockAccountingScope } from "@/modules/accounting/server/locking";
 import { assertSameCurrency } from "@/modules/currency/util";
 import { moduleProjectWhere } from "@/modules/procurement/server/queries";
 import { settledStatuses } from "./allocation";
 
 type Tx = Prisma.TransactionClient;
 export async function lockSettlement(tx: Tx, organizationId: string) {
-  // One lock order for recording, allocating, voiding and approval validation.
+  await lockAccountingScope(tx, organizationId);
   await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`settlement:${organizationId}`}))::text`;
 }
 export async function audit(
@@ -41,7 +43,7 @@ export async function scope(
     "project" in ctx &&
     (ctx as OrgContext & { project: { id: string } }).project.id !== projectId
   )
-    throw new Error("Document is outside the authorized project.");
+    throw new UserFacingError("Document is outside the authorized project.");
   if (!projectId) return ctx.org.baseCurrency;
   const p = await tx.project.findFirstOrThrow({
     where: { ...moduleProjectWhere(ctx, permission), id: projectId },

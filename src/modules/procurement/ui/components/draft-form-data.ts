@@ -105,3 +105,32 @@ export function withReceiptOrder(inputs: ProcurementFormData, row: Row) {
   });
   return inputs;
 }
+
+/** Keep the selected PR line label available without loading every approved PR. */
+export function withDraftRequestLines(inputs: ProcurementFormData, row: Row) {
+  if (!("grandTotal" in row)) return inputs;
+  for (const line of row.lines) {
+    if (
+      !line.prLine ||
+      inputs.prLines.some((option) => option.id === line.prLineId)
+    )
+      continue;
+    inputs.prLines.push({
+      id: line.prLine.id,
+      name: `${line.prLine.request.code} · ${line.prLine.variant.name}`,
+      projectId: row.projectId,
+      line: {
+        itemId: line.prLine.variant.itemId,
+        levels: selectedLevels(line.prLine.variant),
+        qty: line.prLine.qty.toString(),
+        uomId: line.prLine.uomId,
+        description: line.prLine.description,
+        rate: line.prLine.estimatedRate.toString(),
+        discountPercent: "0",
+        taxGroupId: null,
+        prLineId: line.prLine.id,
+      },
+    });
+  }
+  return inputs;
+}

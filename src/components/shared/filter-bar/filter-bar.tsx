@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, X } from "lucide-react";
-import { debounce, parseAsString, useQueryState, useQueryStates } from "nuqs";
+import { debounce, parseAsString, useQueryStates } from "nuqs";
 import {
   createContext,
   type ReactNode,
@@ -45,13 +45,17 @@ function filterOptions(startTransition?: TransitionStartFunction) {
 function useUrlFilter(name: string, debounceMs?: number) {
   const bar = useContext(FilterBarContext);
   useEffect(() => bar?.register(name), [bar, name]);
-  return useQueryState(
-    name,
-    parseAsString.withOptions({
+  const [values, setValues] = useQueryStates(
+    { [name]: parseAsString, page: parseAsString },
+    {
       ...filterOptions(bar?.startTransition),
       ...(debounceMs ? { limitUrlUpdates: debounce(debounceMs) } : {}),
-    }),
+    },
   );
+  return [
+    values[name],
+    (value: string | null) => setValues({ [name]: value, page: null }),
+  ] as const;
 }
 
 /**
@@ -81,10 +85,10 @@ export function FilterBar({
     [],
   );
   const [values, setValues] = useQueryStates(
-    Object.fromEntries(names.map((name) => [name, parseAsString])),
+    Object.fromEntries([...names, "page"].map((name) => [name, parseAsString])),
     filterOptions(startTransition),
   );
-  const active = Object.values(values).some((value) => value !== null);
+  const active = names.some((name) => values[name] !== null);
   return (
     <FilterBarContext value={context}>
       <search
@@ -100,7 +104,11 @@ export function FilterBar({
             variant="ghost"
             size="sm"
             onClick={() =>
-              setValues(Object.fromEntries(names.map((name) => [name, null])))
+              setValues(
+                Object.fromEntries(
+                  [...names, "page"].map((name) => [name, null]),
+                ),
+              )
             }
           >
             <X data-icon="inline-start" />

@@ -1,4 +1,5 @@
 import { Decimal } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
@@ -47,7 +48,7 @@ export async function assertBillReceipts(
   const grnQuantities = new Map<string, InstanceType<typeof Decimal>>();
   for (const line of lines) {
     if (!line.poLineId)
-      throw new Error("Every PO bill line must reference a PO line.");
+      throw new UserFacingError("Every PO bill line must reference a PO line.");
     quantities.set(
       line.poLineId,
       (quantities.get(line.poLineId) ?? new Decimal(0)).add(line.qty),
@@ -78,7 +79,9 @@ export async function assertBillReceipts(
         ),
       )
     )
-      throw new Error("Bill quantity exceeds received-but-unbilled quantity.");
+      throw new UserFacingError(
+        "Bill quantity exceeds received-but-unbilled quantity.",
+      );
   }
   for (const [grnLineId, qty] of grnQuantities) {
     const grn = await tx.goodsReceiptLine.findFirstOrThrow({
@@ -103,7 +106,7 @@ export async function assertBillReceipts(
         ),
       )
     )
-      throw new Error(
+      throw new UserFacingError(
         "Bill quantity exceeds the linked GRN's unbilled quantity.",
       );
   }
@@ -123,7 +126,8 @@ export async function saveBill(
         projectId: input.projectId,
       },
     });
-    if (old.status !== "DRAFT") throw new Error("Only drafts can be edited.");
+    if (old.status !== "DRAFT")
+      throw new UserFacingError("Only drafts can be edited.");
   }
   const vendor = await tx.party.findFirstOrThrow({
     where: { id: input.partyId, tenantId: ctx.tenant.id, isVendor: true },
@@ -141,7 +145,7 @@ export async function saveBill(
       },
     })
   )
-    throw new Error("This vendor invoice number is already billed.");
+    throw new UserFacingError("This vendor invoice number is already billed.");
   const order = input.purchaseOrderId
     ? await tx.purchaseOrder.findFirstOrThrow({
         where: {
@@ -198,15 +202,17 @@ export async function saveBill(
     lines = [];
   for (const line of input.lines) {
     const poLine = order?.lines.find((l) => l.id === line.poLineId);
-    if (order && !poLine) throw new Error("Invalid PO line.");
+    if (order && !poLine) throw new UserFacingError("Invalid PO line.");
     if (!order && (line.poLineId || line.grnLineId))
-      throw new Error("Direct bills cannot reference PO/GRN lines.");
+      throw new UserFacingError("Direct bills cannot reference PO/GRN lines.");
     if (
       poLine &&
       (line.uomId !== poLine.uomId ||
         (line.itemVariantId && line.itemVariantId !== poLine.itemVariantId))
     )
-      throw new Error("PO bill item and unit must match the PO line.");
+      throw new UserFacingError(
+        "PO bill item and unit must match the PO line.",
+      );
     const grnLine = line.grnLineId
       ? await tx.goodsReceiptLine.findFirstOrThrow({
           where: {
@@ -242,7 +248,7 @@ export async function saveBill(
         include: { item: { include: { stockUom: true } } },
       });
       if (variant.item.stockUom.groupId !== uom.groupId)
-        throw new Error("Item and unit groups differ.");
+        throw new UserFacingError("Item and unit groups differ.");
     }
     const group = line.taxGroupId
       ? await tx.taxGroup.findFirstOrThrow({
@@ -264,14 +270,16 @@ export async function saveBill(
       ctx.org.countryId &&
       group.countryId !== ctx.org.countryId
     )
-      throw new Error("Tax group country differs from the organization.");
+      throw new UserFacingError(
+        "Tax group country differs from the organization.",
+      );
     if (
       group &&
       group.scope !== "ANY" &&
       scope !== "ANY" &&
       group.scope !== scope
     )
-      throw new Error(
+      throw new UserFacingError(
         "Tax group scope differs from organization and vendor states.",
       );
     const calc = calculateBillLine(

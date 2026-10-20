@@ -1,4 +1,5 @@
 import { Decimal, money } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
@@ -27,7 +28,8 @@ export async function savePurchaseRequest(
         projectId: input.projectId,
       },
     });
-    if (old.status !== "DRAFT") throw new Error("Only drafts can be edited.");
+    if (old.status !== "DRAFT")
+      throw new UserFacingError("Only drafts can be edited.");
   }
   const lines = [];
   for (const line of input.lines) {

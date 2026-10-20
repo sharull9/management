@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import { type ActionState, runAction } from "@/core/action-result";
@@ -6,7 +7,11 @@ import { db } from "@/core/db";
 import { optional } from "@/core/form-data";
 import { storage } from "@/core/storage";
 import { audit, dateOrder } from "@/modules/project/server/action-helpers";
-import { type taskOperationInput, taskSubmissionInput } from "../schema";
+import {
+  type taskOperationInput,
+  taskPhotoUploadError,
+  taskSubmissionInput,
+} from "../schema";
 
 export async function taskWork(
   org: string,
@@ -17,7 +22,7 @@ export async function taskWork(
 ) {
   return runAction(async () => {
     if (data.get("operation") !== "SUBMIT")
-      throw new Error("Use the task operation form.");
+      throw new UserFacingError("Use the task operation form.");
     const input = taskSubmissionInput.parse({
       ...Object.fromEntries(data),
       onBehalfOfWorkerId: optional(data, "onBehalfOfWorkerId"),
@@ -53,17 +58,8 @@ export async function performTaskWork(
         ? "task.delay.request"
         : "task.manage",
   );
-  if (
-    files.length > 10 ||
-    files.some(
-      (f) =>
-        f.size > 20 * 1024 * 1024 ||
-        !["image/jpeg", "image/png", "image/webp"].includes(f.type),
-    )
-  )
-    throw new Error(
-      "Upload up to ten JPEG, PNG or WebP photos, at most 20 MB each.",
-    );
+  const photoError = taskPhotoUploadError(files);
+  if (photoError) throw new UserFacingError(photoError);
   const uploaded: string[] = [];
   try {
     await db.$transaction(
@@ -73,10 +69,10 @@ export async function performTaskWork(
           where: { id: taskId, projectId },
         });
         if (["COMPLETED", "CANCELLED"].includes(task.status))
-          throw new Error("This task is closed.");
+          throw new UserFacingError("This task is closed.");
         if (input.operation === "START") {
           if (!["TODO", "REWORK"].includes(task.status))
-            throw new Error("Task is already started or submitted.");
+            throw new UserFacingError("Task is already started or submitted.");
           await tx.task.update({
             where: { id: task.id },
             data: {
@@ -95,7 +91,9 @@ export async function performTaskWork(
                   where: { projectId, workerId, worker: { active: true } },
                 }))
               )
-                throw new Error("Assign an active worker from this project.");
+                throw new UserFacingError(
+                  "Assign an active worker from this project.",
+                );
               const { startDate, endDate } = input;
               dateOrder(startDate, endDate);
               const row = await tx.taskAssignment.upsert({
@@ -121,7 +119,7 @@ export async function performTaskWork(
           }
         } else if (input.operation === "SUBMIT") {
           if (!["IN_PROGRESS", "REWORK"].includes(task.status))
-            throw new Error("Start the task before submitting work.");
+            throw new UserFacingError("Start the task before submitting work.");
           if (
             input.onBehalfOfWorkerId &&
             !(await tx.taskAssignment.findFirst({
@@ -132,7 +130,9 @@ export async function performTaskWork(
               },
             }))
           )
-            throw new Error("Worker must be active and assigned to this task.");
+            throw new UserFacingError(
+              "Worker must be active and assigned to this task.",
+            );
           const row = await tx.taskSubmission.create({
             data: {
               note: input.note,
@@ -191,7 +191,7 @@ export async function performTaskWork(
         } else {
           const { reason, proposedDueDate } = input;
           if (task.dueDate && proposedDueDate <= task.dueDate)
-            throw new Error(
+            throw new UserFacingError(
               "Proposed date must be later than the current due date.",
             );
           if (
@@ -199,7 +199,7 @@ export async function performTaskWork(
               where: { taskId, status: "PENDING" },
             })
           )
-            throw new Error("A delay request is already pending.");
+            throw new UserFacingError("A delay request is already pending.");
           const row = await tx.taskDelayRequest.create({
             data: {
               taskId,

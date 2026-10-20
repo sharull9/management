@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
@@ -34,7 +35,7 @@ export async function validateRequestBills(
       ? !request.bills.length || !sum.eq(request.amount)
       : request.bills.length > 0
   )
-    throw new Error(
+    throw new UserFacingError(
       "Bill settlement amounts must equal the request amount; other purposes cannot select bills.",
     );
   for (const line of request.bills) {
@@ -72,7 +73,7 @@ export async function saveRequest(
   // Currencies with fewer minor units (JPY) round to their own decimals.
   const requestAmount = fx.round(amount(input.amount));
   if (requestAmount.lte(0))
-    throw new Error("Amount rounds to zero in the request currency.");
+    throw new UserFacingError("Amount rounds to zero in the request currency.");
   const billAmounts = input.allocations.map((a) => ({
     billId: a.documentId,
     amount: fx.round(amount(a.amount)),

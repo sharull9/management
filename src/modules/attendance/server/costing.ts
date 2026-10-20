@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import { Prisma } from "@/generated/prisma/browser";
 import type { Prisma as ServerPrisma } from "@/generated/prisma/client";
 
@@ -30,7 +31,7 @@ export function attendanceCost(
     ot.lt(0) ||
     multiplier.lt(0)
   )
-    throw new Error("Pay terms and hours are invalid.");
+    throw new UserFacingError("Pay terms and hours are invalid.");
   const dayRate =
     terms.dayRateOverride != null
       ? new Decimal(terms.dayRateOverride)
@@ -51,7 +52,7 @@ export function attendanceCost(
     dayRate.lt(0) ||
     otRate.lt(0)
   )
-    throw new Error("Rates cannot be negative.");
+    throw new UserFacingError("Rates cannot be negative.");
   const factor =
     status === "PRESENT" ? "1" : status === "HALF_DAY" ? "0.5" : "0";
   const dayCost = dayRate

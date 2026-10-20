@@ -1,6 +1,9 @@
 import { Decimal } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
+import { lockAccountingScope } from "@/modules/accounting/server/locking";
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
+import { syncStockMovementJournal } from "@/modules/accounting/server/source-stock";
 import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
 import { getProjectCostRecognition } from "@/modules/project-cost/server/cost-recognition";
 import { materialCostEffects } from "@/modules/project-cost-policy/util";
@@ -16,6 +19,7 @@ export async function approveTransfer(
   request: ApprovalRequest,
   actorId: string,
 ) {
+  await lockAccountingScope(tx, request.organizationId);
   const transfer = await tx.stockTransfer.findUniqueOrThrow({
     where: { id: request.documentId },
     include: { lines: true, project: true, toProject: true },
@@ -24,7 +28,9 @@ export async function approveTransfer(
     transfer.toProject.organizationId !== request.organizationId ||
     transfer.project.organizationId !== request.organizationId
   )
-    throw new Error("Transfer projects must belong to the same organization.");
+    throw new UserFacingError(
+      "Transfer projects must belong to the same organization.",
+    );
   await lockStockProjects(tx, request.organizationId, [
     transfer.projectId,
     transfer.toProjectId,
@@ -64,6 +70,12 @@ export async function approveTransfer(
           sourceId: line.id,
         },
       });
+      await syncStockMovementJournal(
+        tx,
+        request.organizationId,
+        movement.id,
+        actorId,
+      );
       await auditEffect(
         tx,
         request,

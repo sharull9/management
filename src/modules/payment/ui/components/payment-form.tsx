@@ -19,10 +19,12 @@ export function PaymentForm({
   org,
   data,
   initialRequestId,
+  initialProjectId,
 }: {
   org: string;
   data: FormData;
   initialRequestId?: string;
+  initialProjectId?: string;
 }) {
   const initial = data.requests.find((r) => r.id === initialRequestId);
   const form = useZodForm<
@@ -34,6 +36,7 @@ export function PaymentForm({
     partyId: initial?.partyId ?? "",
     projectId:
       initial?.projectId ??
+      initialProjectId ??
       (data.allowOrganization ? null : (data.projects[0]?.id ?? null)),
     mode: paymentInput.shape.mode.parse(initial?.mode ?? "BANK"),
     amount: initial?.remaining ?? "",

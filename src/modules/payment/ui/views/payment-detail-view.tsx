@@ -10,11 +10,10 @@ import { UrlTabs } from "@/components/shared/url-tabs";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemGroup } from "@/components/ui/item";
 import { requireOrgContext, requireProjectContext } from "@/core/context";
-import { activeFxTotal } from "../../server/allocation";
-import { financeData } from "../../server/queries";
+import { paymentDetailData } from "../../server/detail-queries";
 import { AllocationForm } from "../components/allocation-form";
 import { PaymentVoidDialog } from "../components/payment-void-dialog";
-import { date, formData, linkClass, money } from "../util";
+import { date, linkClass, money } from "../util";
 
 /** Positive difference: payables lose, receivables gain (PHASE3C_SHARED.md). */
 function fxLabel(
@@ -37,8 +36,12 @@ export async function PaymentDetail({ org, id }: { org: string; id: string }) {
     !ctx.isAdmin &&
     !ctx.permissions.has("payment.view") &&
     ctx.permissions.has("sales.view");
-  const d = await financeData(org, salesOnly ? "sales.view" : "payment.view"),
-    row = d.payments.find((p) => p.id === id);
+  const d = await paymentDetailData(
+      org,
+      id,
+      salesOnly ? "sales.view" : "payment.view",
+    ),
+    row = d.payment;
   if (!row || (salesOnly && row.direction !== "INCOMING")) notFound();
   const permissionCtx = row.projectId
     ? await requireProjectContext(org, row.projectId)
@@ -46,19 +49,7 @@ export async function PaymentDetail({ org, id }: { org: string; id: string }) {
   const canRecord =
     permissionCtx.isAdmin || permissionCtx.permissions.has("payment.record");
   const posted = row.status === "POSTED" && canRecord;
-  const documents =
-    row.direction === "OUTGOING"
-      ? formData(d).bills
-      : d.invoices
-          .filter((i) => i.payableTotal.gt(i.receivedTotal))
-          .map((i) => ({
-            id: i.id,
-            code: i.code,
-            partyId: i.partyId,
-            projectId: i.projectId,
-            currency: i.currency,
-            outstanding: money(i.payableTotal.sub(i.receivedTotal)),
-          }));
+  const documents = d.documents ?? [];
   return (
     <>
       <Button asChild variant="link" size="sm" className="w-fit px-0">
@@ -128,23 +119,12 @@ export async function PaymentDetail({ org, id }: { org: string; id: string }) {
             },
             {
               label: `Realised FX (${d.baseCurrency.code})`,
-              value: fxLabel(
-                activeFxTotal(
-                  row.allocations.map((a) => ({
-                    fxDifference: a.fxDifference,
-                    payment: { status: row.status },
-                  })),
-                ),
-                row.direction,
-                d.baseCurrency.code,
-              ),
+              value: fxLabel(d.realizedFx, row.direction, d.baseCurrency.code),
             },
             { label: "Reference", value: row.reference },
             {
               label: "Project",
-              value:
-                d.projects.find((p) => p.id === row.projectId)?.name ??
-                "Organization",
+              value: row.projectLabel,
             },
             { label: "Allocated", value: money(row.allocatedAmount) },
             {

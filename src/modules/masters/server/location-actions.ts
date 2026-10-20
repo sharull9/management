@@ -4,6 +4,7 @@ import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { typedAction } from "@/core/typed-action";
 
 import { deleteCityInput, saveCityInput } from "../schema";
@@ -21,7 +22,7 @@ export async function saveCityAction(
           where: { id: cityId, tenantId: ctx.tenant.id },
         }))
       )
-        throw new Error("City not found.");
+        throw new UserFacingError("City not found.");
       const city = cityId
         ? await tx.city.update({ where: { id: cityId }, data: input })
         : await tx.city.create({ data: { ...input, tenantId: ctx.tenant.id } });

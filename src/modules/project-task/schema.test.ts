@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  MAX_TASK_PHOTO_BYTES,
+  MAX_TASK_PHOTO_COUNT,
+  MAX_TASK_PHOTO_TOTAL_BYTES,
   saveTaskInput,
   taskOperationInput,
+  taskPhotoUploadError,
   taskSubmissionInput,
 } from "./schema";
 
@@ -88,5 +92,35 @@ test("delay and upload submission preserve approval payload parsing", () => {
       proposedDueDate: "2026-10-12",
     }).success,
     false,
+  );
+});
+
+test("task photo uploads enforce the count, type, per-file, and aggregate caps", () => {
+  assert.equal(taskPhotoUploadError([]), undefined);
+  assert.equal(
+    taskPhotoUploadError(
+      Array.from({ length: MAX_TASK_PHOTO_COUNT + 1 }, () => ({
+        size: 1,
+        type: "image/jpeg",
+      })),
+    ),
+    `Upload up to ${MAX_TASK_PHOTO_COUNT} work photos.`,
+  );
+  assert.equal(
+    taskPhotoUploadError([{ size: 1, type: "image/gif" }]),
+    "Work photos must be JPEG, PNG or WebP.",
+  );
+  assert.equal(
+    taskPhotoUploadError([
+      { size: MAX_TASK_PHOTO_BYTES + 1, type: "image/jpeg" },
+    ]),
+    "Each work photo must be 900 KB or smaller.",
+  );
+  assert.equal(
+    taskPhotoUploadError([
+      { size: MAX_TASK_PHOTO_TOTAL_BYTES, type: "image/jpeg" },
+      { size: 1, type: "image/png" },
+    ]),
+    "Work photos must total 900 KB or less.",
   );
 });

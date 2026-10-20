@@ -3,8 +3,9 @@ import Link from "next/link";
 import { PageHeading } from "@/components/shared/page-heading";
 import { Button } from "@/components/ui/button";
 import { db } from "@/core/db";
+import type { ListParams } from "@/core/pagination";
 import { moduleProjectWhere } from "@/modules/procurement/server/queries";
-import { financeData } from "../../server/queries";
+import { paymentListData } from "../../server/list-queries";
 import { FinanceFilters } from "../components/finance-filters";
 import { FinanceTable } from "../components/finance-tables";
 import { money } from "../util";
@@ -12,23 +13,22 @@ export async function FinanceList({
   org,
   kind,
   projectId,
+  params,
 }: {
   org: string;
   kind: "payments" | "payment-requests" | "receipts";
   projectId?: string;
+  params?: ListParams;
 }) {
-  const d = await financeData(
+  const d = await paymentListData(
     org,
+    params,
     kind === "receipts" ? "sales.view" : "payment.view",
     projectId,
+    kind === "receipts",
   );
   const requests = kind === "payment-requests";
-  const payments = d.payments.filter(
-    (p) =>
-      (kind !== "receipts" || p.direction === "INCOMING") &&
-      (d.canViewOrg ||
-        (p.projectId !== null && (!projectId || p.projectId === projectId))),
-  );
+  const payments = d.rows;
   const canCreate =
     d.ctx.isAdmin ||
     d.ctx.permissions.has(
@@ -79,45 +79,38 @@ export async function FinanceList({
             org={org}
             permission={kind === "receipts" ? "sales.view" : "payment.view"}
             projects={d.projects.map((p) => ({ id: p.id, name: p.name }))}
+            dateRange
+            fields={[
+              {
+                name: "status",
+                label: "Status",
+                multiple: true,
+                options: [
+                  { value: "POSTED", label: "Posted" },
+                  { value: "VOID", label: "Void" },
+                ],
+              },
+            ]}
           />
         }
         requests={requests}
-        data={
-          requests
-            ? d.requests.map((r) => ({
-                id: r.id,
-                code: r.code,
-                date: r.date.toISOString(),
-                party: r.party.displayName,
-                project:
-                  d.projects.find((p) => p.id === r.projectId)?.name ??
-                  "Organization",
-                status: r.status,
-                currency: r.currency,
-                amount: money(r.amount),
-                baseAmount: money(r.baseAmount),
-                allocation: r.purpose,
-                direction: "",
-              }))
-            : payments.map((p) => ({
-                id: p.id,
-                code: p.code,
-                date: p.date.toISOString(),
-                party: p.party.displayName,
-                project:
-                  d.projects.find((r) => r.id === p.projectId)?.name ??
-                  "Organization",
-                status: p.status,
-                currency: p.currency,
-                amount: money(p.amount),
-                baseAmount: money(p.baseAmount),
-                direction: p.direction,
-                allocation:
-                  p.status === "VOID"
-                    ? "Reversed"
-                    : `${p.unallocatedAmount.isZero() ? "Fully allocated" : p.allocatedAmount.isZero() ? "Advance" : "Partially allocated"} | ${money(p.unallocatedAmount)} unallocated`,
-              }))
-        }
+        data={payments.map((p) => ({
+          id: p.id,
+          code: p.code,
+          date: p.date.toISOString(),
+          party: p.party.displayName,
+          project: p.projectLabel,
+          status: p.status,
+          currency: p.currency,
+          amount: money(p.amount),
+          baseAmount: money(p.baseAmount),
+          direction: p.direction,
+          allocation:
+            p.status === "VOID"
+              ? "Reversed"
+              : `${p.unallocatedAmount.isZero() ? "Fully allocated" : p.allocatedAmount.isZero() ? "Advance" : "Partially allocated"} | ${money(p.unallocatedAmount)} unallocated`,
+        }))}
+        serverPage={d.page}
       />
     </div>
   );

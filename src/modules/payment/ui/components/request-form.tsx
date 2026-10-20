@@ -25,10 +25,12 @@ export function RequestForm({
   org,
   data,
   draft,
+  initialProjectId,
 }: {
   org: string;
   data: FormData;
   draft?: RequestDraft;
+  initialProjectId?: string;
 }) {
   const form = useZodForm<
     z.input<typeof requestInput>,
@@ -38,6 +40,8 @@ export function RequestForm({
     partyId: draft?.partyId ?? "",
     projectId:
       draft?.projectId ??
+      draft?.projectId ??
+      initialProjectId ??
       (data.allowOrganization ? null : (data.projects[0]?.id ?? null)),
     date: draft?.date ?? new Date().toISOString().slice(0, 10),
     amount: draft?.amount ?? "",

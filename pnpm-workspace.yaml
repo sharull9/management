@@ -6,3 +6,6 @@ allowBuilds:
   prisma: true
 minimumReleaseAgeExclude:
   - runeicons-react@0.1.0
+overrides:
+  devalue: 5.9.3
+  nanoid@^5.0.0: 5.1.16

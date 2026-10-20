@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import { assertPermission, requireProjectContext } from "@/core/context";
@@ -51,7 +52,7 @@ export async function budget(
       await audit(ctx, tx, "ProjectBudgetLine", lineId, "DELETE");
     } else {
       if (!("costType" in data))
-        throw new Error("Budget line fields are required.");
+        throw new UserFacingError("Budget line fields are required.");
       const { id: _id, ...input } = data;
       await stageInProject(tx, projectId, input.stageId);
       const row = lineId

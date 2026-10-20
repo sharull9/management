@@ -31,15 +31,21 @@ Approval handlers are registered in `src/modules/approvals/server/register.ts`, 
 The four refactor ownership groups are retained as the module maintenance map:
 
 - G1 owns `admin`, `organization`, `organization-auth`, `masters`, `item-variant`, `uom`, `tax`.
-- G2 owns `project`, `project-stage`, `project-task`, `project-team`, `attendance`, `project-cost`, `project-cost-policy`, `workforce`, `dashboard`.
+- G2 owns `project`, `project-stage`, `project-task`, `project-team`, `attendance`, `project-cost`, `project-cost-policy`, `workforce`, `assets`, `dashboard`.
 - G3 owns `procurement`, `vendor-bill`, `stock-valuation`.
-- G4 owns `payment`, `sales-invoice`.
+- G4 owns `payment`, `sales-invoice`, `accounting`.
 
 Phase 3c adds `currency`, owned by the integration owner; the contract is [PHASE3C_SHARED.md](PHASE3C_SHARED.md) and the outcome [PHASE3C_REPORT.md](PHASE3C_REPORT.md). Rate prefill (`previewExchangeRate`), the tenant-enabled check (`assertEnabledCurrency`) and the currency/rate form fields live in the currency module; feature modules import them from there.
 
 The integration owner maintains `approvals`, `notifications`, `src/core`, shared components, navigation, package scripts and docs. Route adapters follow their feature's ownership; the project Materials adapter belongs to G2 and renders G3's inventory view. During parallel work, each group edits its modules and route adapters. Coordinate shared edits and consumer import changes with their owner. Completed R2 moves and temporary shim handoffs no longer apply.
 
 One responsibility per file. Split files over approximately 400 lines. Put schemas in schema.ts, types in type.ts, queries in server/queries.ts, mutations in service files, and exported actions in files headed by `"use server"`. Split large views into components or named views. Tests live beside their code as `*.test.ts`.
+
+Business validation that may be shown to users throws `UserFacingError` from `src/core/errors.ts`. `runAction` returns those messages and Zod field errors; unexpected failures return a generic message with a reference and log only redacted diagnostics. Do not wrap an unknown exception's message in a public error.
+
+Paged lists use `src/core/pagination.ts`, database scope/search/count/limit queries, and shared `DataTable.serverPage` or `ServerPagination`. URL keys are `page`, `search`, `sort`, and `sortDirection`; `direction` remains available for domain filters such as incoming/outgoing payments. Changing filters or sorting resets the page. Balance totals and stock valuation aggregate complete authorized history independently of displayed pages. Accounting report queries share a repeatable-read snapshot; ledger queries compute opening and preceding-page balances in the database.
+
+Financial mutations acquire the organization accounting advisory lock before domain or source locks; shared chart initialization then acquires the tenant chart lock. Independent transactions must follow this order. Source adapters reread authoritative state under the lock before calculating replacements. Accounting history uses bounded transactions through `syncHistoryBatchAction`; the UI advances its organization-bound cursor and retains the last completed cursor for retry. Payment-dependent journals remain atomic with their payment.
 
 `pnpm test` uses `node --import tsx --test "src/**/*.test.ts"`. Node 24 expands the quoted glob and discovers every adjacent test file, including the registry regression test. The existing Postgres settlement test remains opt-in with `PAYMENTS_DB_TEST=local-only`. Build with a placeholder DATABASE_URL requires no live database.
 
@@ -50,8 +56,10 @@ Cross-module consumers use the concrete entry files below. Paths omit only the `
 | Module | Responsibility | Main entry files |
 | --- | --- | --- |
 | `admin` | Tenant administration and suspension | `server/actions`, `schema` |
+| `accounting` | Chart templates, organization accounts, immutable journals, source posting, approval and financial reports | `schema`, `util`, `server/chart-service`, `server/posting-service`, `server/journal-service`, `server/source-procurement`, `server/source-sales`, `server/source-stock`, `server/source-payments`, `server/source-costs`, `server/queries`, `server/reports`, `server/history-service`, `server/history-actions`, `server/actions` |
 | `approvals` | Policies, engine, inbox, links, manager authorization and timelines | `schema`, `server/actions`, `server/picker-actions`, `workflows/approval-reminder`, `server/start-reminder`, `server/authorization`, `server/document-link`, `server/handlers`, `server/policy`, `server/project-effects`, `server/register`, `server/service`, `ui/components/approval-timeline` |
 | `attendance` | Attendance and labour costing | `server/actions`, `server/costing`, `schema` |
+| `assets` | Vehicles, machinery, allocations, trip/usage/fuel logs and project costs | `schema`, `util`, `server/actions`, `server/log-actions`, `server/queries`, `server/registry-service`, `server/log-service`, `server/authorization`, `server/fuel-efficiency` |
 | `currency` | Currency master, tenant currencies, base currency, exchange rates, rate resolution and cost-entry amounts | `util`, `schema`, `rate-format`, `server/rates`, `server/enabled`, `server/fx-actions`, `server/cost-entry`, `server/base-currency`, `server/queries`, `server/actions`, `server/picker-actions`, `ui/components/currency-fx-fields` |
 | `dashboard` | Organization dashboard | None |
 | `item-variant` | Pure variant identity and level configuration | `util` |
@@ -130,6 +138,8 @@ back behind the session proxy. See the installed world's README and
 
 ## Shared infrastructure and integration checks
 
+Phase V accounting follows [PHASE5_SHARED.md](PHASE5_SHARED.md) and [PHASE5_API.md](PHASE5_API.md). Source modules call concrete accounting adapters inside their existing transactions. Accounting imports source rows through Prisma rather than importing source services. Only posted journals enter financial reports. Corrections reverse and replace entries; operational CostEntry rows remain a separate ledger. History synchronization is an explicit authorized action, never a page-read side effect. Opt-in accounting checks require `ACCOUNTING_DB_TEST=local-only` and a loopback database URL.
+
 All money writes follow the [Phase 3c currency contract](PHASE3C_SHARED.md): every CostEntry write goes through `currency/server/cost-entry`.
 
 `src/core` owns the Prisma client, tenancy and permissions, auth, storage, numbering, audit, decimal arithmetic, form-data and common schema helpers. The pure `item-variant`, `uom`, `tax`, `stock-valuation` and `project-cost-policy` util.ts files contain no database imports or server registrations. Browser code uses these pure files for cross-module calculations.
@@ -140,4 +150,4 @@ Approval path constants retain existing URLs. Task links resolve submission/dela
 
 Migration `20261010203000_signed_material_cost` permits negative amounts only for MATERIAL costs whose source is TRANSFER or BILL_VARIANCE. All other amounts remain nonnegative. Migration `20261013100000_phase3c_currency` extends that check to `originalAmount` and `baseAmount`, so all three amounts share a sign. Old migrations are unchanged. Local migration and settlement/workflow verification are recorded in [PHASE3B_REPORT.md](PHASE3B_REPORT.md).
 
-`pnpm smoke:phase3b` runs real module services and authenticated HTTP rendering checks against an explicitly confirmed local database and running dev server. See the report and README for required environment variables. Run the full gates after integration. Use a placeholder DATABASE_URL for production builds. The Postgres settlement test is opt-in with `PAYMENTS_DB_TEST=local-only`; run it against an isolated local DB. Do not push or commit `.env`, `src/generated`, or `storage/`.
+`pnpm verify` runs TypeScript, lint, module boundaries and database-free tests. `pnpm test:db` enables the opt-in suites and runs files serially; it requires a loopback PostgreSQL URL and a disposable database name ending in `_test`. The committed CI workflow deploys fresh migrations and seeds its PostgreSQL service before running these checks. The old `smoke:phase3b` harness is not present in this checkout; phase reports retain its historical results. Use a placeholder DATABASE_URL for production builds. Do not push or commit `.env`, `src/generated`, or `storage/`.

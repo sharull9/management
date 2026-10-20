@@ -1,4 +1,5 @@
 import { Decimal, type Numeric } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 import { toBase } from "@/modules/currency/util";
 
 export function movingAverage(
@@ -14,14 +15,14 @@ export function movingAverage(
     value.lt(0) ||
     qty.add(delta).lt(0)
   )
-    throw new Error("Insufficient stock or invalid balance.");
+    throw new UserFacingError("Insufficient stock or invalid balance.");
   const unitCost = delta.lt(0)
     ? qty.gt(0)
       ? value.div(qty)
       : new Decimal(0)
     : new Decimal(change.unitCost ?? "0");
   if (!unitCost.isFinite() || unitCost.lt(0))
-    throw new Error("Invalid stock cost.");
+    throw new UserFacingError("Invalid stock cost.");
   const totalCost = delta.eq(qty.neg())
     ? value.neg()
     : delta.mul(unitCost).toDecimalPlaces(8, Decimal.ROUND_HALF_UP);
@@ -52,7 +53,7 @@ export function receiptValuation(input: {
 }) {
   const stockQty = new Decimal(input.stockQty);
   if (!stockQty.isFinite() || stockQty.lte(0))
-    throw new Error("Receipt stock quantity must be positive.");
+    throw new UserFacingError("Receipt stock quantity must be positive.");
   const documentValue = new Decimal(input.acceptedQty).mul(input.netRate);
   const baseValue = toBase(
     documentValue,

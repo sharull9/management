@@ -1,16 +1,17 @@
 import { MasterFormPage } from "@/modules/masters/ui/components/master-pages";
-import { financeData } from "../../server/queries";
+import { paymentFormData } from "../../server/form-queries";
 import { PaymentForm } from "../components/payment-form";
-import { formData } from "../util";
 
 export async function PaymentsNew({
   org,
   requestId,
+  projectId,
 }: {
   org: string;
   requestId?: string;
+  projectId?: string;
 }) {
-  const d = await financeData(org, "payment.record");
+  const data = await paymentFormData(org, requestId, projectId);
   return (
     <MasterFormPage
       backHref={`/${org}/finance/payments`}
@@ -19,7 +20,12 @@ export async function PaymentsNew({
       description="Choose the document currency; the exchange rate is prefilled for the date and can be overridden."
       cardTitle="Details"
     >
-      <PaymentForm org={org} data={formData(d)} initialRequestId={requestId} />
+      <PaymentForm
+        org={org}
+        data={data}
+        initialRequestId={requestId}
+        initialProjectId={projectId}
+      />
     </MasterFormPage>
   );
 }

@@ -5,6 +5,7 @@ import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney } from "@/core/format";
+import type { PageInfo } from "@/core/pagination";
 import { Decimal } from "../../server/allocation";
 
 export type PaymentRow = {
@@ -39,10 +40,12 @@ export function PaymentTable({
   org,
   data,
   toolbar,
+  serverPage,
 }: {
   org: string;
   data: PaymentRow[];
   toolbar?: ReactNode;
+  serverPage: PageInfo;
 }) {
   const columns = useMemo<ColumnDef<PaymentRow>[]>(
     () => [
@@ -98,6 +101,7 @@ export function PaymentTable({
       toolbar={toolbar}
       columns={columns}
       data={data}
+      serverPage={serverPage}
       searchPlaceholder="Search payments, parties or projects..."
       getRowId={(r) => r.id}
       rowHref={(r) => `/${org}/finance/payments/${r.id}`}

@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 
 import { Prisma } from "@/generated/prisma/client";
@@ -54,7 +55,9 @@ export async function saveUomMaster(
       const factor = new Prisma.Decimal(decimal.parse(val(data, "factor")));
       const isBase = flag(data, "isBase");
       if (factor.lte(0) || (isBase && !factor.eq(1)))
-        throw new Error("Factor must be positive; base factor must be one.");
+        throw new UserFacingError(
+          "Factor must be positive; base factor must be one.",
+        );
       if (old && (old.groupId !== groupId || !old.factor.eq(factor))) {
         const referenced =
           (await tx.item.count({
@@ -78,18 +81,21 @@ export async function saveUomMaster(
             where: { uomId: old.id },
           }));
         if (referenced)
-          throw new Error("Referenced UOM factors and groups cannot change.");
+          throw new UserFacingError(
+            "Referenced UOM factors and groups cannot change.",
+          );
       }
       const base = await tx.uom.findFirst({
         where: { groupId, isBase: true },
       });
       if (isBase && base && base.id !== rowId)
-        throw new Error("This group already has a base unit.");
+        throw new UserFacingError("This group already has a base unit.");
       if (old?.isBase && (!isBase || old.groupId !== groupId))
-        throw new Error("A group must keep its base unit.");
-      if (!isBase && !base) throw new Error("Create a base unit first.");
+        throw new UserFacingError("A group must keep its base unit.");
+      if (!isBase && !base)
+        throw new UserFacingError("Create a base unit first.");
       if (group.tenantId === null && isBase)
-        throw new Error("System base units are read-only.");
+        throw new UserFacingError("System base units are read-only.");
       const fields = {
         groupId,
         code: name.parse(val(data, "code")),

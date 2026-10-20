@@ -5,6 +5,7 @@ import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Decimal } from "@/core/decimal";
+import type { PageInfo } from "@/core/pagination";
 
 export type DocumentRow = {
   id: string;
@@ -108,14 +109,17 @@ function columnsFor(kind: string) {
 export function DocumentsTable({
   data,
   kind,
+  serverPage,
 }: {
   data: DocumentRow[];
   kind: string;
+  serverPage: PageInfo;
 }) {
   return (
     <DataTable
       columns={columnsFor(kind)}
       data={data}
+      serverPage={serverPage}
       getRowId={(r) => r.id}
       rowHref={(r) => r.href}
       searchPlaceholder="Search documents..."

@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { Option } from "@/components/shared/combobox/combobox";
 import {
   FilterBar,
+  FilterDate,
   FilterMultiSelect,
   FilterSelect,
 } from "@/components/shared/filter-bar/filter-bar";
@@ -23,12 +24,14 @@ export function FinanceFilters({
   permission = "payment.view",
   projects,
   fields = [],
+  dateRange = false,
 }: {
   org: string;
   permission?: string;
   /** Initial project options; more load on search. */
   projects: { id: string; name: string }[];
   fields?: FinanceFilterField[];
+  dateRange?: boolean;
 }) {
   const loadProjects = useMemo(
     () => findProjects.bind(null, org, permission),
@@ -36,6 +39,8 @@ export function FinanceFilters({
   );
   return (
     <FilterBar>
+      {dateRange && <FilterDate name="dateFrom" label="From" />}
+      {dateRange && <FilterDate name="dateTo" label="To" />}
       {fields.map(({ multiple, clearable, fallback, ...field }) =>
         multiple ? (
           <FilterMultiSelect key={field.name} {...field} />

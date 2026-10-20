@@ -1,8 +1,14 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
-import { audit, member } from "@/modules/project/server/action-helpers";
+import {
+  audit,
+  canManageProjectApprovers,
+  canViewCompensation,
+  member,
+} from "@/modules/project/server/action-helpers";
 import { checkAvailability } from "@/modules/workforce/server/availability";
 import type {
   memberInput,
@@ -19,6 +25,8 @@ type TeamInput =
 export async function team(org: string, projectId: string, data: TeamInput) {
   const ctx = await requireProjectContext(org, projectId);
   assertPermission(ctx, "project.edit");
+  const canManageApprovers = canManageProjectApprovers(ctx);
+  const canManageRates = canViewCompensation(ctx);
   await db.$transaction(async (tx) => {
     if (data.operation === "MEMBER" || data.operation === "REMOVE_MEMBER") {
       const userId = data.userId;
@@ -27,9 +35,23 @@ export async function team(org: string, projectId: string, data: TeamInput) {
         const row = await tx.projectMember.findUniqueOrThrow({
           where: { projectId_userId: { projectId, userId } },
         });
+        if (row.isManager && !canManageApprovers)
+          throw new UserFacingError(
+            "Project management, project settings management, or administrator access is required to change project manager access.",
+          );
         await tx.projectMember.delete({ where: { id: row.id } });
         await audit(ctx, tx, "ProjectMember", row.id, "DELETE");
       } else {
+        const current = await tx.projectMember.findUnique({
+          where: { projectId_userId: { projectId, userId } },
+        });
+        if (
+          !canManageApprovers &&
+          data.isManager !== (current?.isManager ?? false)
+        )
+          throw new UserFacingError(
+            "Project management, project settings management, or administrator access is required to change project manager access.",
+          );
         const roleId = data.roleId;
         if (roleId) {
           const role = await tx.role.findFirstOrThrow({
@@ -39,7 +61,9 @@ export async function team(org: string, projectId: string, data: TeamInput) {
             !ctx.isAdmin &&
             role.permissions.some((p) => !ctx.permissions.has(p))
           )
-            throw new Error("You may only grant permissions you hold.");
+            throw new UserFacingError(
+              "You may only grant permissions you hold.",
+            );
         }
         const fields = { roleId, isManager: data.isManager };
         const row = await tx.projectMember.upsert({
@@ -61,7 +85,7 @@ export async function team(org: string, projectId: string, data: TeamInput) {
           where: { id: assignmentId, projectId, workerId },
         });
       if (data.operation === "REMOVE_WORKER") {
-        if (!assignmentId) throw new Error("Assignment is required.");
+        if (!assignmentId) throw new UserFacingError("Assignment is required.");
         if (
           (await tx.projectWorker.count({
             where: { projectId, workerId },
@@ -76,7 +100,7 @@ export async function team(org: string, projectId: string, data: TeamInput) {
             },
           }))
         )
-          throw new Error(
+          throw new UserFacingError(
             "Remove this worker from open tasks before removing their last project assignment.",
           );
         await tx.projectWorker.delete({ where: { id: assignmentId } });
@@ -106,13 +130,21 @@ export async function team(org: string, projectId: string, data: TeamInput) {
               (!range.endDate || a.startDate <= range.endDate),
           )
         )
-          throw new Error(
+          throw new UserFacingError(
             "A worker cannot have overlapping rate assignments within the same project.",
           );
         const fields = {
           ...range,
-          dayRateOverride: data.dayRateOverride,
-          otHourlyRateOverride: data.otHourlyRateOverride,
+          dayRateOverride: canManageRates
+            ? data.dayRateOverride
+            : assignmentId
+              ? undefined
+              : null,
+          otHourlyRateOverride: canManageRates
+            ? data.otHourlyRateOverride
+            : assignmentId
+              ? undefined
+              : null,
           notes: data.notes,
         };
         const row = assignmentId

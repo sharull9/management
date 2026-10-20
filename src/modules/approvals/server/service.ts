@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import "./register";
 import { writeAudit } from "@/core/audit";
@@ -29,22 +30,23 @@ export async function submitForApproval(
 ) {
   const ctx = authorizedContext ?? (await requireOrgContext(input.orgSlug));
   if (ctx.org.slug !== input.orgSlug)
-    throw new Error("Invalid approval organization.");
+    throw new UserFacingError("Invalid approval organization.");
   const execute = async (tx: Prisma.TransactionClient) => {
+    await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${ctx.org.id} FOR UPDATE`;
     if (
       input.projectId &&
       !(await tx.project.findFirst({
         where: { id: input.projectId, organizationId: ctx.org.id },
       }))
     )
-      throw new Error("Invalid approval project.");
+      throw new UserFacingError("Invalid approval project.");
     if (
       input.stageId &&
       !(await tx.stage.findFirst({
         where: { id: input.stageId, projectId: input.projectId ?? "" },
       }))
     )
-      throw new Error("Invalid approval stage.");
+      throw new UserFacingError("Invalid approval stage.");
     await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${ctx.org.id + input.documentType + input.documentId}))::text`;
     const pending = await tx.approvalRequest.findFirst({
       where: {
@@ -55,7 +57,9 @@ export async function submitForApproval(
       },
     });
     if (pending)
-      throw new Error("This document already has a pending approval.");
+      throw new UserFacingError(
+        "This document already has a pending approval.",
+      );
     const policy = await resolvePolicy(
       ctx.org.id,
       input.documentType,
@@ -109,12 +113,12 @@ export async function actOnApproval(
 ) {
   await requireUser();
   if (action === "REJECT" && !comment?.trim())
-    throw new Error("A rejection comment is required.");
+    throw new UserFacingError("A rejection comment is required.");
   const step = await db.approvalRequestStep.findUnique({
     where: { id: stepId },
     include: { request: { include: { organization: true } } },
   });
-  if (!step) throw new Error("Approval step not found.");
+  if (!step) throw new UserFacingError("Approval step not found.");
   const ctx = await requireOrgContext(step.request.organization.slug);
   return db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM approval_requests WHERE id = ${step.requestId} FOR UPDATE`;
@@ -124,7 +128,7 @@ export async function actOnApproval(
     });
     const current = request.steps.find((s) => s.id === stepId);
     if (!current || !(await canActOnStep(ctx, current, request, tx)))
-      throw new Error("You cannot act on this approval step.");
+      throw new UserFacingError("You cannot act on this approval step.");
     const now = new Date();
     await tx.approvalRequestStep.update({
       where: { id: stepId },
@@ -182,14 +186,17 @@ export async function cancelApproval(requestId: string) {
   });
   const ctx = await requireOrgContext(request.organization.slug);
   if (request.requestedById !== user.id && !ctx.isAdmin)
-    throw new Error("Only the requester or administrator may cancel.");
+    throw new UserFacingError(
+      "Only the requester or administrator may cancel.",
+    );
   await db.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM approval_requests WHERE id = ${requestId} FOR UPDATE`;
     const changed = await tx.approvalRequest.updateMany({
       where: { id: requestId, status: "PENDING" },
       data: { status: "CANCELED", completedAt: new Date() },
     });
-    if (!changed.count) throw new Error("This request is no longer pending.");
+    if (!changed.count)
+      throw new UserFacingError("This request is no longer pending.");
     await tx.approvalRequestStep.updateMany({
       where: { requestId, status: { in: ["WAITING", "PENDING"] } },
       data: { status: "CANCELED" },
@@ -224,9 +231,12 @@ export async function listPendingForUser(orgSlug: string) {
     },
     orderBy: { createdAt: "asc" },
   });
+  const managersByScope = new Map<string, Promise<string[] | null>>();
   const eligible = await Promise.all(
     steps.map(async (step) =>
-      (await canActOnStep(ctx, step, step.request)) ? step : null,
+      (await canActOnStep(ctx, step, step.request, db, managersByScope))
+        ? step
+        : null,
     ),
   );
   return eligible.filter((step) => step !== null);

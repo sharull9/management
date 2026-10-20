@@ -46,12 +46,15 @@ export function CommandMenu({
     <>
       <Button
         variant="outline"
-        className="w-full max-w-64 justify-start font-normal text-muted-foreground"
+        className="size-8 justify-center p-0 font-normal text-muted-foreground sm:h-8 sm:w-auto sm:min-w-0 sm:max-w-64 sm:flex-1 sm:shrink sm:justify-start sm:px-2.5"
+        aria-label="Search pages and organizations"
         aria-keyshortcuts="Meta+K Control+K"
         onClick={() => setOpen(true)}
       >
         <Search data-icon="inline-start" />
-        <span className="flex-1 text-left">Jump to…</span>
+        <span className="hidden flex-1 truncate text-left sm:block">
+          Jump to…
+        </span>
         {shortcut && (
           <kbd className="pointer-events-none hidden rounded border bg-muted px-1.5 font-mono text-[10px] font-medium sm:inline-block">
             {shortcut}

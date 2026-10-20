@@ -4,6 +4,7 @@ import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { typedAction } from "@/core/typed-action";
 import {
   deleteMasterInput,
@@ -92,7 +93,7 @@ export async function deleteMasterAction(
         case "uom": {
           const unit = await tx.uom.findFirstOrThrow({ where });
           if (unit.isBase)
-            throw new Error("A group must retain its base unit.");
+            throw new UserFacingError("A group must retain its base unit.");
           await tx.uom.delete({ where: { id: rowId } });
           break;
         }
@@ -111,7 +112,7 @@ export async function deleteMasterAction(
         case "item": {
           await tx.item.findFirstOrThrow({ where });
           if (await tx.itemVariant.count({ where: { itemId: rowId } }))
-            throw new Error(
+            throw new UserFacingError(
               "Deactivate items with variants instead of deleting them.",
             );
           await tx.item.delete({ where: { id: rowId } });
@@ -169,7 +170,7 @@ export async function resolveVariantAction(
   return typedAction(resolveVariantInput, async (data) => {
     const ctx = await requireOrgContext(org);
     assertPermission(ctx, "masters.manage");
-    if (!data.selection.itemId) throw new Error("Select item.");
+    if (!data.selection.itemId) throw new UserFacingError("Select item.");
     const itemId = data.selection.itemId;
     await db.$transaction(async (tx) => {
       const variant = await resolveVariant(tx, ctx.tenant.id, itemId, [

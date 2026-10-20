@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { PickerItem } from "@/components/shared/form/item-variant-value";
 import { Decimal } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 import { date, id, quantity, rate } from "@/core/schema";
 import { variantIdentity } from "@/modules/item-variant/util";
 import { currencyFields } from "@/modules/payment/schema";
@@ -116,7 +117,7 @@ export function invoiceFormSchema(items: PickerItem[]) {
       if (line.lineType !== "GOODS" || !line.selection.itemId) return;
       const item = items.find((item) => item.id === line.selection.itemId);
       try {
-        if (!item) throw new Error("Select an available item.");
+        if (!item) throw new UserFacingError("Select an available item.");
         variantIdentity(item, item.configs, selectedLevels(line.selection));
       } catch (error) {
         ctx.addIssue({

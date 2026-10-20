@@ -6,6 +6,7 @@ import {
   requireProjectContext,
 } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { typedAction } from "@/core/typed-action";
 import {
   domainAudit,
@@ -64,9 +65,11 @@ export async function submitInvoiceAction(
           where: { id: row.id, organizationId: ctx.org.id },
         });
         if (invoice.projectId !== row.projectId)
-          throw new Error("Invoice changed. Reload before submitting.");
+          throw new UserFacingError(
+            "Invoice changed. Reload before submitting.",
+          );
         if (invoice.status !== "DRAFT")
-          throw new Error("Only drafts may be submitted.");
+          throw new UserFacingError("Only drafts may be submitted.");
         const { submitForApproval } = await import(
           "@/modules/approvals/server/service"
         );

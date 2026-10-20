@@ -114,7 +114,11 @@ function SalesTimeline({ approvals }: TimelineProps) {
           {a.steps.map((s) => (
             <p className="text-sm" key={s.id}>
               {s.sequence}. {s.name} · {s.status} ·{" "}
-              {s.actedBy?.name ?? "Awaiting action"} {s.comment}
+              {s.actedBy?.name ??
+                (["PENDING", "WAITING"].includes(s.status)
+                  ? "Awaiting action"
+                  : "No actor recorded")}{" "}
+              {s.comment}
             </p>
           ))}
         </div>

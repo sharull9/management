@@ -1,4 +1,5 @@
 import { Decimal } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 import type { Prisma } from "@/generated/prisma/browser";
 import { assertSameCurrency, realisedFx } from "@/modules/currency/util";
 
@@ -9,7 +10,7 @@ export const settledStatuses = ["APPROVED", "PARTIALLY_PAID", "PAID"] as const;
 export function amount(value: Money) {
   const n = new Decimal(value);
   if (!n.isFinite() || n.lt(0) || !n.eq(n.toDecimalPlaces(2)))
-    throw new Error(
+    throw new UserFacingError(
       "Money must be nonnegative with at most two decimal places.",
     );
   return n;
@@ -20,11 +21,13 @@ export function validateAllocation(
   value: Money,
 ) {
   const n = amount(value);
-  if (n.lte(0)) throw new Error("Allocation must be positive.");
+  if (n.lte(0)) throw new UserFacingError("Allocation must be positive.");
   if (n.gt(amount(available)))
-    throw new Error("Allocation exceeds payment's unallocated amount.");
+    throw new UserFacingError(
+      "Allocation exceeds payment's unallocated amount.",
+    );
   if (n.gt(amount(outstanding)))
-    throw new Error("Allocation exceeds document outstanding.");
+    throw new UserFacingError("Allocation exceeds document outstanding.");
   return n;
 }
 export function settlementStatus(
@@ -33,7 +36,7 @@ export function settlementStatus(
 ): "APPROVED" | "PARTIALLY_PAID" | "PAID" {
   const t = amount(total),
     p = amount(paid);
-  if (p.gt(t)) throw new Error("Settlement exceeds payable total.");
+  if (p.gt(t)) throw new UserFacingError("Settlement exceeds payable total.");
   return p.eq(t) ? "PAID" : p.isZero() ? "APPROVED" : "PARTIALLY_PAID";
 }
 export function agingBucket(

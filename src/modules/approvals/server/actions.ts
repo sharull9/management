@@ -4,6 +4,7 @@ import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { typedAction } from "@/core/typed-action";
 import {
   approvalDecisionInput,
@@ -18,22 +19,6 @@ export async function savePolicyAction(
   return typedAction(savePolicyInput, async (input) => {
     const ctx = await requireOrgContext(orgSlug);
     assertPermission(ctx, "approval.policy.manage");
-    for (const step of input.steps) {
-      if (
-        step.approverType === "ROLE" &&
-        !(await db.role.findFirst({
-          where: { id: step.roleId ?? "", tenantId: ctx.tenant.id },
-        }))
-      )
-        throw new Error("Approver role must belong to this tenant.");
-      if (
-        step.approverType === "USER" &&
-        !(await db.member.findFirst({
-          where: { userId: step.userId ?? "", organizationId: ctx.org.id },
-        }))
-      )
-        throw new Error("Approver user must belong to this organization.");
-    }
     const policyId = input.id;
     const projectId = input.scope === "org" ? null : input.projectId;
     const stageId = input.scope === "stage" ? input.stageId : null;
@@ -43,22 +28,43 @@ export async function savePolicyAction(
         where: { id: projectId, organizationId: ctx.org.id },
       }))
     )
-      throw new Error("Select a project in this organization.");
+      throw new UserFacingError("Select a project in this organization.");
     if (
       stageId &&
       !(await db.stage.findFirst({
         where: { id: stageId, projectId: projectId ?? "" },
       }))
     )
-      throw new Error("Select a stage in this project.");
+      throw new UserFacingError("Select a stage in this project.");
     await db.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${ctx.org.id} FOR UPDATE`;
+      for (const step of input.steps) {
+        if (
+          step.approverType === "ROLE" &&
+          !(await tx.role.findFirst({
+            where: { id: step.roleId ?? "", tenantId: ctx.tenant.id },
+          }))
+        )
+          throw new UserFacingError(
+            "Approver role must belong to this tenant.",
+          );
+        if (
+          step.approverType === "USER" &&
+          !(await tx.member.findFirst({
+            where: { userId: step.userId ?? "", organizationId: ctx.org.id },
+          }))
+        )
+          throw new UserFacingError(
+            "Approver user must belong to this organization.",
+          );
+      }
       if (
         policyId &&
         !(await tx.approvalPolicy.findFirst({
           where: { id: policyId, organizationId: ctx.org.id },
         }))
       )
-        throw new Error("Policy not found.");
+        throw new UserFacingError("Policy not found.");
       const policyData = {
         name: input.name,
         documentType: input.documentType,
@@ -115,7 +121,7 @@ export async function approvalDecisionAction(
         where: { id: input.stepId, request: { organizationId: ctx.org.id } },
       }))
     )
-      throw new Error("Step not found.");
+      throw new UserFacingError("Step not found.");
     await actOnApproval(input.stepId, input.action, input.comment);
     return undefined;
   })(input);
@@ -132,7 +138,7 @@ export async function cancelApprovalAction(
         where: { id: requestId, organizationId: ctx.org.id },
       }))
     )
-      throw new Error("Request not found.");
+      throw new UserFacingError("Request not found.");
     await cancelApproval(requestId);
     return undefined;
   })(input);

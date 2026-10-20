@@ -25,6 +25,7 @@ export async function approvalDocumentLinks(
   const links = await Promise.all(
     requests.map(async (r) => {
       const paths: Partial<Record<ApprovalRequest["documentType"], string>> = {
+        JOURNAL: "accounting/journals",
         ...procurementApprovalDocumentPaths,
         ...inventoryApprovalDocumentPaths,
         ...vendorBillApprovalDocumentPaths,

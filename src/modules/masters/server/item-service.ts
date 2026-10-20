@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
@@ -32,7 +33,7 @@ export async function saveItemMaster(
       const seen = new Set<string>();
       while (ancestor) {
         if (ancestor === rowId || seen.has(ancestor))
-          throw new Error("Category tree cannot contain cycles.");
+          throw new UserFacingError("Category tree cannot contain cycles.");
         seen.add(ancestor);
         const p = await tx.itemCategory.findFirstOrThrow({
           where: { id: ancestor, tenantId },
@@ -52,7 +53,7 @@ export async function saveItemMaster(
           : 1;
       };
       if (depth + (rowId ? await height(rowId) : 1) - 1 > 5)
-        throw new Error("Category depth cannot exceed five.");
+        throw new UserFacingError("Category depth cannot exceed five.");
       const fields = { name: name.parse(val(data, "name")), parentId };
       entityId = (
         rowId
@@ -103,7 +104,7 @@ export async function saveItemMaster(
           where: { id: rowId },
         });
         if (old.definitionId !== definitionId)
-          throw new Error("A value cannot move between levels.");
+          throw new UserFacingError("A value cannot move between levels.");
       }
       entityId = (
         rowId
@@ -152,7 +153,7 @@ export async function saveItemMaster(
         old?.variants.length &&
         (old.stockUomId !== stockUomId || old.stockTracked !== stockTracked)
       )
-        throw new Error(
+        throw new UserFacingError(
           "Stock UOM and tracking cannot change after variants exist.",
         );
       const fields = {
@@ -188,11 +189,15 @@ export async function saveItemMaster(
         const linkedIds =
           data[`links${definition.level as 1 | 2 | 3 | 4 | 5}`] ?? [];
         if (required && (mode === "NOT_USED" || !definition.enabled))
-          throw new Error("Unused or disabled levels cannot be required.");
+          throw new UserFacingError(
+            "Unused or disabled levels cannot be required.",
+          );
         if (linkedIds.some((v) => !definition.values.some((x) => x.id === v)))
-          throw new Error("Invalid linked level value.");
+          throw new UserFacingError("Invalid linked level value.");
         if (mode === "LINKED" && required && !linkedIds.length)
-          throw new Error("Required linked levels need allowed values.");
+          throw new UserFacingError(
+            "Required linked levels need allowed values.",
+          );
         const config = await tx.itemLevelConfig.upsert({
           where: {
             itemId_definitionId: {

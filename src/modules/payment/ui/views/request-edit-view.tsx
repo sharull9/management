@@ -1,9 +1,9 @@
 import { notFound, redirect } from "next/navigation";
 import { requireProjectContext } from "@/core/context";
-import { financeData } from "../../server/queries";
+import { requestFormData } from "../../server/form-queries";
 import { RequestForm } from "../components/request-form";
 import { RequestFormPage } from "../components/request-form-page";
-import { date, formData, money } from "../util";
+import { date, money } from "../util";
 
 export async function RequestEditView({
   org,
@@ -12,14 +12,13 @@ export async function RequestEditView({
   org: string;
   id: string;
 }) {
-  const d = await financeData(org, "payment.request.create"),
-    row = d.requests.find((r) => r.id === id);
+  const { ctx: orgCtx, data, draft: row } = await requestFormData(org, id);
   if (!row) notFound();
   const detail = `/${org}/finance/payment-requests/${id}`;
   if (row.status !== "DRAFT") redirect(detail);
   const ctx = row.projectId
     ? await requireProjectContext(org, row.projectId)
-    : d.ctx;
+    : orgCtx;
   if (!ctx.isAdmin && !ctx.permissions.has("payment.request.create"))
     redirect(detail);
   return (
@@ -31,7 +30,7 @@ export async function RequestEditView({
     >
       <RequestForm
         org={org}
-        data={formData(d)}
+        data={data}
         draft={{
           id: row.id,
           partyId: row.partyId,
@@ -47,7 +46,7 @@ export async function RequestEditView({
             documentId: b.billId,
             amount: money(b.amount),
             code:
-              d.bills.find((bill) => bill.id === b.billId)?.code ?? b.billId,
+              data.bills.find((bill) => bill.id === b.billId)?.code ?? b.billId,
           })),
         }}
       />

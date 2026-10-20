@@ -5,6 +5,7 @@ import {
   requireProjectContext,
 } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { moduleProjectWhere } from "@/modules/procurement/server/queries";
 import { settledStatuses } from "./allocation";
 
@@ -25,7 +26,7 @@ export async function financeData(
   const ids = projects.map((p) => p.id);
   if (!global && !ids.length) assertPermission(ctx, permission);
   if (projectId && !ids.includes(projectId))
-    throw new Error("Project is not accessible.");
+    throw new UserFacingError("Project is not accessible.");
   const where = {
     organizationId: ctx.org.id,
     ...(projectId
@@ -37,89 +38,78 @@ export async function financeData(
           ],
         }),
   };
-  const [baseCurrency, parties, requests, payments, bills, invoices] =
-    await Promise.all([
-      db.currency.findUniqueOrThrow({
-        where: { code: ctx.org.baseCurrency },
-        select: { code: true, decimals: true },
-      }),
-      db.party.findMany({
-        where: {
-          tenantId: ctx.tenant.id,
-          OR: [{ isVendor: true }, { isCustomer: true }],
-        },
-        orderBy: { displayName: "asc" },
-      }),
-      db.paymentRequest.findMany({
-        where,
-        include: {
-          party: true,
-          bills: true,
-          payments: { where: { status: "POSTED" } },
-        },
-        orderBy: { date: "desc" },
-      }),
-      db.payment.findMany({
-        where: projectId
+  const [baseCurrency, parties, payments, bills, invoices] = await Promise.all([
+    db.currency.findUniqueOrThrow({
+      where: { code: ctx.org.baseCurrency },
+      select: { code: true, decimals: true },
+    }),
+    db.party.findMany({
+      where: {
+        tenantId: ctx.tenant.id,
+        OR: [{ isVendor: true }, { isCustomer: true }],
+      },
+      orderBy: { displayName: "asc" },
+    }),
+    db.payment.findMany({
+      where: projectId
+        ? {
+            organizationId: ctx.org.id,
+            OR: [
+              { projectId },
+              {
+                allocations: {
+                  some: {
+                    OR: [
+                      { vendorBill: { projectId } },
+                      { salesInvoice: { projectId } },
+                    ],
+                  },
+                },
+              },
+            ],
+          }
+        : !canViewOrg
           ? {
               organizationId: ctx.org.id,
               OR: [
-                { projectId },
+                { projectId: { in: ids } },
                 {
                   allocations: {
                     some: {
                       OR: [
-                        { vendorBill: { projectId } },
-                        { salesInvoice: { projectId } },
+                        { vendorBill: { projectId: { in: ids } } },
+                        { salesInvoice: { projectId: { in: ids } } },
                       ],
                     },
                   },
                 },
               ],
             }
-          : !canViewOrg
-            ? {
-                organizationId: ctx.org.id,
-                OR: [
-                  { projectId: { in: ids } },
-                  {
-                    allocations: {
-                      some: {
-                        OR: [
-                          { vendorBill: { projectId: { in: ids } } },
-                          { salesInvoice: { projectId: { in: ids } } },
-                        ],
-                      },
-                    },
-                  },
-                ],
-              }
-            : where,
-        include: {
-          party: true,
-          allocations: { include: { vendorBill: true, salesInvoice: true } },
-        },
-        orderBy: { date: "desc" },
-      }),
-      db.vendorBill.findMany({
-        where: {
-          organizationId: ctx.org.id,
-          projectId: projectId ?? { in: ids },
-          status: { in: [...settledStatuses] },
-        },
-        orderBy: { date: "asc" },
-      }),
-      db.salesInvoice.findMany({
-        where: { ...where, status: { in: [...settledStatuses] } },
-        orderBy: { date: "asc" },
-      }),
-    ]);
+          : where,
+      include: {
+        party: true,
+        allocations: { include: { vendorBill: true, salesInvoice: true } },
+      },
+      orderBy: { date: "desc" },
+    }),
+    db.vendorBill.findMany({
+      where: {
+        organizationId: ctx.org.id,
+        projectId: projectId ?? { in: ids },
+        status: { in: [...settledStatuses] },
+      },
+      orderBy: { date: "asc" },
+    }),
+    db.salesInvoice.findMany({
+      where: { ...where, status: { in: [...settledStatuses] } },
+      orderBy: { date: "asc" },
+    }),
+  ]);
   return {
     ctx,
     baseCurrency,
     projects,
     parties,
-    requests,
     payments,
     bills,
     invoices,

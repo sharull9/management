@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type BaseCurrencyUsage = {
@@ -25,6 +26,9 @@ export async function countBaseCurrencyUsage(
     // Payments are posted on creation; expenses have no draft state.
     tx.payment.count({ where: org }),
     tx.expense.count({ where: { project: org } }),
+    // Asset rates and their snapshots are denominated in the base currency.
+    tx.asset.count({ where: org }),
+    tx.journalEntry.count({ where: posted }),
   ]);
   const exchangeRates = await tx.exchangeRate.count({ where: org });
   return {
@@ -58,7 +62,7 @@ export async function assertBaseCurrencyChangeAllowed(
     await countBaseCurrencyUsage(tx, organizationId),
   );
   if (reasons.length)
-    throw new Error(
+    throw new UserFacingError(
       `The base currency cannot be changed because this organization already has ${reasons.join(", ")}.`,
     );
 }

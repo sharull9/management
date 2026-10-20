@@ -7,6 +7,7 @@ import {
   requireProjectContext,
 } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { moduleProjectWhere } from "@/modules/procurement/server/queries";
 import { settledStatuses } from "./allocation";
 
@@ -35,7 +36,7 @@ async function pickerScope(
   if (!global && !projects.length) assertPermission(ctx, checked);
   const ids = projects.map((p) => p.id);
   if (projectId && !ids.includes(projectId))
-    throw new Error("Project is not accessible.");
+    throw new UserFacingError("Project is not accessible.");
   return {
     ctx,
     projects: moduleProjectWhere(ctx, checked),

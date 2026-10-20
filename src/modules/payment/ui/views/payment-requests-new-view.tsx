@@ -1,10 +1,16 @@
-import { financeData } from "../../server/queries";
+import { requestFormData } from "../../server/form-queries";
 import { RequestForm } from "../components/request-form";
 import { RequestFormPage } from "../components/request-form-page";
-import { formData } from "../util";
 
-export async function FinanceNew({ org }: { org: string; kind?: string }) {
-  const d = await financeData(org, "payment.request.create");
+export async function FinanceNew({
+  org,
+  projectId,
+}: {
+  org: string;
+  kind?: string;
+  projectId?: string;
+}) {
+  const { data } = await requestFormData(org, undefined, projectId);
   return (
     <RequestFormPage
       backHref={`/${org}/finance/payment-requests`}
@@ -12,7 +18,7 @@ export async function FinanceNew({ org }: { org: string; kind?: string }) {
       title="New payment request"
       description="Choose the document currency; the exchange rate is prefilled for the date and can be overridden."
     >
-      <RequestForm org={org} data={formData(d)} />
+      <RequestForm org={org} data={data} initialProjectId={projectId} />
     </RequestFormPage>
   );
 }

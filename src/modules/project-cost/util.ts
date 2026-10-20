@@ -1,4 +1,5 @@
 import { Decimal, type Numeric } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 import { toBase } from "@/modules/currency/util";
 
 /** Base-currency value of an expense: converted once from the expense total. */
@@ -17,7 +18,7 @@ export function assertCurrencyPrecision(
   code: string,
 ) {
   if (new Decimal(amount).decimalPlaces() > decimals)
-    throw new Error(
+    throw new UserFacingError(
       `${code} amounts support at most ${decimals} decimal places.`,
     );
 }

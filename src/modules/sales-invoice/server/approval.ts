@@ -1,6 +1,8 @@
 import "server-only";
 import { writeAudit } from "@/core/audit";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
+import { lockAccountingScope } from "@/modules/accounting/server/locking";
+import { syncSalesInvoiceJournal } from "@/modules/accounting/server/source-sales";
 import type { ApprovalHandler } from "@/modules/approvals/server/handlers";
 import { postInvoiceStock } from "./stock";
 
@@ -40,6 +42,7 @@ export const onApproved: ApprovalHandler["onApproved"] = async (
   tx,
   actorId,
 ) => {
+  await lockAccountingScope(tx, request.organizationId);
   const invoice = await tx.salesInvoice.findFirstOrThrow({
     where: {
       id: request.documentId,
@@ -50,6 +53,12 @@ export const onApproved: ApprovalHandler["onApproved"] = async (
   });
   await postInvoiceStock(tx, invoice, actorId);
   await updateStatus(request, tx, "APPROVED", actorId);
+  await syncSalesInvoiceJournal(
+    tx,
+    request.organizationId,
+    invoice.id,
+    actorId,
+  );
 };
 export const onRejected: ApprovalHandler["onRejected"] = (
   request,

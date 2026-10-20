@@ -4,6 +4,7 @@ import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { typedAction } from "@/core/typed-action";
 import type { Prisma } from "@/generated/prisma/client";
 import {
@@ -18,7 +19,8 @@ import { assertEnabledCurrency } from "./enabled";
 
 async function activeCurrency(tx: Prisma.TransactionClient, code: string) {
   const currency = await tx.currency.findUnique({ where: { code } });
-  if (!currency?.active) throw new Error(`Currency ${code} is not available.`);
+  if (!currency?.active)
+    throw new UserFacingError(`Currency ${code} is not available.`);
   assertStorableCurrency(code, currency.decimals);
   return currency;
 }
@@ -54,11 +56,11 @@ export async function setTenantCurrencyAction(
           }),
         ]);
         if (asBase)
-          throw new Error(
+          throw new UserFacingError(
             "A base currency of one of the organizations cannot be disabled.",
           );
         if (asProject || asParty)
-          throw new Error(
+          throw new UserFacingError(
             "This currency is still used by projects or party defaults.",
           );
       }
@@ -151,7 +153,7 @@ export async function saveExchangeRateAction(
     const ctx = await requireOrgContext(orgSlug);
     assertPermission(ctx, "exchangeRate.manage");
     if (input.currencyCode === ctx.org.baseCurrency)
-      throw new Error("The base currency always has a rate of 1.");
+      throw new UserFacingError("The base currency always has a rate of 1.");
     await db.$transaction(async (tx) => {
       await activeCurrency(tx, input.currencyCode);
       await assertEnabledCurrency(tx, ctx.tenant.id, input.currencyCode);
@@ -164,7 +166,7 @@ export async function saveExchangeRateAction(
         const existing = await tx.exchangeRate.findFirst({
           where: { id: input.id, organizationId: ctx.org.id },
         });
-        if (!existing) throw new Error("Exchange rate not found.");
+        if (!existing) throw new UserFacingError("Exchange rate not found.");
       }
       const row = input.id
         ? await tx.exchangeRate.update({ where: { id: input.id }, data })
@@ -210,7 +212,7 @@ export async function deleteExchangeRateAction(
       const existing = await tx.exchangeRate.findFirst({
         where: { id: input.id, organizationId: ctx.org.id },
       });
-      if (!existing) throw new Error("Exchange rate not found.");
+      if (!existing) throw new UserFacingError("Exchange rate not found.");
       await tx.exchangeRate.delete({ where: { id: existing.id } });
       await writeAudit(
         {

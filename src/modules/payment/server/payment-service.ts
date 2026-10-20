@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
@@ -13,6 +14,7 @@ import {
 
 type Tx = Prisma.TransactionClient;
 
+import { syncPaymentJournals } from "@/modules/accounting/server/source-payments";
 import { allocatePayment } from "./allocation-service";
 import { documentFx } from "./fx";
 import { audit, lockSettlement, scope } from "./service";
@@ -32,7 +34,7 @@ export async function recordPayment(
   // Currencies with fewer minor units (JPY) round to their own decimals.
   const paymentAmount = fx.round(amount(input.amount));
   if (paymentAmount.lte(0))
-    throw new Error("Amount rounds to zero in the payment currency.");
+    throw new UserFacingError("Amount rounds to zero in the payment currency.");
   await tx.party.findFirstOrThrow({
     where: {
       id: input.partyId,
@@ -47,7 +49,9 @@ export async function recordPayment(
     REQUIRE_REQUEST_FOR_MODES.includes(input.mode) &&
     !input.paymentRequestId
   )
-    throw new Error("This payment mode requires an approved payment request.");
+    throw new UserFacingError(
+      "This payment mode requires an approved payment request.",
+    );
   const request = input.paymentRequestId
     ? await tx.paymentRequest.findFirstOrThrow({
         where: {
@@ -74,7 +78,7 @@ export async function recordPayment(
       request.projectId !== input.projectId ||
       request.mode !== input.mode
     )
-      throw new Error(
+      throw new UserFacingError(
         "Payment must match request party, project, currency, direction and mode.",
       );
     const remaining = request.amount.sub(
@@ -94,7 +98,7 @@ export async function recordPayment(
       available = available.sub(value);
     }
     if (request.purpose === "BILL_SETTLEMENT" && available.gt(0))
-      throw new Error(
+      throw new UserFacingError(
         "Request bill allocations no longer match its unpaid amount.",
       );
   }
@@ -136,5 +140,6 @@ export async function recordPayment(
     await audit(tx, ctx, "PaymentRequest", request.id, "PAYMENT");
   }
   await audit(tx, ctx, "Payment", row.id, "CREATE");
+  await syncPaymentJournals(tx, ctx.org.id, row.id, ctx.user.id);
   return row;
 }

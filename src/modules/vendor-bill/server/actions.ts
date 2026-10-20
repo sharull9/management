@@ -4,6 +4,7 @@ import type { ActionState } from "@/core/action-result";
 import { runAction } from "@/core/action-result";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { id } from "@/core/schema";
 import { storage } from "@/core/storage";
 import { typedAction } from "@/core/typed-action";
@@ -64,8 +65,9 @@ export async function submitBillAction(
           include: { lines: true },
         });
         if (bill.status !== "DRAFT")
-          throw new Error("Only drafts may be submitted.");
-        if (!bill.lines.length) throw new Error("Add at least one bill line.");
+          throw new UserFacingError("Only drafts may be submitted.");
+        if (!bill.lines.length)
+          throw new UserFacingError("Add at least one bill line.");
         await assertBillReceipts(
           tx,
           ctx.org.id,

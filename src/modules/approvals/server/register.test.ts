@@ -28,7 +28,7 @@ test("eager approval registration works after concrete feature entry points", ()
       ${entry.startsWith("approvals/") ? "" : "await import('@/modules/approvals/server/register');"}
       const { getApprovalHandler } = await import('@/modules/approvals/server/handlers');
       for (const type of ['TASK_SUBMISSION', 'TASK_DELAY', 'EXPENSE', 'PURCHASE_REQUEST',
-        'PURCHASE_ORDER', 'GRN', 'STOCK_TRANSFER', 'VENDOR_BILL', 'PAYMENT_REQUEST', 'SALES_INVOICE']) {
+        'PURCHASE_ORDER', 'GRN', 'STOCK_TRANSFER', 'VENDOR_BILL', 'PAYMENT_REQUEST', 'SALES_INVOICE', 'JOURNAL']) {
         const handler = getApprovalHandler(type);
         if (!handler || typeof handler.onApproved !== 'function' ||
           typeof handler.onRejected !== 'function' || typeof handler.onCanceled !== 'function')

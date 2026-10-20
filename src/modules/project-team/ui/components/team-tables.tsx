@@ -17,22 +17,29 @@ type MemberRow = {
   role: string;
   manager: string;
 };
-type WorkerRow = z.input<typeof workerInput> & {
+type WorkerRow = Omit<
+  z.input<typeof workerInput>,
+  "dayRateOverride" | "otHourlyRateOverride"
+> & {
   workerId: string;
   id: string;
   name: string;
   availability: string;
+  dayRateOverride?: string;
+  otHourlyRateOverride?: string;
 };
 export function MembersTable({
   org,
   projectId,
   data,
   manage,
+  canManageApprovers,
 }: {
   org: string;
   projectId: string;
   data: MemberRow[];
   manage: boolean;
+  canManageApprovers: boolean;
 }) {
   const columns: ColumnDef<MemberRow>[] = [
     {
@@ -56,7 +63,7 @@ export function MembersTable({
       id: "action",
       header: () => <span className="sr-only">Actions</span>,
       cell: ({ row }) =>
-        manage ? (
+        manage && (canManageApprovers || row.original.manager !== "Yes") ? (
           <div className="flex justify-end">
             <RowDeleteMenu
               rowLabel={row.original.name}
@@ -88,12 +95,29 @@ export function WorkersTable({
   projectId,
   data,
   manage,
+  canViewRates,
 }: {
   org: string;
   projectId: string;
   data: WorkerRow[];
   manage: boolean;
+  canViewRates: boolean;
 }) {
+  const rateColumns: ColumnDef<WorkerRow>[] = canViewRates
+    ? [
+        {
+          accessorKey: "dayRateOverride",
+          header: "Day rate",
+          cell: ({ row }) => row.original.dayRateOverride || "Worker pay terms",
+        },
+        {
+          accessorKey: "otHourlyRateOverride",
+          header: "OT hourly rate",
+          cell: ({ row }) =>
+            row.original.otHourlyRateOverride || "Worker pay terms",
+        },
+      ]
+    : [];
   const columns: ColumnDef<WorkerRow>[] = [
     {
       accessorKey: "name",
@@ -106,17 +130,7 @@ export function WorkersTable({
       accessorFn: (row) => `${row.startDate} / ${row.endDate || "Open"}`,
       header: "Start / end",
     },
-    {
-      accessorKey: "dayRateOverride",
-      header: "Day rate",
-      cell: ({ row }) => row.original.dayRateOverride || "Worker pay terms",
-    },
-    {
-      accessorKey: "otHourlyRateOverride",
-      header: "OT hourly rate",
-      cell: ({ row }) =>
-        row.original.otHourlyRateOverride || "Worker pay terms",
-    },
+    ...rateColumns,
     {
       accessorKey: "availability",
       header: "Availability",
@@ -142,10 +156,15 @@ export function WorkersTable({
               <WorkerForm
                 org={org}
                 projectId={projectId}
-                assignment={row.original}
+                assignment={{
+                  ...row.original,
+                  dayRateOverride: row.original.dayRateOverride ?? "",
+                  otHourlyRateOverride: row.original.otHourlyRateOverride ?? "",
+                }}
                 workers={[
                   { id: row.original.workerId, name: row.original.name },
                 ]}
+                showRates={canViewRates}
               />
             </SideSheet>
             <RowDeleteMenu

@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
@@ -15,7 +16,7 @@ export const requireUser = cache(async () => {
     session.user.banned &&
     (!session.user.banExpires || new Date(session.user.banExpires) > new Date())
   )
-    throw new Error("Account suspended.");
+    throw new UserFacingError("Account suspended.");
   return session.user;
 });
 export async function requireSuperAdmin() {
@@ -45,7 +46,7 @@ export const requireOrgContext = cache(async (orgSlug: string) => {
   const tenantAdmin = tenantRole === "OWNER" || tenantRole === "ADMIN";
   if (!tenantMember || (!member && !tenantAdmin)) notFound();
   if (org.tenant.status === "SUSPENDED")
-    throw new Error(
+    throw new UserFacingError(
       "This tenant is suspended. Contact the platform administrator.",
     );
   const isAdmin =
@@ -68,7 +69,9 @@ export const requireOrgContext = cache(async (orgSlug: string) => {
 export type OrgContext = Awaited<ReturnType<typeof requireOrgContext>>;
 export function assertPermission(ctx: OrgContext, permission: string) {
   if (!ctx.isAdmin && !ctx.permissions.has(permission))
-    throw new Error("You do not have permission to perform this action.");
+    throw new UserFacingError(
+      "You do not have permission to perform this action.",
+    );
 }
 export const requireProjectContext = cache(
   async (orgSlug: string, projectId: string) => {
@@ -104,6 +107,8 @@ export const requireProjectContext = cache(
         "inventory.view",
         "inventory.consume",
         "inventory.transfer",
+        "asset.view",
+        "asset.log",
       ])
         permissions.add(key);
     const scoped = {
@@ -129,7 +134,9 @@ export function projectAccessWhere(ctx: OrgContext) {
 }
 export function assertTenantAdmin(ctx: OrgContext) {
   if (ctx.tenantRole !== "OWNER" && ctx.tenantRole !== "ADMIN")
-    throw new Error("Tenant owner or administrator access is required.");
+    throw new UserFacingError(
+      "Tenant owner or administrator access is required.",
+    );
 }
 export function projectCostAccessWhere(ctx: OrgContext) {
   return ctx.isAdmin || ctx.permissions.has("cost.view")

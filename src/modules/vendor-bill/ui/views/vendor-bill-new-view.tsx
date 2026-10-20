@@ -1,6 +1,7 @@
 import { EmptyState } from "@/components/shared/empty-state";
 import { FormCard } from "@/components/shared/form-card";
 import { PageHeading } from "@/components/shared/page-heading";
+import { UserFacingError } from "@/core/errors";
 import { billOptions } from "../../server/queries";
 import { BackLink } from "../components/back-link";
 import { BillForm } from "../components/vendor-bill-form";
@@ -8,7 +9,7 @@ import { BillForm } from "../components/vendor-bill-form";
 export async function NewBill({ org, po }: { org: string; po?: string }) {
   const data = await billOptions(org, undefined, po);
   if (po && !data.orders.some((o) => o.id === po))
-    throw new Error(
+    throw new UserFacingError(
       "Purchase order is unavailable or you lack bill creation access to its project.",
     );
   return (

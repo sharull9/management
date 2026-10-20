@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 export type DateRange = { startDate: Date; endDate: Date | null };
 export function rangesOverlap(a: DateRange, b: DateRange) {
   return (
@@ -11,14 +12,15 @@ export function checkAvailability(
   assignments: DateRange[],
   confirmed = false,
 ) {
-  if (!active) throw new Error("Inactive workers cannot be assigned.");
+  if (!active)
+    throw new UserFacingError("Inactive workers cannot be assigned.");
   if (range.endDate && range.endDate < range.startDate)
-    throw new Error("End date must be on or after start date.");
+    throw new UserFacingError("End date must be on or after start date.");
   const overlaps = assignments.filter((assignment) =>
     rangesOverlap(range, assignment),
   );
   if (overlaps.length && !confirmed)
-    throw new Error(
+    throw new UserFacingError(
       "This worker has overlapping project assignments. Confirm the overlap to continue.",
     );
   return overlaps;

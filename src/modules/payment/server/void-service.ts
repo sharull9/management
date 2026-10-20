@@ -4,6 +4,7 @@ import type { Prisma } from "@/generated/prisma/client";
 
 type Tx = Prisma.TransactionClient;
 
+import { syncPaymentJournals } from "@/modules/accounting/server/source-payments";
 import { recomputeDocument } from "./allocation-service";
 import { audit, lockSettlement, scope, target } from "./service";
 export async function voidPayment(
@@ -48,4 +49,5 @@ export async function voidPayment(
       data: { status: "APPROVED" },
     });
   await audit(tx, ctx, "Payment", payment.id, "VOID");
+  await syncPaymentJournals(tx, ctx.org.id, payment.id, ctx.user.id);
 }

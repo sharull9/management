@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { OrgContext } from "@/core/context";
 import type { Prisma } from "@/generated/prisma/client";
@@ -17,14 +18,17 @@ export async function submitDocument(
   const config = documentKinds[kind];
   await lockDocument(tx, config.lock, documentId);
   const row = await document(tx, kind, ctx.org.id, documentId);
-  if (row.status !== "DRAFT") throw new Error("Only drafts may be submitted.");
+  if (row.status !== "DRAFT")
+    throw new UserFacingError("Only drafts may be submitted.");
   if (kind === "orders") {
     const lines = await tx.purchaseOrderLine.findMany({
       where: { orderId: row.id },
       include: { prLine: { include: { request: true } } },
     });
     if (lines.some((l) => l.prLine && l.prLine.request.status !== "APPROVED"))
-      throw new Error("Linked purchase requests must remain approved.");
+      throw new UserFacingError(
+        "Linked purchase requests must remain approved.",
+      );
   }
   const amount =
     "estimatedTotal" in row

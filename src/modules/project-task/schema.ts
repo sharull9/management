@@ -1,5 +1,37 @@
 import { z } from "zod";
 import { TaskPriority, TaskStatus } from "@/generated/prisma/enums";
+export const MAX_TASK_PHOTO_COUNT = 10;
+export const MAX_TASK_PHOTO_BYTES = 900 * 1024;
+export const MAX_TASK_PHOTO_TOTAL_BYTES = 900 * 1024;
+export const TASK_PHOTO_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const;
+
+export function taskPhotoUploadError(
+  files: readonly Pick<File, "size" | "type">[],
+) {
+  if (files.length > MAX_TASK_PHOTO_COUNT)
+    return `Upload up to ${MAX_TASK_PHOTO_COUNT} work photos.`;
+  if (
+    files.some(
+      (file) =>
+        !TASK_PHOTO_TYPES.includes(
+          file.type as (typeof TASK_PHOTO_TYPES)[number],
+        ),
+    )
+  )
+    return "Work photos must be JPEG, PNG or WebP.";
+  if (files.some((file) => file.size > MAX_TASK_PHOTO_BYTES))
+    return "Each work photo must be 900 KB or smaller.";
+  if (
+    files.reduce((total, file) => total + file.size, 0) >
+    MAX_TASK_PHOTO_TOTAL_BYTES
+  )
+    return "Work photos must total 900 KB or less.";
+  return undefined;
+}
 export const id = z.string().min(1).max(100);
 export const name = z.string().trim().min(1).max(150);
 export const text = z.string().trim().max(5000);

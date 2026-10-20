@@ -4,8 +4,11 @@ import type { z } from "zod";
 import { writeAudit } from "@/core/audit";
 import { assertPermission, requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { typedAction } from "@/core/typed-action";
 import { credentials, recordIdInput, saveMemberInput } from "../schema";
+import { hasPrivilegedMemberRole } from "./member-guards";
+import { assertNoApprovalAssignments } from "./offboarding-guard";
 import { provisionUser } from "./provision-user";
 export async function saveMemberAction(
   orgSlug: string,
@@ -15,7 +18,7 @@ export async function saveMemberAction(
     const ctx = await requireOrgContext(orgSlug);
     assertPermission(ctx, "members.manage");
     if (!ctx.isAdmin && (input.role !== "member" || input.roleId))
-      throw new Error(
+      throw new UserFacingError(
         "Only administrators can assign privileged or custom roles.",
       );
     if (
@@ -24,7 +27,7 @@ export async function saveMemberAction(
         where: { id: input.roleId, tenantId: ctx.tenant.id },
       }))
     )
-      throw new Error("Invalid custom role.");
+      throw new UserFacingError("Invalid custom role.");
     await db.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM organizations WHERE id = ${ctx.org.id} FOR UPDATE`;
       const existing = await tx.user.findUnique({
@@ -43,10 +46,10 @@ export async function saveMemberAction(
       });
       if (
         !ctx.isAdmin &&
-        member?.role !== undefined &&
-        member.role !== "member"
+        member &&
+        hasPrivilegedMemberRole(member.role, member.roleId)
       )
-        throw new Error("Only administrators may edit this member.");
+        throw new UserFacingError("Only administrators may edit this member.");
       if (
         member?.role === "owner" &&
         input.role !== "owner" &&
@@ -54,7 +57,7 @@ export async function saveMemberAction(
           where: { organizationId: ctx.org.id, role: "owner" },
         })) <= 1
       )
-        throw new Error("Keep at least one organization owner.");
+        throw new UserFacingError("Keep at least one organization owner.");
       await tx.tenantMember.upsert({
         where: {
           tenantId_userId: { tenantId: ctx.tenant.id, userId: user.id },
@@ -105,15 +108,17 @@ export async function removeMemberAction(
       const member = await tx.member.findFirstOrThrow({
         where: { id: memberId, organizationId: ctx.org.id },
       });
-      if (!ctx.isAdmin && (member.role !== "member" || member.roleId))
-        throw new Error("Only administrators can remove privileged members.");
+      if (!ctx.isAdmin && hasPrivilegedMemberRole(member.role, member.roleId))
+        throw new UserFacingError(
+          "Only administrators can remove privileged members.",
+        );
       if (
         member.role === "owner" &&
         (await tx.member.count({
           where: { organizationId: ctx.org.id, role: "owner" },
         })) <= 1
       )
-        throw new Error("Keep at least one organization owner.");
+        throw new UserFacingError("Keep at least one organization owner.");
       const projectReferences =
         (await tx.projectMember.count({
           where: {
@@ -131,9 +136,26 @@ export async function removeMemberAction(
           },
         }));
       if (projectReferences)
-        throw new Error(
+        throw new UserFacingError(
           "Remove this member from project teams and manager assignments before removing organization access.",
         );
+      const activePolicyAssignments = await tx.approvalPolicyStep.count({
+        where: {
+          userId: member.userId,
+          policy: { organizationId: ctx.org.id, active: true },
+        },
+      });
+      const pendingApprovalAssignments = await tx.approvalRequestStep.count({
+        where: {
+          userId: member.userId,
+          status: { in: ["PENDING", "WAITING"] },
+          request: { organizationId: ctx.org.id, status: "PENDING" },
+        },
+      });
+      assertNoApprovalAssignments(
+        activePolicyAssignments,
+        pendingApprovalAssignments,
+      );
       await tx.member.delete({ where: { id: member.id } });
       await writeAudit(
         {

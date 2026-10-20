@@ -171,6 +171,7 @@ cache guide paths did not exist; the installed caching guide was located and rea
   conversion integrity. A group base is retained until the unused group is deleted.
 - CLOSED/CANCELLED PO and ADJUSTMENT ledger enum values are reserved. This run does not add
   terminal PO close/cancel or stock-adjustment UI. Pending approval cancellation returns drafts.
+  PO close/cancel was subsequently implemented; see [PO_LIFECYCLE_REPORT.md](PO_LIFECYCLE_REPORT.md).
 - Proforma upload size stays within the existing server-action body limit. Categories use parent
   selection with validated hierarchy rather than a drag-and-drop tree editor.
 - Core browser workflow, scoped-reader visibility, pure calculations and transaction failure cases

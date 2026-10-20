@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import type { Prisma } from "@/generated/prisma/client";
 
 /**
@@ -22,5 +23,7 @@ export async function assertEnabledCurrency(
     select: { currencyCode: true },
   });
   if (!row)
-    throw new Error(`${code} is not an enabled currency for this tenant.`);
+    throw new UserFacingError(
+      `${code} is not an enabled currency for this tenant.`,
+    );
 }

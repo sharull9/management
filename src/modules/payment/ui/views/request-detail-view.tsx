@@ -13,13 +13,13 @@ import { Item, ItemContent, ItemGroup } from "@/components/ui/item";
 import { requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
 import { formatMoney } from "@/core/format";
-import { financeData } from "../../server/queries";
+import { requestDetailData } from "../../server/detail-queries";
 import { RequestSubmitButton } from "../components/request-submit-button";
 import { date, linkClass, money } from "../util";
 
 export async function RequestDetail({ org, id }: { org: string; id: string }) {
-  const d = await financeData(org),
-    row = d.requests.find((r) => r.id === id);
+  const d = await requestDetailData(org, id),
+    row = d.request;
   if (!row) notFound();
   const approvals = await db.approvalRequest.findMany({
     where: {
@@ -41,8 +41,7 @@ export async function RequestDetail({ org, id }: { org: string; id: string }) {
     canPay =
       permissionCtx.isAdmin || permissionCtx.permissions.has("payment.record");
   const draft = row.status === "DRAFT" && canEdit;
-  const project =
-    d.projects.find((p) => p.id === row.projectId)?.name ?? "Organization";
+  const project = row.project?.name ?? "Organization";
   const amount = formatMoney(money(row.amount), row.currency);
   return (
     <div className="space-y-6">
@@ -131,8 +130,7 @@ export async function RequestDetail({ org, id }: { org: string; id: string }) {
                           className={linkClass}
                           href={`/${org}/procurement/bills/${b.billId}`}
                         >
-                          {d.bills.find((r) => r.id === b.billId)?.code ??
-                            b.billId}
+                          {b.bill.code}
                         </Link>{" "}
                         · {money(b.amount)}
                       </span>

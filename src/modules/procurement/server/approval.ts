@@ -1,3 +1,5 @@
+import { UserFacingError } from "@/core/errors";
+import { lockAccountingScope } from "@/modules/accounting/server/locking";
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
 import type { registerApprovalHandler } from "@/modules/approvals/server/handlers";
@@ -84,6 +86,8 @@ async function applyDecision(
   actorId: string,
   approved: boolean,
 ) {
+  if (kind === "receipts" || kind === "transfers")
+    await lockAccountingScope(tx, request.organizationId);
   await lockDocument(tx, documentKinds[kind].lock, request.documentId);
   const row = await document(
     tx,
@@ -92,7 +96,9 @@ async function applyDecision(
     request.documentId,
   );
   if (row.approvalRequestId !== request.id || row.status !== "PENDING_APPROVAL")
-    throw new Error("Document no longer matches this pending approval.");
+    throw new UserFacingError(
+      "Document no longer matches this pending approval.",
+    );
   if (approved && kind === "receipts")
     await approveReceipt(tx, request, actorId);
   if (approved && kind === "transfers")

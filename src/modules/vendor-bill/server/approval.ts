@@ -1,7 +1,12 @@
 import { Decimal } from "@/core/decimal";
+import { lockAccountingScope } from "@/modules/accounting/server/locking";
 import "server-only";
 import { writeAudit } from "@/core/audit";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
+import {
+  syncPurchaseOrderVendorBillJournals,
+  syncVendorBillJournal,
+} from "@/modules/accounting/server/source-procurement";
 import type { ApprovalHandler } from "@/modules/approvals/server/handlers";
 import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
 
@@ -14,6 +19,7 @@ async function decide(
   actorId: string,
   approved: boolean,
 ) {
+  await lockAccountingScope(tx, request.organizationId);
   await lockDocument(tx, "BILL", request.documentId);
   const bill = await tx.vendorBill.findFirstOrThrow({
     where: {
@@ -75,6 +81,16 @@ async function decide(
     where: { id: bill.id },
     data: { status: approved ? "APPROVED" : "DRAFT" },
   });
+  if (approved) {
+    if (bill.purchaseOrderId)
+      await syncPurchaseOrderVendorBillJournals(
+        tx,
+        bill.organizationId,
+        bill.purchaseOrderId,
+        actorId,
+      );
+    else await syncVendorBillJournal(tx, bill.organizationId, bill.id, actorId);
+  }
   await writeAudit(
     {
       tenantId: bill.organization.tenantId,

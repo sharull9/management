@@ -19,11 +19,13 @@ export function MemberForm({
   projectId,
   users,
   roles,
+  canManageApprovers,
 }: {
   org: string;
   projectId: string;
   users: Choice[];
   roles: Choice[];
+  canManageApprovers: boolean;
 }) {
   const form = useZodForm<
     z.input<typeof memberInput>,
@@ -57,11 +59,13 @@ export function MemberForm({
         options={toOptions(roles)}
         clearable
       />
-      <CheckboxField
-        control={form.control}
-        name="isManager"
-        label="Project manager"
-      />
+      {canManageApprovers && (
+        <CheckboxField
+          control={form.control}
+          name="isManager"
+          label="Project manager"
+        />
+      )}
     </ActionFormShell>
   );
 }
@@ -70,11 +74,13 @@ export function WorkerForm({
   projectId,
   assignment,
   workers,
+  showRates = true,
 }: {
   org: string;
   projectId: string;
   assignment?: z.input<typeof workerInput>;
   workers: Choice[];
+  showRates?: boolean;
 }) {
   const form = useZodForm<
     z.input<typeof workerInput>,
@@ -113,18 +119,22 @@ export function WorkerForm({
         />
         <DateField control={form.control} name="startDate" label="Start date" />
         <DateField control={form.control} name="endDate" label="End date" />
-        <TextField
-          control={form.control}
-          name="dayRateOverride"
-          label="Day rate override"
-          inputMode="decimal"
-        />
-        <TextField
-          control={form.control}
-          name="otHourlyRateOverride"
-          label="OT hourly rate override"
-          inputMode="decimal"
-        />
+        {showRates && (
+          <TextField
+            control={form.control}
+            name="dayRateOverride"
+            label="Day rate override"
+            inputMode="decimal"
+          />
+        )}
+        {showRates && (
+          <TextField
+            control={form.control}
+            name="otHourlyRateOverride"
+            label="OT hourly rate override"
+            inputMode="decimal"
+          />
+        )}
         <TextField control={form.control} name="notes" label="Notes" />
       </div>
       <p className="text-sm text-muted-foreground">

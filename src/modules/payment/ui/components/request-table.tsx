@@ -5,6 +5,7 @@ import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatMoney } from "@/core/format";
+import type { PageInfo } from "@/core/pagination";
 import { Decimal } from "../../server/allocation";
 
 export type RequestRow = {
@@ -24,10 +25,12 @@ export function RequestTable({
   org,
   toolbar,
   data,
+  serverPage,
 }: {
   org: string;
   toolbar?: ReactNode;
   data: RequestRow[];
+  serverPage: PageInfo;
 }) {
   const columns: ColumnDef<RequestRow>[] = [
     {
@@ -78,6 +81,7 @@ export function RequestTable({
       toolbar={toolbar}
       columns={columns}
       data={data}
+      serverPage={serverPage}
       searchPlaceholder="Search requests, parties or projects..."
       getRowId={(r) => r.id}
       rowHref={(r) => `/${org}/finance/payment-requests/${r.id}`}

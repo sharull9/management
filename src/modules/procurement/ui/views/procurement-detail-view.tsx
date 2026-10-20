@@ -20,6 +20,7 @@ import { type DocumentKind, documentKinds } from "../../server/approval";
 import { documentDetail, procurementData } from "../../server/queries";
 import { formData } from "../../util";
 import { draftFormValues } from "../components/draft-form-data";
+import { OrderTerminalControls } from "../components/order-terminal-controls";
 import { ProcurementDetailLinesTable } from "../components/procurement-detail-lines-table";
 import { ProcurementForm } from "../components/procurement-form";
 import { SubmitProcurementForm } from "../components/submit-procurement-form";
@@ -55,7 +56,17 @@ export async function ProcurementDetail({
   // Stock transfers have no dedicated edit route yet, so they keep the inline form.
   const inlineData =
     draftEditable && kind === "transfers"
-      ? await procurementData(org, undefined, true)
+      ? await procurementData(
+          org,
+          undefined,
+          true,
+          "transfers",
+          false,
+          true,
+          row.lines.flatMap((line) =>
+            "variant" in line ? [line.variant.itemId] : [],
+          ),
+        )
       : null;
   const inputs = inlineData ? formData(inlineData) : null;
   const { initial, initialLines } = inputs
@@ -108,6 +119,19 @@ export async function ProcurementDetail({
       row.status,
     ) &&
     (ctx.isAdmin || ctx.permissions.has("bill.create"));
+  const terminalActions =
+    isOrder && canEdit
+      ? [
+          ...(["APPROVED", "PARTIALLY_RECEIVED", "RECEIVED"].includes(
+            row.status,
+          )
+            ? (["CLOSE"] as const)
+            : []),
+          ...(["DRAFT", "APPROVED"].includes(row.status)
+            ? (["CANCEL"] as const)
+            : []),
+        ]
+      : [];
   const overview = [
     {
       label: "Project",
@@ -228,6 +252,13 @@ export async function ProcurementDetail({
                     Create bill
                   </Link>
                 </Button>
+              )}
+              {terminalActions.length > 0 && (
+                <OrderTerminalControls
+                  org={org}
+                  id={row.id}
+                  actions={terminalActions}
+                />
               )}
               {draftEditable && (
                 <SubmitProcurementForm org={org} kind={kind} id={row.id} />

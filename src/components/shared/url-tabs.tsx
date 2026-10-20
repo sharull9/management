@@ -37,7 +37,10 @@ export function UrlTabs({
   return (
     <Tabs value={value} onValueChange={setRequested} className="gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b">
-        <TabsList variant="line" className="h-10 gap-4 px-0">
+        <TabsList
+          variant="line"
+          className="h-10 max-w-full justify-start gap-4 overflow-x-auto px-0"
+        >
           {tabs.map((tab) => (
             <TabsTrigger key={tab.value} value={tab.value} className="px-0.5">
               {tab.label}

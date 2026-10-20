@@ -1,4 +1,5 @@
 import { Decimal, type Numeric } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 
 /** Fraction digits stored for exchange rates (Decimal(20,10)). */
 export const RATE_DECIMALS = 10;
@@ -8,7 +9,7 @@ export const MAX_STORED_DECIMALS = 2;
 
 export function assertStorableCurrency(code: string, decimals: number) {
   if (decimals > MAX_STORED_DECIMALS)
-    throw new Error(
+    throw new UserFacingError(
       `${code} uses ${decimals} decimal places; amounts are stored to ${MAX_STORED_DECIMALS} decimals, so it is not supported yet.`,
     );
 }
@@ -34,7 +35,7 @@ export function roundTotals<T extends Record<string, Numeric>>(
 export function assertPositiveRate(rate: Numeric, label = "Exchange rate") {
   const value = new Decimal(rate);
   if (!value.isFinite() || !value.gt(0))
-    throw new Error(`${label} must be greater than zero.`);
+    throw new UserFacingError(`${label} must be greater than zero.`);
   return value;
 }
 
@@ -138,7 +139,7 @@ export function assertSameCurrency(
   context = "Payment",
 ) {
   if (paymentCurrency !== documentCurrency)
-    throw new Error(
+    throw new UserFacingError(
       `${context} is in ${paymentCurrency} but the document is in ${documentCurrency}. Allocations must use the same currency.`,
     );
 }

@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import { writeAudit } from "@/core/audit";
 import type { OrgContext } from "@/core/context";
@@ -66,7 +67,7 @@ export async function selectedVariant(
     include: { stockUom: true },
   });
   if (stockOnly && !item.stockTracked)
-    throw new Error(
+    throw new UserFacingError(
       "Only stock-tracked items can be received, consumed or transferred.",
     );
   const uom = await tx.uom.findFirstOrThrow({
@@ -76,7 +77,9 @@ export async function selectedVariant(
     },
   });
   if (item.stockUom.groupId !== uom.groupId)
-    throw new Error("Line unit must match the item's stock UOM group.");
+    throw new UserFacingError(
+      "Line unit must match the item's stock UOM group.",
+    );
   return { variant, item, uom };
 }
 export async function lockDocument(

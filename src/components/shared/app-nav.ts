@@ -1,6 +1,7 @@
 import {
   ArrowLeftRight,
   Banknote,
+  BookOpen,
   Boxes,
   CircleDollarSign,
   ClipboardList,
@@ -24,6 +25,7 @@ import {
   Settings,
   ShoppingCart,
   Tags,
+  Truck,
   Users,
   Wallet,
 } from "lucide-react";
@@ -37,6 +39,7 @@ export type AppNavLink = {
   glyph: RuneGlyphName;
   /** Permission required to see the link; admins always see it. */
   permission?: string;
+  permissionsAny?: string[];
 };
 export type AppNavGroup = { title: string; links: AppNavLink[] };
 
@@ -67,6 +70,13 @@ export const appNav: AppNavGroup[] = [
         path: "/workforce",
         icon: Users,
         glyph: "glass-people-3",
+      },
+      {
+        title: "Assets",
+        path: "/assets",
+        icon: Truck,
+        glyph: "glass-archive",
+        permission: "asset.view",
       },
     ],
   },
@@ -154,6 +164,60 @@ export const appNav: AppNavGroup[] = [
         path: "/inventory/transfers",
         icon: ArrowLeftRight,
         glyph: "glass-send",
+      },
+    ],
+  },
+  {
+    title: "Accounting",
+    links: [
+      {
+        title: "Accounts",
+        path: "/accounting/accounts",
+        icon: BookOpen,
+        glyph: "glass-bookmark",
+        permissionsAny: ["accounting.view", "accounting.manage"],
+      },
+      {
+        title: "Journals",
+        path: "/accounting/journals",
+        icon: FileText,
+        glyph: "glass-file-text",
+        permissionsAny: ["accounting.view", "journal.create"],
+      },
+      {
+        title: "Ledger",
+        path: "/accounting/ledger",
+        icon: Scale,
+        glyph: "glass-pie-chart-2-2",
+        permission: "accounting.view",
+      },
+      {
+        title: "Trial balance",
+        path: "/accounting/trial-balance",
+        icon: Scale,
+        glyph: "glass-chart-4-2",
+        permission: "accounting.view",
+      },
+      {
+        title: "Profit and loss",
+        path: "/accounting/profit-loss",
+        icon: CircleDollarSign,
+        glyph: "glass-chart-4-2",
+        permission: "accounting.view",
+      },
+      {
+        title: "Balance sheet",
+        path: "/accounting/balance-sheet",
+        icon: Coins,
+        glyph: "glass-chart-4-2",
+        permission: "accounting.view",
+      },
+      {
+        title: "Tax summary",
+        path: "/accounting/tax",
+        icon: Percent,
+        glyph: "glass-file-bend-2",
+        permission: "accounting.view",
       },
     ],
   },
@@ -257,7 +321,10 @@ export function visibleNav(permissions: readonly string[]): AppNavGroup[] {
     .map((group) => ({
       ...group,
       links: group.links.filter(
-        (link) => !link.permission || allowed.has(link.permission),
+        (link) =>
+          (!link.permission || allowed.has(link.permission)) &&
+          (!link.permissionsAny ||
+            link.permissionsAny.some((key) => allowed.has(key))),
       ),
     }))
     .filter((group) => group.links.length > 0);

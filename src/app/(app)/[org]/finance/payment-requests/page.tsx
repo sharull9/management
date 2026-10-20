@@ -1,15 +1,11 @@
 import { Suspense } from "react";
 import Loading from "@/components/shared/page-loading";
+import type { ListParams } from "@/core/pagination";
 import { FinanceList } from "@/modules/payment/ui/views/payment-requests-list-view";
 
 type Props = {
   params: Promise<{ org: string }>;
-  searchParams: Promise<{
-    projectId?: string;
-    requestId?: string;
-    type?: string;
-    currency?: string;
-  }>;
+  searchParams: Promise<ListParams>;
 };
 async function Content({ params, searchParams }: Props) {
   const { org } = await params;
@@ -18,7 +14,10 @@ async function Content({ params, searchParams }: Props) {
     <FinanceList
       org={org}
       kind="payment-requests"
-      projectId={search.projectId}
+      projectId={
+        Array.isArray(search.projectId) ? search.projectId[0] : search.projectId
+      }
+      params={search}
     />
   );
 }

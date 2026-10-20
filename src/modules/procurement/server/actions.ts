@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { type ActionState, runAction } from "@/core/action-result";
 import { assertPermission, requireProjectContext } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { id } from "@/core/schema";
 import { storage } from "@/core/storage";
 import { typedAction } from "@/core/typed-action";
@@ -108,9 +109,9 @@ export async function attachProformaAction(
     assertPermission(ctx, "purchase.order.create");
     const file = data.get("file");
     if (!(file instanceof File) || file.size === 0 || file.size > 900000)
-      throw new Error("Select a PDF or image up to 900 KB.");
+      throw new UserFacingError("Select a PDF or image up to 900 KB.");
     if (!["application/pdf", "image/png", "image/jpeg"].includes(file.type))
-      throw new Error("Only PDF, PNG and JPEG files are supported.");
+      throw new UserFacingError("Only PDF, PNG and JPEG files are supported.");
     const key = await storage.put(new Uint8Array(await file.arrayBuffer()));
     try {
       await db.$transaction(async (tx) => {

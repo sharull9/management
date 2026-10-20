@@ -9,7 +9,8 @@ import { UrlTabs } from "@/components/shared/url-tabs";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { db } from "@/core/db";
-import { moduleProjectWhere, procurementData } from "../../server/queries";
+import { inventoryData } from "../../server/list-queries";
+import { moduleProjectWhere } from "../../server/queries";
 import { formData } from "../../util";
 import { ConsumptionTable } from "../components/consumption-table";
 import { ProcurementForm } from "../components/procurement-form";
@@ -18,12 +19,14 @@ export async function InventoryView({
   org,
   kind,
   projectId,
+  searchParams,
 }: {
   org: string;
   kind: "stock" | "consumption" | "materials";
   projectId?: string;
+  searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  const d = await procurementData(org, projectId, true);
+  const d = await inventoryData(org, projectId, kind, searchParams);
   const writable = await db.project.findMany({
     where: {
       ...moduleProjectWhere(d.ctx, "inventory.consume"),
@@ -31,39 +34,21 @@ export async function InventoryView({
     },
     select: { id: true },
   });
-  const inputs = formData(d);
-  inputs.projects = inputs.projects.filter((p) =>
-    writable.some((w) => w.id === p.id),
-  );
-  const documents = [
-    ...d.requests.map((r) => ({ ...r, kind: "requests", label: "Request" })),
-    ...d.orders.map((r) => ({ ...r, kind: "orders", label: "Order" })),
-    ...d.receipts.map((r) => ({ ...r, kind: "receipts", label: "Receipt" })),
-  ];
-  const stockData = d.stock.map((s) => ({
-    id: `${s.projectId}:${s.variantId}`,
-    project: d.projects.find((p) => p.id === s.projectId)?.name ?? "",
-    name: s.name,
-    qty: s.qty,
-    uom: s.uom,
-    avgCost: s.avgCost,
-    value: s.value,
-  }));
-  const usageData = d.consumptions.flatMap((c) =>
-    c.lines.map((l) => ({
-      id: l.id,
-      code: c.code,
-      project: c.project.name,
-      date: c.date.toISOString(),
-      stage: c.stage?.name ?? "Unallocated",
-      task: c.task?.title ?? "",
-      item: l.variant.name,
-      qty: l.qty.toString(),
-      uom: l.uom.code,
-      value: l.totalCost.toString(),
+  const inputs = kind === "stock" ? null : formData({ ...d, stock: [] });
+  if (inputs)
+    inputs.projects = inputs.projects.filter((p) =>
+      writable.some((w) => w.id === p.id),
+    );
+  const documents = d.documents.flatMap((rows, index) =>
+    rows.map((row) => ({
+      ...row,
+      kind: (["requests", "orders", "receipts"] as const)[index],
+      label: (["Request", "Order", "Receipt"] as const)[index],
     })),
   );
-  const recordUsage = !!writable.length && (
+  const stockData = d.stock;
+  const usageData = d.history;
+  const recordUsage = !!writable.length && inputs && (
     <CreateSheet
       label="Record usage"
       title="Record material usage"
@@ -83,7 +68,11 @@ export async function InventoryView({
         title="Stock on site"
         description="Materials currently held on site: received and not yet used or transferred out, with their average cost and value."
       />
-      <StockTable data={stockData} baseCurrency={d.baseCurrency} />
+      <StockTable
+        data={stockData}
+        baseCurrency={d.baseCurrency}
+        serverPage={d.stockPage}
+      />
     </>
   );
   const usageSection = (
@@ -93,7 +82,11 @@ export async function InventoryView({
         description="Materials taken out of site stock and charged to a stage or task."
         actions={recordUsage}
       />
-      <ConsumptionTable data={usageData} baseCurrency={d.baseCurrency} />
+      <ConsumptionTable
+        data={usageData}
+        baseCurrency={d.baseCurrency}
+        serverPage={d.usagePage}
+      />
     </>
   );
 
@@ -106,12 +99,20 @@ export async function InventoryView({
         />
         <FormCard title={kind === "stock" ? "Stock on hand" : "Materials used"}>
           {kind === "stock" ? (
-            <StockTable data={stockData} baseCurrency={d.baseCurrency} />
+            <StockTable
+              data={stockData}
+              baseCurrency={d.baseCurrency}
+              serverPage={d.stockPage}
+            />
           ) : (
-            <ConsumptionTable data={usageData} baseCurrency={d.baseCurrency} />
+            <ConsumptionTable
+              data={usageData}
+              baseCurrency={d.baseCurrency}
+              serverPage={d.usagePage}
+            />
           )}
         </FormCard>
-        {kind === "consumption" && !!writable.length && (
+        {kind === "consumption" && !!writable.length && inputs && (
           <FormCard title="Record material consumption">
             <ProcurementForm
               org={org}
@@ -148,10 +149,17 @@ export async function InventoryView({
             content: (
               <>
                 <SectionHeader
-                  title="Requested & ordered"
-                  description="Purchase requests raised for this project, the orders placed with vendors, and the goods receipts when materials arrive."
+                  title="Recent requests & deliveries"
+                  description="The latest purchase requests, vendor orders, and goods receipts for this project. Open the document lists for full history."
                   actions={
                     <>
+                      <Button asChild variant="outline" size="sm">
+                        <Link
+                          href={`/${org}/procurement/requests?projectId=${projectId}`}
+                        >
+                          Requests
+                        </Link>
+                      </Button>
                       <Button asChild variant="outline" size="sm">
                         <Link
                           href={`/${org}/procurement/orders?projectId=${projectId}`}
@@ -203,13 +211,13 @@ export async function InventoryView({
           {
             value: "stock",
             label: "On site",
-            count: stockData.length,
+            count: d.stockPage.total,
             content: stockSection,
           },
           {
             value: "used",
             label: "Used",
-            count: usageData.length,
+            count: d.usagePage.total,
             content: usageSection,
           },
         ]}

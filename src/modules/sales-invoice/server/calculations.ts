@@ -1,4 +1,5 @@
 import { Decimal, money } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
 import { roundMoney } from "@/modules/currency/util";
 import {
   calculateTax,
@@ -40,7 +41,7 @@ export function calculateInvoiceLine(input: {
     discount.lt(0) ||
     discount.gt(100)
   )
-    throw new Error("Invalid invoice quantity, rate or discount.");
+    throw new UserFacingError("Invalid invoice quantity, rate or discount.");
   const subtotal = money(qty.mul(rate));
   const discountTotal = money(subtotal.mul(discount).div(100));
   const lineSubtotal = subtotal.sub(discountTotal);
@@ -69,7 +70,8 @@ export function invoiceTotals(
     withholdingTotal = sum("withholdingTotal"),
     grandTotal = subtotal.sub(discountTotal).add(taxTotal),
     payableTotal = grandTotal.sub(withholdingTotal);
-  if (payableTotal.lt(0)) throw new Error("Withholding exceeds invoice value.");
+  if (payableTotal.lt(0))
+    throw new UserFacingError("Withholding exceeds invoice value.");
   return Object.fromEntries(
     Object.entries({
       subtotal,
@@ -119,7 +121,7 @@ export function validateStockLine(input: {
       input.itemType === "SERVICE" ||
       !input.stockTracked)
   )
-    throw new Error(
+    throw new UserFacingError(
       "Project stock requires a project and a stock-tracked goods variant.",
     );
 }

@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 
 import type { Prisma } from "@/generated/prisma/client";
@@ -47,7 +48,7 @@ export async function savePartyMaster(
         await assertEnabledCurrency(tx, tenantId, fields.defaultCurrency);
       }
       if (!fields.isVendor && !fields.isCustomer)
-        throw new Error("Select vendor, customer, or both.");
+        throw new UserFacingError("Select vendor, customer, or both.");
       entityId = (
         rowId
           ? await tx.party.update({ where: { id: rowId }, data: fields })

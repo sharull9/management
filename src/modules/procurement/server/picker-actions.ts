@@ -8,6 +8,7 @@ import {
   requireProjectContext,
 } from "@/core/context";
 import { db } from "@/core/db";
+import { UserFacingError } from "@/core/errors";
 import { id } from "@/core/schema";
 import { pickerItems } from "@/modules/masters/server/queries";
 import { procurementKind } from "../schema";
@@ -171,24 +172,24 @@ export async function findProcurementItems(
   const ctx = await pickerContext(org, kind, projectId);
   const stockOnly = ["consumption", "transfers", "receipts"].includes(kind);
   const [items, uoms] = await Promise.all([
-    pickerItems(ctx.tenant.id, stockOnly),
+    pickerItems(ctx.tenant.id, { stockOnly, search, take: 50 }),
     db.uom.findMany({
       where: { OR: [{ tenantId: ctx.tenant.id }, { tenantId: null }] },
     }),
   ]);
-  return items
-    .filter((i) => i.name.toLowerCase().includes(search))
-    .slice(0, 50)
-    .map((item) => ({
-      ...item,
-      uomIds: uoms
-        .filter(
-          (u) =>
-            u.groupId ===
-            uoms.find((unit) => unit.id === item.stockUomId)?.groupId,
-        )
-        .map((u) => u.id),
-    }));
+  const groupByUomId = new Map(uoms.map((uom) => [uom.id, uom.groupId]));
+  const uomsByGroup = new Map<string, string[]>();
+  for (const uom of uoms) {
+    if (!uom.groupId) continue;
+    uomsByGroup.set(uom.groupId, [
+      ...(uomsByGroup.get(uom.groupId) ?? []),
+      uom.id,
+    ]);
+  }
+  return items.map((item) => ({
+    ...item,
+    uomIds: uomsByGroup.get(groupByUomId.get(item.stockUomId) ?? "") ?? [],
+  }));
 }
 
 export async function procurementSource(
@@ -231,7 +232,7 @@ export async function procurementSource(
       prLine: null,
     };
   }
-  if (kind !== "orders") throw new Error("Invalid source kind.");
+  if (kind !== "orders") throw new UserFacingError("Invalid source kind.");
   const line = await db.purchaseRequestLine.findFirstOrThrow({
     where: {
       id: sourceId,

@@ -1,13 +1,19 @@
 import { writeAudit } from "@/core/audit";
 import type { OrgContext } from "@/core/context";
+import { UserFacingError } from "@/core/errors";
 import { optional, value } from "@/core/form-data";
 import { date } from "@/core/schema";
 import type { Prisma } from "@/generated/prisma/client";
+
+export {
+  canManageProjectApprovers,
+  canViewCompensation,
+} from "../access-policy";
 export const nullableDate = (data: FormData, key: string) =>
   optional(data, key) ? date.parse(value(data, key)) : null;
 export function dateOrder(start: Date | null, end: Date | null) {
   if (start && end && end < start)
-    throw new Error("End date must be on or after start date.");
+    throw new UserFacingError("End date must be on or after start date.");
 }
 export async function audit(
   ctx: OrgContext,
@@ -41,7 +47,7 @@ export async function member(
       where: { organizationId: ctx.org.id, userId },
     }))
   )
-    throw new Error("Select a member of this organization.");
+    throw new UserFacingError("Select a member of this organization.");
 }
 export async function stageInProject(
   tx: Prisma.TransactionClient,
@@ -52,5 +58,5 @@ export async function stageInProject(
     stageId &&
     !(await tx.stage.findFirst({ where: { id: stageId, projectId } }))
   )
-    throw new Error("Stage does not belong to this project.");
+    throw new UserFacingError("Stage does not belong to this project.");
 }

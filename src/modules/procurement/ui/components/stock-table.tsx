@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { DataTable } from "@/components/shared/data-table/data-table";
 import { DataTableColumnHeader } from "@/components/shared/data-table/data-table-column-header";
 import { Decimal } from "@/core/decimal";
+import type { PageInfo } from "@/core/pagination";
 
 export type StockRow = {
   id: string;
@@ -62,15 +63,18 @@ const columnsFor = (baseCurrency: string): ColumnDef<StockRow>[] => [
 export function StockTable({
   data,
   baseCurrency,
+  serverPage,
 }: {
   data: StockRow[];
   /** Stock is valued in the organization base currency. */
   baseCurrency: string;
+  serverPage: PageInfo;
 }) {
   return (
     <DataTable
       columns={columnsFor(baseCurrency)}
       data={data}
+      serverPage={serverPage}
       getRowId={(r) => r.id}
       searchPlaceholder="Search stock..."
       emptyState={{ title: "No stock movements yet." }}

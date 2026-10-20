@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
@@ -29,8 +30,10 @@ export async function saveGoodsReceipt(
         projectId: input.projectId,
       },
     });
-    if (old.status !== "DRAFT") throw new Error("Only drafts can be edited.");
+    if (old.status !== "DRAFT")
+      throw new UserFacingError("Only drafts can be edited.");
   }
+  await lockDocument(tx, "PO", input.poId);
   const order = await tx.purchaseOrder.findFirstOrThrow({
     where: {
       id: input.poId,
@@ -43,14 +46,14 @@ export async function saveGoodsReceipt(
     },
   });
   if (new Set(input.lines.map((l) => l.poLineId)).size !== input.lines.length)
-    throw new Error("Combine quantities for each PO line.");
+    throw new UserFacingError("Combine quantities for each PO line.");
   for (const line of input.lines) {
     const po = order.lines.find((l) => l.id === line.poLineId);
-    if (!po) throw new Error("Invalid PO line.");
+    if (!po) throw new UserFacingError("Invalid PO line.");
     if (!po.variant.item.stockTracked)
-      throw new Error("Service/non-stock lines do not use GRNs.");
+      throw new UserFacingError("Service/non-stock lines do not use GRNs.");
     if (line.uomId !== po.uomId)
-      throw new Error("Receive in the PO line unit.");
+      throw new UserFacingError("Receive in the PO line unit.");
     assertReceiptQuantity(
       po.qty,
       po.receivedQty,

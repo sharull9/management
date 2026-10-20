@@ -183,7 +183,7 @@ project currency; this phase does not convert currencies. See `PHASE2_REPORT.md`
 
 Phase 3b verification is recorded in [PHASE3B_REPORT.md](PHASE3B_REPORT.md).
 The module refactor is done. Routes are thin, shared infrastructure is in `src/core`,
-feature code is in `src/modules`, and cross-module imports use public indexes.
+feature code is in `src/modules`, and cross-module imports use concrete defining files.
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the final module map and rules.
 
 ### Phase 3c — Multi-currency ✅ Done
@@ -209,13 +209,24 @@ Contract: [PHASE3C_SHARED.md](PHASE3C_SHARED.md). Outcome and verification: [PHA
 - Approval thresholds compare base-currency amounts. Currencies with more than two minor-unit
   digits (BHD, KWD, …) are not enabled yet because money columns are Decimal(18,2).
 
-### Phase 4 — Vehicles & machinery
+### Phase 4 — Vehicles & machinery ✅ Done
 - `Asset` (type VEHICLE/MACHINE, meter KM/HOURS, power DIESEL/PETROL/ELECTRIC/OTHER, kW rating,
   tariff), project allocation with date range, trip log (out/in, odometer), usage log
   (start/end time, hour meter), fuel log (qty, cost, reading → km/L or L/hr), electric estimate
   (hours × kW × tariff). All post EQUIPMENT/FUEL/ELECTRICITY cost entries.
 
-### Phase 5 — Accounting
+Verification and implementation boundaries are recorded in [PHASE4_REPORT.md](PHASE4_REPORT.md).
+Phase 5 was authorized and implemented; verification is recorded below.
+
+### Phase 5 — Accounting ✅ Done
 - Chart of accounts (tenant template, per-org accounts), auto journal posting from bills,
   payments, GRNs, consumption, payroll costing, manual journal entries with approval, ledgers,
   trial balance, P&L, balance sheet, tax reports.
+
+Verification and implementation boundaries are recorded in [PHASE5_REPORT.md](PHASE5_REPORT.md).
+Further phase work requires user approval.
+
+### Backlog follow-ups
+
+- Purchase-order terminal close/cancel is complete. See [PO_LIFECYCLE_REPORT.md](PO_LIFECYCLE_REPORT.md).
+- Stock adjustment entry and UI remain pending.

@@ -1,4 +1,5 @@
 "use server";
+import { actionFailure } from "@/core/action-result";
 import { requireOrgContext } from "@/core/context";
 import { db } from "@/core/db";
 import { exchangeRatePreviewInput } from "../schema";
@@ -44,7 +45,7 @@ export async function previewExchangeRate(
       baseCurrency,
       exchangeRate: null,
       rateDate: null,
-      error: error instanceof Error ? error.message : "Rate unavailable.",
+      error: actionFailure(error).error ?? "Rate unavailable.",
     };
   }
 }

@@ -1,6 +1,9 @@
 import { Decimal } from "@/core/decimal";
+import { UserFacingError } from "@/core/errors";
+import { lockAccountingScope } from "@/modules/accounting/server/locking";
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
+import { syncStockMovementJournal } from "@/modules/accounting/server/source-stock";
 import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
 import { organizationBaseCurrency } from "@/modules/currency/server/rates";
 import { getProjectCostRecognition } from "@/modules/project-cost/server/cost-recognition";
@@ -22,6 +25,7 @@ export async function approveReceipt(
   request: ApprovalRequest,
   actorId: string,
 ) {
+  await lockAccountingScope(tx, request.organizationId);
   const receipt = await tx.goodsReceipt.findUniqueOrThrow({
     where: { id: request.documentId },
     include: {
@@ -49,7 +53,7 @@ export async function approveReceipt(
       where: { id: line.poLineId, orderId: po.id },
     });
     if (line.uomId !== poLine.uomId || !line.poLine.variant.item.stockTracked)
-      throw new Error("Invalid stock receipt line.");
+      throw new UserFacingError("Invalid stock receipt line.");
     assertReceiptQuantity(
       poLine.qty,
       poLine.receivedQty,
@@ -58,7 +62,7 @@ export async function approveReceipt(
     );
     const qty = new Decimal(line.acceptedQty).mul(poLine.stockFactor);
     if (!qty.eq(qty.toDecimalPlaces(4)))
-      throw new Error("Stock quantity exceeds four decimal places.");
+      throw new UserFacingError("Stock quantity exceeds four decimal places.");
     if (qty.gt(0)) {
       await assertStockDate(
         tx,
@@ -98,6 +102,12 @@ export async function approveReceipt(
           sourceId: line.id,
         },
       });
+      await syncStockMovementJournal(
+        tx,
+        request.organizationId,
+        movement.id,
+        actorId,
+      );
       await auditEffect(
         tx,
         request,

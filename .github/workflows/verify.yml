@@ -1,0 +1,55 @@
+name: Verify
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: management
+          POSTGRES_PASSWORD: local-tests-only
+          POSTGRES_DB: management_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U management -d management_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://management:local-tests-only@127.0.0.1:5432/management_test
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_SECRET: ci-only-session-secret-for-isolated-tests
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.18.0
+      - uses: pnpm/action-setup@v6
+        with:
+          cache: true
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma validate
+      - run: pnpm db:migrate
+      - run: pnpm db:seed
+      - run: pnpm verify
+      - run: pnpm test:db
+      - name: Build without a live database
+        run: pnpm build
+        env:
+          DATABASE_URL: postgresql://unused:unused@127.0.0.1:1/build_placeholder

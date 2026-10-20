@@ -11,6 +11,7 @@ import {
 import { formData } from "../../util";
 import {
   draftFormValues,
+  withDraftRequestLines,
   withReceiptOrder,
 } from "../components/draft-form-data";
 import { ProcurementForm } from "../components/procurement-form";
@@ -31,7 +32,13 @@ export async function ProcurementNew({
   kind: DocumentKind;
   projectId?: string;
 }) {
-  const d = await procurementData(org, projectId, kind === "transfers");
+  const d = await procurementData(
+    org,
+    projectId,
+    kind === "transfers",
+    kind,
+    false,
+  );
   const writable = await db.project.findMany({
     where: {
       ...moduleProjectWhere(d.ctx, documentKinds[kind].permission),
@@ -80,8 +87,23 @@ export async function ProcurementEdit({
   const canEdit =
     ctx.isAdmin || ctx.permissions.has(documentKinds[kind].permission);
   if (row.status !== "DRAFT" || !canEdit) redirect(detailHref);
-  const d = await procurementData(org, undefined, kind === "transfers");
-  const inputs = withReceiptOrder(formData(d), row);
+  const selectedItemIds = row.lines.flatMap((line) =>
+    "variant" in line
+      ? [line.variant.itemId]
+      : "poLine" in line
+        ? [line.poLine.variant.itemId]
+        : [],
+  );
+  const d = await procurementData(
+    org,
+    undefined,
+    kind === "transfers",
+    kind,
+    false,
+    true,
+    selectedItemIds,
+  );
+  const inputs = withDraftRequestLines(withReceiptOrder(formData(d), row), row);
   if (!inputs.projects.some((p) => p.id === row.projectId)) notFound();
   const { initial, initialLines } = draftFormValues(row);
   const { list, one } = labels[kind];

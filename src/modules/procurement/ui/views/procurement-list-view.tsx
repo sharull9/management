@@ -5,6 +5,7 @@ import { PageHeading } from "@/components/shared/page-heading";
 import { Button } from "@/components/ui/button";
 import { db } from "@/core/db";
 import { type DocumentKind, documentKinds } from "../../server/approval";
+import { procurementList } from "../../server/list-queries";
 import { moduleProjectWhere, procurementData } from "../../server/queries";
 import { formData } from "../../util";
 import { DocumentsTable } from "../components/documents-table";
@@ -26,13 +27,18 @@ export async function ProcurementList({
   org,
   kind,
   projectId,
+  searchParams,
 }: {
   org: string;
   kind: DocumentKind;
   projectId?: string;
+  searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  const d = await procurementData(org, projectId, kind === "transfers");
-  const rows = d[kind];
+  const d = await procurementList(org, kind, projectId, searchParams);
+  const form =
+    kind === "transfers"
+      ? await procurementData(org, projectId, true, "transfers", false)
+      : null;
   const writable = await db.project.findMany({
     where: {
       ...moduleProjectWhere(d.ctx, documentKinds[kind].permission),
@@ -41,10 +47,11 @@ export async function ProcurementList({
     select: { id: true },
   });
   const legacy = kind === "transfers";
-  const inputs = formData(d);
-  inputs.projects = inputs.projects.filter((p) =>
-    writable.some((w) => w.id === p.id),
-  );
+  const inputs = form ? formData(form) : null;
+  if (inputs)
+    inputs.projects = inputs.projects.filter((p) =>
+      writable.some((w) => w.id === p.id),
+    );
   return (
     <>
       <PageHeading
@@ -67,7 +74,8 @@ export async function ProcurementList({
       <FormCard title="Documents">
         <DocumentsTable
           kind={kind}
-          data={rows.map((r) => ({
+          serverPage={d.page}
+          data={d.rows.map((r) => ({
             id: r.id,
             code: r.code,
             project: r.project.name,
@@ -90,7 +98,7 @@ export async function ProcurementList({
           }))}
         />
       </FormCard>
-      {legacy && !!writable.length && (
+      {legacy && !!writable.length && inputs && (
         <FormCard title={`Create ${singular[kind]}`}>
           <ProcurementForm
             org={org}

@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import { assertPermission, requireProjectContext } from "@/core/context";
@@ -23,7 +24,8 @@ export async function site(
       await tx.projectSite.delete({ where: { id: siteId } });
       await audit(ctx, tx, "ProjectSite", siteId, "DELETE");
     } else {
-      if (!("name" in data)) throw new Error("Site fields are required.");
+      if (!("name" in data))
+        throw new UserFacingError("Site fields are required.");
       const { id: _id, ...input } = data;
       if (input.countryId)
         await tx.country.findUniqueOrThrow({

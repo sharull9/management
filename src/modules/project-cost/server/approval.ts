@@ -1,5 +1,7 @@
 import "server-only";
 import type { ApprovalRequest, Prisma } from "@/generated/prisma/client";
+import { lockAccountingScope } from "@/modules/accounting/server/locking";
+import { syncCostEntryJournal } from "@/modules/accounting/server/source-costs";
 import type { ApprovalHandler } from "@/modules/approvals/server/handlers";
 import { costEntryAmounts } from "@/modules/currency/server/cost-entry";
 import { auditApprovalEffect } from "@/modules/project/server/approval-audit";
@@ -10,6 +12,7 @@ async function expense(
   status: "APPROVED" | "REJECTED" | "CANCELED",
   actorId: string,
 ) {
+  await lockAccountingScope(tx, request.organizationId);
   const row = await tx.expense.findFirstOrThrow({
     where: {
       id: request.documentId,
@@ -49,6 +52,7 @@ async function expense(
       },
       update: {},
     });
+    await syncCostEntryJournal(tx, entry, actorId);
     await auditApprovalEffect(
       request,
       tx,

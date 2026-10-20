@@ -1,3 +1,4 @@
+import { UserFacingError } from "@/core/errors";
 import "server-only";
 import type { z } from "zod";
 import type { OrgContext } from "@/core/context";
@@ -29,9 +30,9 @@ export async function saveInvoice(
       where: { id: input.id, organizationId: ctx.org.id },
     });
     if (old.status !== "DRAFT")
-      throw new Error("Only draft invoices can be edited.");
+      throw new UserFacingError("Only draft invoices can be edited.");
     if (old.projectId !== originalProjectId)
-      throw new Error("Invoice changed. Reload before editing.");
+      throw new UserFacingError("Invoice changed. Reload before editing.");
   }
   const project = input.projectId
     ? await tx.project.findFirstOrThrow({
@@ -77,7 +78,7 @@ export async function saveInvoice(
       stockTracked: selection?.item.stockTracked,
     });
     if (!selection && !line.description)
-      throw new Error("Free-text lines need a description.");
+      throw new UserFacingError("Free-text lines need a description.");
     const group = line.taxGroupId
       ? await tx.taxGroup.findFirstOrThrow({
           where: { id: line.taxGroupId, tenantId: ctx.tenant.id },
@@ -94,14 +95,14 @@ export async function saveInvoice(
       ctx.org.countryId &&
       group.countryId !== ctx.org.countryId
     )
-      throw new Error("Tax group country differs from organization.");
+      throw new UserFacingError("Tax group country differs from organization.");
     if (
       group &&
       scope !== "ANY" &&
       group.scope !== "ANY" &&
       group.scope !== scope
     )
-      throw new Error("Tax group conflicts with place of supply.");
+      throw new UserFacingError("Tax group conflicts with place of supply.");
     const calculated = calculateInvoiceLine({
       ...line,
       components: group?.components.map((c) => c.component) ?? [],
@@ -126,7 +127,7 @@ export async function saveInvoice(
     input.dueDate ??
     new Date(input.date.getTime() + party.paymentTerms * 86400000);
   if (dueDate < input.date)
-    throw new Error("Due date cannot precede invoice date.");
+    throw new UserFacingError("Due date cannot precede invoice date.");
   // Tax and totals are computed in the document currency; base totals are
   // converted once per total at the document's rate.
   const currency = input.currency ?? ctx.org.baseCurrency;
