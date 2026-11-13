@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { reminderDecision, reminderDelayMs } from "./reminder-logic";
+import {
+  firstReminderDelay,
+  reminderDecision,
+  reminderDelayMs,
+} from "./reminder-logic";
 
 const pending = {
   status: "PENDING",
@@ -44,4 +48,12 @@ test("delay accepts fractional hours and falls back for invalid overrides", () =
   assert.equal(reminderDelayMs("0.000001"), 4);
   for (const value of [undefined, "", "0", "-1", "NaN", "Infinity", "1e308"])
     assert.equal(reminderDelayMs(value), 86400000);
+});
+
+test("recovered launches keep the submission deadline and old runs keep their relative delay", () => {
+  const submitted = "2026-10-31T00:00:00.000Z";
+  const now = Date.parse(submitted);
+  assert.equal(firstReminderDelay(60000, submitted, now + 10000), 50000);
+  assert.equal(firstReminderDelay(60000, submitted, now + 120000), 0);
+  assert.equal(firstReminderDelay(60000, undefined, now), 60000);
 });

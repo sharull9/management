@@ -1,7 +1,7 @@
 allowBuilds:
   sharp: false
   unrs-resolver: false
-  "@prisma/engines": true
+  '@prisma/engines': true
   esbuild: true
   prisma: true
 minimumReleaseAgeExclude:
@@ -9,3 +9,5 @@ minimumReleaseAgeExclude:
 overrides:
   devalue: 5.9.3
   nanoid@^5.0.0: 5.1.16
+  '@types/react': 19.3.0
+  '@types/react-dom': 19.3.0

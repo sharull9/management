@@ -1,6 +1,16 @@
 export const MAX_APPROVAL_REMINDERS = 3;
 export const DEFAULT_APPROVAL_REMINDER_HOURS = 24;
 
+export function firstReminderDelay(
+  delayMs: number,
+  submittedAt: string | undefined,
+  now: number,
+) {
+  return submittedAt
+    ? Math.max(0, Date.parse(submittedAt) + delayMs - now)
+    : delayMs;
+}
+
 export function reminderDelayMs(hours?: string) {
   const milliseconds = Number(hours) * 3_600_000;
   return Number.isFinite(milliseconds) && milliseconds > 0

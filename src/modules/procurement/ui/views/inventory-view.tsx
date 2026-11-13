@@ -9,11 +9,14 @@ import { UrlTabs } from "@/components/shared/url-tabs";
 import { Button } from "@/components/ui/button";
 import { Item, ItemContent, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { db } from "@/core/db";
+import { stockAdjustmentData } from "../../server/adjustment-queries";
 import { inventoryData } from "../../server/list-queries";
 import { moduleProjectWhere } from "../../server/queries";
 import { formData } from "../../util";
 import { ConsumptionTable } from "../components/consumption-table";
 import { ProcurementForm } from "../components/procurement-form";
+import { StockAdjustmentForm } from "../components/stock-adjustment-form";
+import { StockAdjustmentTable } from "../components/stock-adjustment-table";
 import { StockTable } from "../components/stock-table";
 export async function InventoryView({
   org,
@@ -27,6 +30,42 @@ export async function InventoryView({
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
   const d = await inventoryData(org, projectId, kind, searchParams);
+  const adjustments =
+    kind === "consumption"
+      ? null
+      : await stockAdjustmentData(
+          d.ctx,
+          d.projects.map((p) => p.id),
+          searchParams,
+        );
+  const recordAdjustment = adjustments &&
+    adjustments.writableProjects.length > 0 && (
+      <CreateSheet
+        label="Adjust stock"
+        title="Adjust site stock"
+        description="Record a count difference or correction. Stock and accounting update together."
+      >
+        <StockAdjustmentForm
+          org={org}
+          projects={adjustments.writableProjects}
+          baseCurrency={d.baseCurrency}
+        />
+      </CreateSheet>
+    );
+  const adjustmentSection = adjustments && (
+    <>
+      <SectionHeader
+        title="Stock adjustments"
+        description="Count differences and corrections. Add another adjustment to correct a recorded entry."
+        actions={recordAdjustment}
+      />
+      <StockAdjustmentTable
+        rows={adjustments.rows}
+        page={adjustments.page}
+        baseCurrency={d.baseCurrency}
+      />
+    </>
+  );
   const writable = await db.project.findMany({
     where: {
       ...moduleProjectWhere(d.ctx, "inventory.consume"),
@@ -67,6 +106,7 @@ export async function InventoryView({
       <SectionHeader
         title="Stock on site"
         description="Materials currently held on site: received and not yet used or transferred out, with their average cost and value."
+        actions={recordAdjustment}
       />
       <StockTable
         data={stockData}
@@ -96,13 +136,29 @@ export async function InventoryView({
         <PageHeading
           title={kind === "stock" ? "Stock on hand" : "Material consumption"}
           description="Material cost recognition follows each project's setting. Stock uses moving average valuation."
+          actions={kind === "stock" ? recordAdjustment : undefined}
         />
         <FormCard title={kind === "stock" ? "Stock on hand" : "Materials used"}>
           {kind === "stock" ? (
-            <StockTable
-              data={stockData}
-              baseCurrency={d.baseCurrency}
-              serverPage={d.stockPage}
+            <UrlTabs
+              tabs={[
+                {
+                  value: "stock",
+                  label: "On hand",
+                  content: (
+                    <StockTable
+                      data={stockData}
+                      baseCurrency={d.baseCurrency}
+                      serverPage={d.stockPage}
+                    />
+                  ),
+                },
+                {
+                  value: "adjustments",
+                  label: "Adjustments",
+                  content: adjustmentSection,
+                },
+              ]}
             />
           ) : (
             <ConsumptionTable
@@ -219,6 +275,12 @@ export async function InventoryView({
             label: "Used",
             count: d.usagePage.total,
             content: usageSection,
+          },
+          {
+            value: "adjustments",
+            label: "Adjustments",
+            count: adjustments?.page.total ?? 0,
+            content: adjustmentSection,
           },
         ]}
       />

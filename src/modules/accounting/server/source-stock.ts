@@ -29,12 +29,11 @@ export async function syncStockMovementJournal(
     throw new UserFacingError(
       "Stock movement project belongs to another organization.",
     );
-  if (movement.type === "ADJUSTMENT")
-    throw new UserFacingError("Unsupported stock movement type.");
   const decimals = await baseCurrencyDecimals(tx, organizationId);
-  const value = new Decimal(movement.totalCost)
-    .abs()
-    .toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+  const value = new Decimal(movement.totalCost).toDecimalPlaces(
+    decimals,
+    Decimal.ROUND_HALF_UP,
+  );
   const lines = stockMovementLines(
     movement.type,
     value,

@@ -137,3 +137,18 @@ test("stock transfer movements balance through transfer clearing with opposite d
     ["INVENTORY", "25.5", "TRANSFER_CLEARING", "25.5"],
   );
 });
+
+test("inventory gains and losses post opposite adjustments with balanced journals", () => {
+  for (const [value, debit, credit] of [
+    ["12.50", "INVENTORY", "INVENTORY_ADJUSTMENT"],
+    ["-12.50", "INVENTORY_ADJUSTMENT", "INVENTORY"],
+  ]) {
+    assert.ok(value);
+    const lines = stockMovementLines("ADJUSTMENT", value, "project");
+    assert.equal(lines[0]?.accountKey, debit);
+    assert.equal(lines[1]?.accountKey, credit);
+    assert.equal(lines[0]?.debit.toString(), "12.5");
+    assert.equal(lines[1]?.credit.toString(), "12.5");
+  }
+  assert.deepEqual(stockMovementLines("ADJUSTMENT", "0", "project"), []);
+});

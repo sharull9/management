@@ -106,6 +106,7 @@ export const requireProjectContext = cache(
         "grn.create",
         "inventory.view",
         "inventory.consume",
+        "inventory.adjust",
         "inventory.transfer",
         "asset.view",
         "asset.log",

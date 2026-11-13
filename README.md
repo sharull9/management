@@ -183,6 +183,12 @@ Steps are filtered by minimum amount and copied into independent request snapsho
 No applicable steps produce a PROJECT_MANAGER step, falling back to an organization or tenant
 administrator when no manager resolves.
 
+Submission saves a reminder outbox entry in that same transaction. The Node recovery
+worker retries missed launches after commit or restart; standalone callers no longer
+need a separate reminder call. Production recovery requires the configured Postgres
+Workflow world and a long-lived Node process. See [the outbox report](docs/REMINDER_OUTBOX_REPORT.md)
+for migration, retry behavior and verification.
+
 Register `registerApprovalHandler(documentType, { onApproved, onRejected, onCanceled })` in
 `src/modules/approvals/server/register.ts`, imported by the approval service. Callbacks receive the
 request, current Prisma transaction and actor ID. Write document status and cost entries using

@@ -153,6 +153,7 @@ export function stockMovementLines(
     | "CONSUMPTION_OUT"
     | "SALE_OUT"
     | "TRANSFER_OUT"
+    | "ADJUSTMENT"
     | "TRANSFER_IN",
   totalCost: Numeric,
   projectId: string,
@@ -163,6 +164,9 @@ export function stockMovementLines(
     SALE_OUT: ["COST_OF_GOODS_SOLD", "INVENTORY"],
     TRANSFER_OUT: ["TRANSFER_CLEARING", "INVENTORY"],
     TRANSFER_IN: ["INVENTORY", "TRANSFER_CLEARING"],
+    ADJUSTMENT: new Decimal(totalCost).lt(0)
+      ? (["INVENTORY_ADJUSTMENT", "INVENTORY"] as const)
+      : (["INVENTORY", "INVENTORY_ADJUSTMENT"] as const),
   } as const;
   const amount = new Decimal(totalCost).abs();
   if (amount.isZero()) return [];

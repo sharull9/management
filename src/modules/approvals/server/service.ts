@@ -13,6 +13,7 @@ import { canActOnStep } from "./authorization";
 import { getApprovalHandler } from "./handlers";
 import { nextStep, snapshotSteps } from "./logic";
 import { resolvePolicy, type Scope } from "./policy";
+import { enqueueApprovalReminder } from "./reminder-outbox";
 import { deferApprovalReminder, startApprovalReminder } from "./start-reminder";
 
 export { canActOnStep, registerManagerResolver } from "./authorization";
@@ -83,6 +84,8 @@ export async function submitForApproval(
         steps: { create: snapshotSteps(policy?.steps ?? [], input.amount) },
       },
     });
+    const firstStep = request.steps[0];
+    if (firstStep) await enqueueApprovalReminder(tx, firstStep.id);
     await writeAudit(
       {
         tenantId: ctx.tenant.id,

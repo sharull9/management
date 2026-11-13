@@ -153,6 +153,12 @@ export const SYSTEM_ACCOUNTS = [
     type: "EXPENSE",
   },
   { key: "ROUNDING", code: "5130", name: "Rounding", type: "EXPENSE" },
+  {
+    key: "INVENTORY_ADJUSTMENT",
+    code: "5140",
+    name: "Inventory Adjustments",
+    type: "EXPENSE",
+  },
 ] as const satisfies readonly {
   key: string;
   code: string;

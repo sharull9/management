@@ -83,7 +83,7 @@ export async function syncAccountingHistoryBatch(
 
   if (category === "stock") {
     const rows = await tx.stockMovement.findMany({
-      where: { organizationId: org.id, type: { not: "ADJUSTMENT" }, ...page },
+      where: { organizationId: org.id, ...page },
       select: { id: true },
       orderBy: { id: "asc" },
       take: batchSize + 1,

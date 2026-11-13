@@ -43,6 +43,7 @@ export const permissionGroups = {
   Inventory: {
     "inventory.view": "View project inventory",
     "inventory.consume": "Record material consumption",
+    "inventory.adjust": "Record stock adjustments",
     "inventory.transfer": "Transfer stock between projects",
     "stock.view": "View stock",
     "stock.manage": "Manage consumption and transfers",

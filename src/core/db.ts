@@ -5,7 +5,7 @@ import { PrismaClient } from "@/generated/prisma/client";
 const globalDb = globalThis as unknown as { prisma?: PrismaClient };
 // Optional pool cap; local `prisma dev` drops connections under concurrent queries.
 const poolMax = Number(process.env.DATABASE_POOL_MAX) || undefined;
-export const db = globalDb.prisma?.stockMovement
+export const db = globalDb.prisma?.approvalReminderOutbox
   ? globalDb.prisma
   : new PrismaClient({
       adapter: new PrismaPg({

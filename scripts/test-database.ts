@@ -25,6 +25,7 @@ const result = spawnSync(
       PROCUREMENT_DB_TEST: "local-only",
       AUTHORIZATION_DB_TEST: "local-only",
       CONCURRENCY_DB_TEST: "local-only",
+      APPROVALS_DB_TEST: "local-only",
       DATABASE_POOL_MAX: "10",
     },
   },

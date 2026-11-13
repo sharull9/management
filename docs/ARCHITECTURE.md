@@ -97,14 +97,34 @@ the engine authorization rules, and inserts notifications with deterministic IDs
 Runs stop after three reminders or when the captured step is no longer pending.
 They do not advance approvals or change approvers.
 
-When submission owns the transaction it awaits commit before starting. For
-caller-owned transactions in Server Functions, `next/server`'s `after` registers
-a callback that runs after the response. The callback reads with the root client;
-a rolled-back request is absent and is skipped. Scheduling/start failures are
-logged and never fail submission. Non-HTTP callers with a caller-owned transaction
-must call `startApprovalReminder(request.id, request.steps[0].id)` after their transaction resolves,
-because `after` requires a Next request context. This best-effort launch has a
-crash window between commit and start; guaranteed delivery would require an outbox.
+Submission inserts `ApprovalReminderOutbox` for the first pending step inside
+the approval transaction. The delay and submission timestamp are frozen there.
+Rollback removes both the approval and its launch intent. After commit, an
+immediate launch attempt or an HTTP `after` callback accelerates dispatch.
+Non-HTTP callers no longer need a separate post-commit call for reliability.
+
+`server/reminder-outbox` claims at most ten entries per pass with PostgreSQL
+`FOR UPDATE SKIP LOCKED` and a two-minute lease. SDK calls run outside the
+transaction and time out after 30 seconds. Failures retry with exponential
+backoff from 30 seconds to one hour. Lease tokens prevent a stale worker from
+acknowledging another worker's claim. Completed requests, advanced steps and
+suspended tenants are marked `SKIPPED`. Accepted launches are `DELIVERED` with
+their Workflow run ID; that status records acceptance, not notification delivery.
+
+The Node startup hook starts a singleton polling loop for the configured Postgres
+world, after the world starts, and for the local world in development. Polling
+runs immediately, then 30 seconds after each bounded pass. Timers do not keep a
+shutting-down process alive. Restarted instances reclaim expired leases without
+an HTTP request. Multiple instances may poll safely. A long-lived healthy Node
+process is required; Edge and production local-world deployments do not run
+the recovery loop.
+
+Launches are at least once: a crash after SDK acceptance but before acknowledgement
+can start a duplicate run. Deterministic notification IDs prevent duplicate
+notifications. Recovery retains the original first-reminder deadline; later
+reminders retain the configured interval. Existing three-argument workflow runs
+remain compatible. Only the initial approval step is scheduled, as before.
+See [REMINDER_OUTBOX_REPORT.md](REMINDER_OUTBOX_REPORT.md) for migration and verification.
 
 `withWorkflow` generates `/.well-known/workflow/v1/flow` and
 `/.well-known/workflow/v1/webhook/:token`; generated files are SDK-ignored. The

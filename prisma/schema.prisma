@@ -94,6 +94,7 @@ enum ApprovalStepStatus {
 }
 
 model User {
+  stockAdjustments StockMovement[] @relation("StockAdjustmentRecorder")
   notifications         Notification[]
   paymentRequestRows    PaymentRequest[]
   paymentRows           Payment[]
@@ -875,6 +876,7 @@ model ApprovalRequest {
 }
 
 model ApprovalRequestStep {
+  reminderOutbox ApprovalReminderOutbox?
   id           String             @id @default(cuid())
   requestId    String
   sequence     Int
@@ -897,6 +899,26 @@ model ApprovalRequestStep {
   @@unique([requestId, sequence])
   @@index([status, userId])
   @@map("approval_request_steps")
+}
+
+model ApprovalReminderOutbox {
+  id          String @id @default(cuid())
+  stepId      String @unique
+  delayMs     Float
+  status      String @default("PENDING")
+  attempts    Int @default(0)
+  availableAt DateTime @default(now())
+  leaseToken  String?
+  leaseUntil  DateTime?
+  runId       String?
+  lastError   String?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  step        ApprovalRequestStep @relation(fields: [stepId], references: [id], onDelete: Cascade)
+
+  @@index([status, availableAt, leaseUntil])
+  @@map("approval_reminder_outbox")
 }
 
 model AuditLog {
@@ -1842,6 +1864,9 @@ model StockTransferLine {
 }
 
 model StockMovement {
+  reason         String?
+  recordedById   String?
+  recordedBy     User? @relation("StockAdjustmentRecorder", fields: [recordedById], references: [id], onDelete: SetNull)
   salesInvoiceLine SalesInvoiceLine?
 
   id             String            @id @default(cuid())

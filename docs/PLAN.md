@@ -229,4 +229,5 @@ Further phase work requires user approval.
 ### Backlog follow-ups
 
 - Purchase-order terminal close/cancel is complete. See [PO_LIFECYCLE_REPORT.md](PO_LIFECYCLE_REPORT.md).
-- Stock adjustment entry and UI remain pending.
+- Stock adjustment entry and UI are implemented. Verification and deployment notes: [STOCK_ADJUSTMENTS_REPORT.md](STOCK_ADJUSTMENTS_REPORT.md).
+- Durable approval reminder dispatch is implemented with a transactional outbox and restart recovery. See [REMINDER_OUTBOX_REPORT.md](REMINDER_OUTBOX_REPORT.md).
