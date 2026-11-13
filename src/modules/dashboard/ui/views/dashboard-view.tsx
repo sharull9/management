@@ -132,7 +132,7 @@ export async function DashboardView({ org }: { org: string }) {
             const usage = budgetUsage(p.budgetAmount, spent);
             return {
               id: p.id,
-              project: `${p.code} Â· ${p.name}`,
+              project: `${p.code} · ${p.name}`,
               budget: projectCost
                 ? formatMoney(p.budgetAmount, p.currency)
                 : "—",
@@ -149,7 +149,7 @@ export async function DashboardView({ org }: { org: string }) {
             id: t.id,
             projectId: t.projectId,
             project: t.project.name,
-            task: `${t.code} Â· ${t.title}`,
+            task: `${t.code} · ${t.title}`,
             due: t.dueDate?.toISOString().slice(0, 10) ?? "",
           }))}
         />

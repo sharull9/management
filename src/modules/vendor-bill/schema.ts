@@ -12,10 +12,13 @@ export const billLineInput = z.object({
   qty: quantity,
   uomId: id,
   rate,
-  discountPercent: rate.refine(
-    (v) => new Decimal(v).lte(100),
-    "Discount cannot exceed 100%.",
-  ),
+  discountPercent: rate.refine((v) => {
+    try {
+      return new Decimal(v).lte(100);
+    } catch {
+      return false;
+    }
+  }, "Discount cannot exceed 100%."),
   taxGroupId: id.nullable().default(null),
 });
 export const billInput = z.object({

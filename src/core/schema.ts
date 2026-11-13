@@ -4,7 +4,13 @@ export const id = z.string().min(1).max(100);
 export const quantity = z
   .string()
   .regex(/^\d{1,14}(?:\.\d{1,4})?$/)
-  .refine((v) => new Decimal(v).gt(0), "Quantity must be positive.");
+  .refine((v) => {
+    try {
+      return new Decimal(v).gt(0);
+    } catch {
+      return false;
+    }
+  }, "Quantity must be positive.");
 export const rate = z.string().regex(/^\d{1,14}(?:\.\d{1,4})?$/);
 export const date = z
   .string()

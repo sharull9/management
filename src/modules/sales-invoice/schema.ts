@@ -24,7 +24,13 @@ export const invoiceInput = z.object({
         qty: quantity,
         uomId: id,
         rate,
-        discountPercent: rate.refine((v) => new Decimal(v).lte(100)),
+        discountPercent: rate.refine((v) => {
+          try {
+            return new Decimal(v).lte(100);
+          } catch {
+            return false;
+          }
+        }),
         taxGroupId: id.nullable(),
         fromProjectStock: z.boolean(),
       }),
